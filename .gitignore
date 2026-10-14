@@ -4,11 +4,20 @@ backend/bin/
 
 # 本地环境与运行日志
 deploy/.env
+.env
 *.log
 
-# 前端
+# 依赖与前端构建产物
 node_modules/
-dist/
+frontend/dist/
+*.tsbuildinfo
+
+# 后端嵌入的前端产物：仓库只保留 .gitkeep，实际文件由构建写入
+backend/internal/web/dist/*
+!backend/internal/web/dist/.gitkeep
+
+# 本地开发用的一次性数据库实例数据目录
+.devdb/
 
 # 编辑器 / 系统
 .DS_Store

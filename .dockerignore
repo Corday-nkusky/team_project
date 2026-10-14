@@ -1,0 +1,10 @@
+# 构建镜像时不需要发给 Docker 守护进程的内容。
+.git/
+.devdb/
+deploy/.env
+**/node_modules/
+backend/bin/
+frontend/dist/
+backend/internal/web/dist/
+.workbuddy/
+*.log
