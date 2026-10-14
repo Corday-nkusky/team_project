@@ -86,9 +86,35 @@
 
 本项目为三人小组协作完成，按「规约制定 / 系统开发 / 测试验收」三类职责分工，具体人员安排不在本仓公开。
 
+## 本地运行
+
+前置：Go 1.27+；要一键起全套还需 Docker。
+
+**只跑后端（本地开发，不需要 Docker）**
+
+```bash
+cd backend
+go build -o bin/server ./cmd/server
+REQUIRE_DEPS=false HTTP_ADDR=127.0.0.1:8080 ./bin/server
+curl -s --noproxy '*' http://127.0.0.1:8080/health
+```
+
+默认 `REQUIRE_DEPS=true`：依赖未就绪时**启动即失败退出**并打明确日志。
+本地无依赖调试可设 `REQUIRE_DEPS=false`，服务照常启动，此时 `/health` 返回 **503** 并逐项说明哪个依赖不可用。
+
+**一键启动整套（需 Docker）**
+
+```bash
+cd deploy
+cp .env.example .env        # 按需修改口令等
+docker compose up -d
+curl -s --noproxy '*' http://127.0.0.1:8080/health   # 期望 200
+```
+
 ## 仓库当前状态
 
-- **系统代码尚未开始**；已用 OpenSpec 初始化规约骨架，第一轮变更 `add-core-qa-loop` 正在制定中（见下）。
+- 规约已初始化，第一轮变更 `add-core-qa-loop` 已制定；**骨架已落地**（后端最小服务、依赖探活 `/health`、Compose 一键启动）。
+- 下一步：登录切片——后端接口与前端登录页一并打通。
 - 选题说明（完整版，含表格与排期）：[`CampusClaw_课程项目选题说明_修订版.pdf`](./CampusClaw_课程项目选题说明_修订版.pdf)
 
 ## 文档

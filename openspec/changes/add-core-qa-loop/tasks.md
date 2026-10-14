@@ -5,14 +5,16 @@
 
 ## 1. 骨架与一键启动
 
-- [ ] 1.1 建立仓库目录结构（`backend/` `frontend/` `deploy/`），写最小 README 跑法
-  - verify: 新环境按 README 三步内可启动
+- [x] 1.1 建立仓库目录结构（`backend/` `frontend/` `deploy/`），写最小 README 跑法
+  - verify: 新环境按 README 三步内可启动 → README「本地运行」节已写，后端可本地起并探活
 - [ ] 1.2 写 `docker-compose.yml`：前端 / 后端 / MySQL / Qdrant / 反向代理（服务 R1–R7 的地基）
   - verify: `docker compose up -d` 后全部容器 `healthy`
-- [ ] 1.3 后端进程启动即连上 MySQL 与 Qdrant，失败即退出并打日志
-  - verify: 停掉 Qdrant 后启动后端，日志有明确错误且进程退出
+  - 状态：compose 已写（`deploy/docker-compose.yml`，反向代理待前端就绪后加入），**尚未在容器环境实测**
+- [x] 1.3 后端进程启动即连上 MySQL 与 Qdrant，失败即退出并打日志
+  - verify: 停掉 Qdrant 后启动后端，日志有明确错误且进程退出 → 实测：两依赖均不可用时日志逐项报错、退出码 1
 - [ ] 1.4 健康检查接口 `GET /health`
   - verify: 返回 200；依赖不可用时返回非 200
+  - 状态：**依赖不可用 → 503（含逐项原因）已实测**；依赖就绪 → 200 待容器环境验证
 
 ## 2. 登录与登录态（R1 / R2 / R4）
 
