@@ -88,7 +88,32 @@
 
 ## 本地运行
 
-前置：Go 1.27+；要一键起全套还需 Docker。
+前置：要一键起全套需 Docker（含 Compose v2）；只跑后端需 Go 1.27+。
+
+**一键启动整套（推荐）**
+
+```bash
+cd deploy
+cp .env.example .env        # 首次；按需改口令 / 填模型网关
+docker compose up -d --build
+curl -s --noproxy '*' http://127.0.0.1:8080/health   # 期望 200
+```
+
+首次构建会拉取 `node:22-alpine` / `golang:1.27` / `mysql:8.4` / `qdrant` 基础镜像，耗时较长；
+之后 `docker compose up -d` 秒级启动。浏览器打开 `http://127.0.0.1:8080` 即为应用
+（前端产物由 Go 内嵌，与接口**同源单端口**）。
+
+**演示账号**（种子数据，分属两个班，用于验证班级隔离）
+
+| 账号 | 口令 | 角色 | 班级 |
+|------|------|------|------|
+| `teacher1` | `teacher123` | 教师 | 软件工程1班 |
+| `student1` | `student123` | 学生 | 软件工程1班 |
+| `teacher2` | `teacher123` | 教师 | 软件工程2班 |
+| `student2` | `student123` | 学生 | 软件工程2班 |
+
+**零密钥也能跑通**：`LLM_API_KEY` 留空时，问答退化为「抽取式」回答（直接引用本班材料片段），
+检索只走关键词路；填入任意 OpenAI 兼容网关的 key 后，问答由模型生成，并额外启用向量检索。
 
 **只跑后端（本地开发，不需要 Docker）**
 
@@ -102,19 +127,22 @@ curl -s --noproxy '*' http://127.0.0.1:8080/health
 默认 `REQUIRE_DEPS=true`：依赖未就绪时**启动即失败退出**并打明确日志。
 本地无依赖调试可设 `REQUIRE_DEPS=false`，服务照常启动，此时 `/health` 返回 **503** 并逐项说明哪个依赖不可用。
 
-**一键启动整套（需 Docker）**
+**端到端验收（退出码即判定）**
 
 ```bash
-cd deploy
-cp .env.example .env        # 按需修改口令等
-docker compose up -d
-curl -s --noproxy '*' http://127.0.0.1:8080/health   # 期望 200
+# 后端（需服务在跑；直连数据库核对，故需告诉它 MySQL 位置）
+cd backend
+MYSQL_HOST=127.0.0.1 MYSQL_PORT=13306 MYSQL_USER=campusclaw MYSQL_PASSWORD=changeme \
+  go run ./cmd/e2e            # 41 项，全绿退出码 0
+
+# 前端（真实 Chrome + CDP）
+node scripts/e2e-ui.mjs       # 13 项，全绿退出码 0
 ```
 
 ## 仓库当前状态
 
-- 规约已初始化，第一轮变更 `add-core-qa-loop` 已制定；**骨架已落地**（后端最小服务、依赖探活 `/health`、Compose 一键启动）。
-- 下一步：登录切片——后端接口与前端登录页一并打通。
+- 第一轮变更 `add-core-qa-loop`（登录 → 上传 → 问答 → 引用的垂直切片）**已全部落地并验收**：
+  规约 `validate --all --strict` 通过；后端 41 项、前端 13 项端到端用例全绿；Compose 一键启动实测通过。
 - 选题说明（完整版，含表格与排期）：[`CampusClaw_课程项目选题说明_修订版.pdf`](./CampusClaw_课程项目选题说明_修订版.pdf)
 
 ## 文档
