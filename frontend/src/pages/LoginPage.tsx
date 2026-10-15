@@ -58,7 +58,6 @@ export default function LoginPage({ onSignedIn }: { onSignedIn: (u: User) => voi
 
       <div className="card">
         <h2>演示账号</h2>
-        <p className="hint">点击填入（由种子数据创建，两个班互相看不到对方材料）。</p>
         <div className="tabs" style={{ flexWrap: 'wrap' }}>
           {DEMO.map((d) => (
             <button key={d.username} className="ghost" onClick={() => fill(d.username, d.password)}>

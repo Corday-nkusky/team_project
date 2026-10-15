@@ -76,7 +76,7 @@ export default function MaterialsPage({ user }: { user: User }) {
     <>
       <div className="card">
         <h2>本班教学材料（{user.class_name}）</h2>
-        <p className="hint">材料按班级隔离：这里只会出现你所在班级的材料。</p>
+        <p className="hint">这里只会出现你所在班级的材料。</p>
         <table>
           <thead>
             <tr>
@@ -117,7 +117,7 @@ export default function MaterialsPage({ user }: { user: User }) {
       {isTeacher && (
         <div className="card">
           <h2>上传材料</h2>
-          <p className="hint">支持纯文本 / Markdown / PDF（PDF 会抽取文本）。学生账号无上传权限。</p>
+          <p className="hint">支持纯文本 / Markdown / PDF。</p>
           <label htmlFor="t">标题</label>
           <input id="t" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="例如：第一节讲义" />
           <label htmlFor="c">正文（纯文本 / Markdown）</label>

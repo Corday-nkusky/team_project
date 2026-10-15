@@ -72,7 +72,7 @@ export default function AskPage() {
       <div className="card">
         <h2>向本班材料提问</h2>
         <p className="hint">
-          回答只依据你所在班级已索引的材料；材料中没有依据时会明确告知，不会编造。
+          回答只依据你所在班级的材料；材料里没有依据时会明确告知，不会编造。
         </p>
         <label htmlFor="q">问题</label>
         <textarea

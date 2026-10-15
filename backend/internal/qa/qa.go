@@ -227,7 +227,7 @@ func UserPrompt(question string, cites []Citation) string {
 // 这是零密钥降级路径：回答完全来自本班材料，仍带 [n] 引用（R7.1）。
 func FallbackAnswer(question string, cites []Citation) string {
 	var b strings.Builder
-	b.WriteString("（当前未配置模型网关，以下为直接摘自本班材料的检索结果）\n\n")
+	b.WriteString("（以下回答直接摘自本班材料）\n\n")
 	for _, c := range cites {
 		fmt.Fprintf(&b, "[%d] 《%s》：%s\n\n", c.Index, c.MaterialTitle, c.Snippet)
 	}
