@@ -19,6 +19,9 @@ backend/internal/web/dist/*
 # 本地开发用的一次性数据库实例数据目录
 .devdb/
 
+# 语料灌库的运行记录（由 seed-data/biology/seed.mjs 生成）
+seed-data/biology/manifest.json
+
 # 编辑器 / 系统
 .DS_Store
 .idea/

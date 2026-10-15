@@ -115,6 +115,18 @@ curl -s --noproxy '*' http://127.0.0.1:8080/health   # 期望 200
 **零密钥也能跑通**：`LLM_API_KEY` 留空时，问答退化为「抽取式」回答（直接引用本班材料片段），
 检索只走关键词路；填入任意 OpenAI 兼容网关的 key 后，问答由模型生成，并额外启用向量检索。
 
+**演示语料（可选）**
+
+`seed-data/biology/` 提供一批生物学材料（9 个领域，约 100 条），用于填充知识库做演示与检索测试：
+
+```bash
+cd seed-data/biology
+node seed.mjs            # 以 teacher1 身份灌入 1 班；幂等，可重复执行
+```
+
+材料由 `fetch-from-wikipedia.mjs` 从中文维基百科抓取生成（内容遵循维基百科的 CC BY-SA 授权），
+已按约 2400 字切成大小适中的材料；重新抓取需能访问维基的网络（`PROXY=http://127.0.0.1:<端口> node fetch-from-wikipedia.mjs`）。
+
 **只跑后端（本地开发，不需要 Docker）**
 
 ```bash
