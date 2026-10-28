@@ -36,7 +36,7 @@
 
 ## 技术方案
 
-**系统架构**：React + TypeScript 前端 / Go REST 与 SSE API / MySQL 8.4 业务数据 / Qdrant 向量检索 / OpenAI 兼容模型网关 / Docker Compose + Nginx。认证、教师与学生 RBAC 及班级隔离机制**由本仓自行实现**。
+**系统架构**：React + TypeScript 前端 / Go REST 与 SSE API / MySQL 8.4 业务数据 / Qdrant 向量检索 / OpenAI 兼容模型网关 / Docker Compose。前端产物由 Go `embed` 内嵌，与接口**同源单端口**，因此没有独立反向代理。认证、教师与学生 RBAC 及班级隔离机制**由本仓自行实现**。
 
 | 模块 | 技术栈 | 实现方案 | 验收目标 |
 |------|--------|----------|----------|
@@ -44,7 +44,7 @@
 | 个人学习路径 | React、TypeScript、Go、MySQL | 按知识点保存掌握状态、关联材料与历史提问；依据状态和最近复习时间生成可解释的复习任务与提醒。 | 个人复习清单可持久化、更新和追溯；他人不可访问。 |
 | 教学反馈看板 | React 图表、Go、MySQL | 按班级、知识点、状态及时间聚合疑问；展示高频知识点、未解决率、引用材料与变化趋势，支持过滤及查看来源。 | 教师可查看本班指标和原始记录，学生个人明细不被泄露。 |
 | 智能体与 RAG 集成 | Go、Qdrant、SSE、LLM API | 自带 JWT 权限、混合检索、技能路由、多轮会话及流式回答；在引用位置添加「提交疑问」及「加入复习」入口。 | 新模块能关联真实材料和引用；检索、问答及 SSE 可用。 |
-| 测试与部署 | OpenAPI、Python、Docker Compose、Nginx | 维护 Swagger 文档、Go/React 单测及接口自动化；增加权限负向用例、数据持久化校验和集成部署测试。 | 一键部署可用；验收用例可复现并输出测试报告。 |
+| 测试与部署 | Go 测试、Node 脚本、Docker Compose | 维护 Go 单元测试与接口/浏览器端到端脚本；质量门禁（分层、密钥、格式、构建、vet、单测）一条命令；权限负向用例与持久化校验纳入 e2e。 | 一键部署可用；门禁与 e2e 以退出码判定，结果可复现。 |
 
 ## 课程要求覆盖
 
@@ -88,20 +88,34 @@
 
 ## 本地运行
 
-前置：要一键起全套需 Docker（含 Compose v2）；只跑后端需 Go 1.27+。
+前置：一键起全套需 Docker Desktop（含 Compose v2）与 Node.js ≥ 20；只跑后端需 Go 1.27+。
 
-**一键启动整套（推荐）**
+**一条命令启动整套（推荐）**
+
+```bash
+node scripts/up.mjs
+```
+
+脚本会生成 `deploy/.env`（首次自动填入随机密钥）、构建镜像、启动容器，并轮询
+`http://127.0.0.1:8080/health`；就绪后打印 `version`、`time` 与依赖状态。
+浏览器打开 `http://127.0.0.1:8080` 即为应用（前端由 Go 内嵌，同源单端口）。
+
+手动方式（等价）：
 
 ```bash
 cd deploy
-cp .env.example .env        # 首次；按需改口令 / 填模型网关
+cp .env.example .env        # 必须把 JWT_SECRET 换成随机长串：openssl rand -hex 32
 docker compose up -d --build
 curl -s --noproxy '*' http://127.0.0.1:8080/health   # 期望 200
 ```
 
+**配置纪律**：`HTTP_ADDR`、`MYSQL_HOST`、`MYSQL_PORT`、`MYSQL_USER`、`MYSQL_PASSWORD`、
+`MYSQL_DATABASE`、`QDRANT_URL`、`JWT_SECRET` 八项必填，代码内不保留可用默认值。
+缺项、空值、非法端口或示例密钥都会让进程**在监听端口前退出**，JSON 日志只报键名、不回显值（spec R8）。
+调优项（TTL、切片、阈值、模型名）可选，见 `deploy/.env.example`。
+
 首次构建会拉取 `node:22-alpine` / `golang:1.27` / `mysql:8.4` / `qdrant` 基础镜像，耗时较长；
-之后 `docker compose up -d` 秒级启动。浏览器打开 `http://127.0.0.1:8080` 即为应用
-（前端产物由 Go 内嵌，与接口**同源单端口**）。
+之后 `docker compose up -d` 秒级启动。
 
 **演示账号**（种子数据，分属两个班，用于验证班级隔离）
 
@@ -113,7 +127,7 @@ curl -s --noproxy '*' http://127.0.0.1:8080/health   # 期望 200
 | `student2` | `student123` | 学生 | 软件工程2班 |
 
 **零密钥也能跑通**：`LLM_API_KEY` 留空时，问答退化为「抽取式」回答（直接引用本班材料片段），
-检索只走关键词路；填入任意 OpenAI 兼容网关的 key 后，问答由模型生成，并额外启用向量检索。
+检索只走关键词路；填入任意 OpenAI 兼容网关的 key（同时要填 `LLM_API_BASE`）后，问答由模型生成，并额外启用向量检索。
 
 **演示语料（可选）**
 
@@ -131,30 +145,58 @@ node seed.mjs            # 以 teacher1 身份灌入 1 班；幂等，可重复�
 
 ```bash
 cd backend
-go build -o bin/server ./cmd/server
-REQUIRE_DEPS=false HTTP_ADDR=127.0.0.1:8080 ./bin/server
-curl -s --noproxy '*' http://127.0.0.1:8080/health
+export HTTP_ADDR=:8080 MYSQL_HOST=127.0.0.1 MYSQL_PORT=13306 \
+       MYSQL_USER=campusclaw MYSQL_PASSWORD='<你的口令>' MYSQL_DATABASE=campusclaw \
+       QDRANT_URL=http://127.0.0.1:6333 JWT_SECRET="$(openssl rand -hex 32)"
+go run ./cmd/server
 ```
 
 默认 `REQUIRE_DEPS=true`：依赖未就绪时**启动即失败退出**并打明确日志。
-本地无依赖调试可设 `REQUIRE_DEPS=false`，服务照常启动，此时 `/health` 返回 **503** 并逐项说明哪个依赖不可用。
+本地无依赖调试可加 `REQUIRE_DEPS=false`，服务照常启动，此时 `/health` 返回 **503** 并逐项说明哪个依赖不可用。
+
+**质量门禁（提交前必跑）**
+
+```bash
+node scripts/quality-gate.mjs
+# Go 不在 PATH 时：
+GO_BIN=/d/tools/go/bin/go.exe node scripts/quality-gate.mjs
+```
+
+门禁覆盖：配置样例完整性、分层依赖、密钥卫生、gofmt、`go build`、`go vet`、`go test`。
+加 `--with-spec` 追加 OpenSpec 严格校验，加 `--with-e2e` 追加接口端到端（需服务已启动）。
 
 **端到端验收（退出码即判定）**
 
 ```bash
-# 后端（需服务在跑；直连数据库核对，故需告诉它 MySQL 位置）
+# 后端（需服务在跑；直连数据库核对，故需提供 MYSQL_*）
 cd backend
-MYSQL_HOST=127.0.0.1 MYSQL_PORT=13306 MYSQL_USER=campusclaw MYSQL_PASSWORD=changeme \
-  go run ./cmd/e2e            # 41 项，全绿退出码 0
+MYSQL_HOST=127.0.0.1 MYSQL_PORT=13306 MYSQL_USER=campusclaw MYSQL_PASSWORD='<口令>' \
+  go run ./cmd/e2e            # 全绿退出码 0
 
 # 前端（真实 Chrome + CDP）
-node scripts/e2e-ui.mjs       # 13 项，全绿退出码 0
+node scripts/e2e-ui.mjs       # 全绿退出码 0
 ```
+
+## 工程规约与协作
+
+| 入口 | 内容 |
+|------|------|
+| `AGENTS.md` | Harness 与人类共同遵守的工程规约（变更流程、分层、配置、日志、安全、测试、DoD） |
+| `.qoder/rules/` | 八类规范细则：产品设计 / 后端 / 安全 / 测试 / 部署运维 / AI 应用 / 数据 / 评审完成 |
+| `.qoder/skills/` | 可复用流程：新增后端接口、运行质量门禁、从零启动 |
+| `scripts/quality-gate.mjs` | 一条命令跑完离线门禁 |
+| `docs/lesson-07/` | 第七课骨架验收记录与同伴评审表 |
+
+规范不是建议：每条规则都写明检查方式、违规处理与有效性验证；故意违规演练记录在 `docs/lesson-07/verification.md`。
 
 ## 仓库当前状态
 
-- 第一轮变更 `add-core-qa-loop`（登录 → 上传 → 问答 → 引用的垂直切片）**已全部落地并验收**：
+- 第一轮变更 `add-core-qa-loop`（登录 → 上传 → 问答 → 引用的垂直切片）**已落地并验收**：
   规约 `validate --all --strict` 通过；后端 41 项、前端 13 项端到端用例全绿；Compose 一键启动实测通过。
+- 第七课基线变更 `2026-10-28-lesson-07-baseline`：补齐规约前置条件、八类规范与三个技能，
+  硬化骨架（配置失败即退、JSON 日志 + 请求标识、`/health` 含版本与时间、分层与密钥门禁）。
+  验收状态见 [`docs/lesson-07/verification.md`](./docs/lesson-07/verification.md)；同伴评审表见
+  [`docs/lesson-07/peer-review.md`](./docs/lesson-07/peer-review.md)（尚未由第二位成员签署）。
 - 选题说明（完整版，含表格与排期）：[`CampusClaw_课程项目选题说明_修订版.pdf`](./CampusClaw_课程项目选题说明_修订版.pdf)
 
 ## 文档
@@ -162,4 +204,11 @@ node scripts/e2e-ui.mjs       # 13 项，全绿退出码 0
 | 文档 | 说明 |
 |------|------|
 | `CampusClaw_课程项目选题说明_修订版.pdf` | 项目选题说明（题目、功能、技术方案、分工） |
-| `openspec/` | 规约驱动骨架（OpenSpec）；各轮变更见 `openspec/changes/` |
+| `AGENTS.md` | 工程规约总入口 |
+| `openspec/` | 规约驱动骨架；各轮变更见 `openspec/changes/` |
+| `docs/lesson-07/verification.md` | 第七课五维检查表与实测证据 |
+| `docs/lesson-07/peer-review.md` | 同伴评审记录（待签） |
+
+## 许可证
+
+本仓库为北京大学「互联网软件开发技术与实践」课程小组作业，**未授予开源许可**；未经作者书面同意，请勿复制、分发或用于其他项目。第三方内容（演示语料）遵循其原始授权（CC BY-SA）。

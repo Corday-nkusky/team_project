@@ -19,6 +19,8 @@ FROM golang:1.27 AS build
 # GOTOOLCHAIN=local：镜像内 go 版本已满足 go.mod，禁止再联网下载工具链。
 ENV GOPROXY=https://goproxy.cn,direct \
     GOTOOLCHAIN=local
+# 版本号由 compose 的 build.args 注入，/health 与启动日志都会带上（spec R9）。
+ARG VERSION=dev
 WORKDIR /src
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
@@ -27,7 +29,7 @@ COPY backend/ ./
 RUN rm -rf ./internal/web/dist && mkdir -p ./internal/web/dist
 COPY --from=frontend /fe/dist/ ./internal/web/dist/
 ENV CGO_ENABLED=0
-RUN go build -trimpath -ldflags="-s -w" -o /out/server ./cmd/server
+RUN go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /out/server ./cmd/server
 
 FROM alpine:3.21
 # ca-certificates：调用模型网关（HTTPS）必需；tzdata：让日志时间可读。

@@ -26,16 +26,22 @@ import (
 
 var (
 	base   = envOr("E2E_BASE", "http://127.0.0.1:8080")
+	dbDSN  string
 	passed int
 	failed int
 )
 
 func main() {
-	cfg := config.Load()
+	dsn, err := config.DSNFromEnv()
+	if err != nil {
+		fmt.Println("配置不可用:", err)
+		os.Exit(1)
+	}
+	dbDSN = dsn
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
-	conn, err := db.Open(cfg.DSN())
+	conn, err := db.Open(dbDSN)
 	if err != nil {
 		fmt.Println("无法连接数据库:", err)
 		os.Exit(1)
@@ -93,14 +99,55 @@ func main() {
 // --- 各组检查 ---
 
 func checkHealth(ctx context.Context) {
-	sec("地基：探活与部署（tasks 1.4）")
+	sec("R9 探活（免认证、含版本与时间、不泄漏密钥）")
 	st, body := get(ctx, "/health", "")
-	ok("GET /health 返回 200", st == 200, fmt.Sprintf("实际 %d", st))
+	ok("未携带令牌请求 /health 返回 200", st == 200, fmt.Sprintf("实际 %d", st))
 	var h struct {
-		Deps map[string]string `json:"deps"`
+		Status  string            `json:"status"`
+		Version string            `json:"version"`
+		Time    string            `json:"time"`
+		Deps    map[string]string `json:"deps"`
 	}
 	_ = json.Unmarshal(body, &h)
 	ok("依赖 mysql / qdrant 均就绪", h.Deps["mysql"] == "ok" && h.Deps["qdrant"] == "ok", string(body))
+	ok("响应含非空 version", h.Version != "", string(body))
+	_, terr := time.Parse(time.RFC3339, h.Time)
+	ok("time 为可解析的 RFC3339（UTC）", terr == nil, h.Time)
+	low := strings.ToLower(string(body))
+	ok("响应不含 password / secret / api_key 字段",
+		!strings.Contains(low, "password") && !strings.Contains(low, "secret") && !strings.Contains(low, "api_key"), string(body))
+
+	checkRequestID(ctx)
+}
+
+// checkRequestID 覆盖 R10.2 / R10.5：合法 ID 透传，超长 ID 重新生成。
+func checkRequestID(ctx context.Context) {
+	sec("R10 请求标识")
+	roundTrip := func(id string) (string, int, error) {
+		r, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/health", nil)
+		if err != nil {
+			return "", 0, err
+		}
+		if id != "" {
+			r.Header.Set("X-Request-ID", id)
+		}
+		resp, err := http.DefaultClient.Do(r)
+		if err != nil {
+			return "", 0, err
+		}
+		defer resp.Body.Close()
+		_, _ = io.Copy(io.Discard, resp.Body)
+		return resp.Header.Get("X-Request-ID"), resp.StatusCode, nil
+	}
+
+	got, st, err := roundTrip("peer-123")
+	ok("客户端 X-Request-ID 被透传", err == nil && got == "peer-123" && st == 200,
+		fmt.Sprintf("err=%v id=%q status=%d", err, got, st))
+
+	longID := strings.Repeat("x", 200)
+	got2, _, err2 := roundTrip(longID)
+	ok("超长 X-Request-ID 被替换为合法 ID", err2 == nil && got2 != longID && len(got2) == 32,
+		fmt.Sprintf("err=%v id-len=%d", err2, len(got2)))
 }
 
 func checkLoginAndTokens(ctx context.Context) session {
@@ -199,8 +246,7 @@ func askHits(ctx context.Context, access, unique string) {
 // 留「客户端中断」痕迹，且不落半条问答记录。
 func checkClientAbort(ctx context.Context, access, unique string) {
 	sec("R6.3 客户端中途断开")
-	cfg := config.Load()
-	conn, _ := db.Open(cfg.DSN())
+	conn, _ := db.Open(dbDSN)
 	defer conn.Close()
 
 	countAudit := func() int {
@@ -293,8 +339,7 @@ func checkCrossClassSearch(ctx context.Context, student1Access, uniqueB string) 
 
 func checkAudit(ctx context.Context, unique string) {
 	sec("R4 操作留痕")
-	cfg := config.Load()
-	conn, _ := db.Open(cfg.DSN())
+	conn, _ := db.Open(dbDSN)
 	defer conn.Close()
 
 	count := func(action string) int {

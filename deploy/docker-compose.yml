@@ -1,16 +1,18 @@
 # CampusClaw 一键启动（tasks 1.2 / 5.2）
 #
-#   cd deploy
-#   cp .env.example .env      # 首次
+#   node scripts/up.mjs        # 一条命令：生成 .env（随机密钥）→ 构建 → 启动 → 探活
+#
+# 手动方式：
+#   cd deploy && cp .env.example .env   # 必须先把 JWT_SECRET 换成随机长串
 #   docker compose up -d --build
 #   curl http://127.0.0.1:8080/health
 #
 # 说明：
+#   - 部署关键项一律由环境变量注入，缺项时 compose 直接拒绝启动（spec R8）。
 #   - 不配置 LLM_API_KEY 时，系统仍可完整跑通（问答走「抽取式」降级）；
 #     配置后问答由模型生成，检索额外启用向量路。
 #   - MySQL 只映射到宿主机 13306，避免与宿主机已装的 MySQL（3306）冲突；
 #     Qdrant 不对外映射端口，仅容器内网访问。
-#   - qdrant 未设 healthcheck：镜像内无 curl/wget，就绪等待由后端自身的重试承担。
 
 services:
   mysql:
@@ -24,16 +26,16 @@ services:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-changeme-root}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-campusclaw}
-      MYSQL_USER: ${MYSQL_USER:-campusclaw}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-changeme}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD 未设置，请先运行 node scripts/up.mjs}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?MYSQL_DATABASE 未设置}
+      MYSQL_USER: ${MYSQL_USER:?MYSQL_USER 未设置}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD 未设置}
     ports:
       - "13306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-changeme-root}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 5s
       timeout: 3s
       retries: 30
@@ -51,21 +53,23 @@ services:
     build:
       context: ..
       dockerfile: deploy/backend.Dockerfile
+      args:
+        VERSION: ${VERSION:-dev}
     restart: unless-stopped
     environment:
       HTTP_ADDR: ":8080"
       MYSQL_HOST: mysql
       MYSQL_PORT: "3306"
-      MYSQL_USER: ${MYSQL_USER:-campusclaw}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-changeme}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-campusclaw}
+      MYSQL_USER: ${MYSQL_USER:?MYSQL_USER 未设置}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD 未设置}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?MYSQL_DATABASE 未设置}
       QDRANT_URL: http://qdrant:6333
       REQUIRE_DEPS: "true"
       DEP_WAIT_SECONDS: "90"
-      JWT_SECRET: ${JWT_SECRET:-dev-insecure-secret-change-me}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET 未设置，请先运行 node scripts/up.mjs}
       ACCESS_TTL_SECONDS: ${ACCESS_TTL_SECONDS:-900}
       REFRESH_TTL_SECONDS: ${REFRESH_TTL_SECONDS:-2592000}
-      LLM_API_BASE: ${LLM_API_BASE:-https://api.deepseek.com/v1}
+      LLM_API_BASE: ${LLM_API_BASE:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_CHAT_MODEL: ${LLM_CHAT_MODEL:-deepseek-chat}
       LLM_EMBED_MODEL: ${LLM_EMBED_MODEL:-text-embedding-3-small}
@@ -76,6 +80,12 @@ services:
         condition: service_healthy
       qdrant:
         condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
 
 volumes:
   mysql-data:

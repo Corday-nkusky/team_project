@@ -8,23 +8,31 @@ import (
 	"time"
 
 	"github.com/Corday-nkusky/team_project/backend/internal/config"
-	"github.com/Corday-nkusky/team_project/backend/internal/deps"
 	"github.com/Corday-nkusky/team_project/backend/internal/qa"
 	"github.com/Corday-nkusky/team_project/backend/internal/store"
 	"github.com/Corday-nkusky/team_project/backend/internal/web"
 )
+
+// Checker 抽象依赖探活，便于用桩替换（spec R9 的单元测试）。
+type Checker interface {
+	Check(ctx context.Context) map[string]error
+}
 
 // Server 汇总依赖并提供路由。
 type Server struct {
 	cfg     config.Config
 	st      *store.Store
 	qa      *qa.Service
-	checker *deps.Checker
+	checker Checker
+	version string
 }
 
-// New 构造 Server。
-func New(cfg config.Config, st *store.Store, svc *qa.Service, checker *deps.Checker) *Server {
-	return &Server{cfg: cfg, st: st, qa: svc, checker: checker}
+// New 构造 Server。version 由构建期注入（`-X main.version=...`），空值回退为 dev。
+func New(cfg config.Config, st *store.Store, svc *qa.Service, checker Checker, version string) *Server {
+	if version == "" {
+		version = "dev"
+	}
+	return &Server{cfg: cfg, st: st, qa: svc, checker: checker, version: version}
 }
 
 // Handler 返回装配完成的 http.Handler。
@@ -57,12 +65,17 @@ func (s *Server) Handler() http.Handler {
 }
 
 // handleHealth 依赖全好 → 200；任一不可用 → 503（如实报告）。
+// 响应含 status / version / time / deps / llm，且不含任何密钥（spec R9）。
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
 	status := http.StatusOK
-	body := map[string]any{"status": "ok"}
+	body := map[string]any{
+		"status":  "ok",
+		"version": s.version,
+		"time":    time.Now().UTC().Format(time.RFC3339),
+	}
 	detail := map[string]string{}
 	for name, err := range s.checker.Check(ctx) {
 		if err != nil {
