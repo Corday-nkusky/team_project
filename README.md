@@ -197,6 +197,7 @@ node scripts/e2e-ui.mjs       # 全绿退出码 0
   硬化骨架（配置失败即退、JSON 日志 + 请求标识、`/health` 含版本与时间、分层与密钥门禁）。
   验收状态见 [`docs/lesson-07/verification.md`](./docs/lesson-07/verification.md)；同伴评审表见
   [`docs/lesson-07/peer-review.md`](./docs/lesson-07/peer-review.md)（尚未由第二位成员签署）。
+  基线标签为 `v0.0.1-skeleton`；`main` 已启用保护（PR + 1 人批准、线性历史、禁强推/删除），日常改动走分支与 PR。
 - 选题说明（完整版，含表格与排期）：[`CampusClaw_课程项目选题说明_修订版.pdf`](./CampusClaw_课程项目选题说明_修订版.pdf)
 
 ## 文档

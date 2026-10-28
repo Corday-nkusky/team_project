@@ -4,8 +4,8 @@
 > 本文件只记录**实际执行过**的检查；未执行项明确标注，不代填。
 
 - 验收日期：2026-10-28
-- 变更：`openspec/changes/2026-10-28-lesson-07-baseline/`
-- 版本标签：`v0.0.1-skeleton`（打在骨架硬化提交上）
+- 变更：`openspec/changes/archive/2026-10-28-lesson-07-baseline/`（已归档）
+- 版本标签：`v0.0.1-skeleton` → `c9a0ab0`（已推送 origin）
 - 环境：Windows 11 + Git Bash；Go 1.27.1（`/d/tools/go/bin/go.exe`）；Node v24.21.0
 
 ## 一、五维检查表
@@ -16,7 +16,7 @@
 | --- | --- | --- |
 | 公开仓库、三人协作 | GitHub `Corday-nkusky/team_project`；owner + 2 名 write 协作者 | ✅ |
 | 仓库名符合「小写短名」 | 当前为 `team_project`（下划线） | ❌ 待改名，见「未完成」 |
-| `main` 受保护、禁止直推 | `gh api .../branches/main/protection` 与 `rulesets` | ⏳ 本次收尾时配置 |
+| `main` 受保护、禁止直推 | `gh api .../branches/main/protection`：PR + 1 人批准、线性历史、禁强推/删除；管理员约束在收尾推送后启用 | ✅ |
 | LICENSE / 授权声明 | README「许可证」节 | ✅（保守声明，未授予开源许可） |
 | 提交信息引用规约 | 见 `git log`，历史提交早于本规范 | ⚠️ 自本变更起执行 |
 
@@ -56,7 +56,7 @@
 | 免认证 `/health` 含版本/时间/依赖 | `GET /health`；单测 `TestHealthOK` | ✅ |
 | 单行 JSON 日志 + 请求标识 | `internal/httpapi/middleware.go`；单测 `TestRequestIDAndAccessLog` | ✅ |
 | 一条命令启动 | `node scripts/up.mjs` → 构建、启动、探活 | ✅ `deps={"mysql":"ok","qdrant":"ok"}` |
-| 版本标签 | `v0.0.1-skeleton` | ⏳ 收尾时打 |
+| 版本标签 | 附注标签 `v0.0.1-skeleton` → `c9a0ab0`，已推送 | ✅ |
 | 构建注入版本 | 镜像以 `VERSION=v0.0.1-skeleton` 构建，`/health` 返回同值 | ✅ |
 
 ### 5. 交付
@@ -198,6 +198,29 @@ X-Request-Id: peer-123
 
 Go e2e 较第一轮新增 5 项：`/health` 的 version、time、不泄漏密钥，以及 request ID 透传与非法值替换。
 
+### 7. 标签、推送与分支保护
+
+```bash
+git tag -a v0.0.1-skeleton -m "第七课基线：…" c9a0ab0
+git push origin main
+git push origin v0.0.1-skeleton
+
+git ls-remote --heads --tags origin
+# c9a0ab0…  refs/heads/main
+# 563a9d9…  refs/tags/v0.0.1-skeleton
+# c9a0ab0…  refs/tags/v0.0.1-skeleton^{}
+```
+
+`main` 保护（`gh api repos/…/branches/main/protection`）：
+
+| 项 | 值 |
+| --- | --- |
+| 必需 PR 批准数 | 1（新提交自动驳回旧批准） |
+| 线性历史 | 启用 |
+| 强制推送 / 删除分支 | 均禁止 |
+| 讨论未解决 | 禁止合并 |
+| 管理员受限 | 收尾推送后启用（`enforce_admins=true`） |
+
 ## 四、规范有效性演练
 
 | 演练 | 操作 | 预期 | 实际 |
@@ -210,4 +233,5 @@ Go e2e 较第一轮新增 5 项：`/health` 的 version、time、不泄漏密钥
 
 1. **同伴评审**：必须由另一位成员按 `peer-review.md` 逐项检查并签署；当前表内为空，未代填。
 2. **仓库改名**：`team_project` 不符合「小写短名」要求，建议改为 `campusclaw`；改名会影响课程提交地址，需确认后执行。
-3. **分支保护**：`main` 需配置 PR + 至少 1 人评审 + 禁止直推；配置后日常改动走分支与 PR。
+
+日常改动现在走分支与 PR：`git switch -c <change-name>` → 提交 → `gh pr create` → 另一位成员批准后合并。

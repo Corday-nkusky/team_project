@@ -55,9 +55,9 @@
 - [x] 3.4 `openspec validate --all --strict` 通过
   - verify: 退出码 0
   - 实测：`Totals: 3 passed, 0 failed`。
-- [ ] 3.5 归档本变更并打 `v0.0.1-skeleton`
+- [x] 3.5 归档本变更并打 `v0.0.1-skeleton`
   - verify: `openspec/changes/archive/2026-10-28-lesson-07-baseline/` 存在；`git tag -l` 含该标签
-  - 实测：
-- [ ] 3.6 提交并推送；更新 README 的仓库状态
+  - 实测：归档目录存在；附注标签 `v0.0.1-skeleton` 打在 `c9a0ab0`，已推送 origin（远端标签对象 `563a9d9`，解引用为 `c9a0ab0`）。
+- [x] 3.6 提交并推送；更新 README 的仓库状态
   - verify: `git status` 干净；`origin/main` 与本地一致
-  - 实测：
+  - 实测：基线提交 `c9a0ab0` 推送到 `origin/main`；收尾文档提交后再次推送，`git status` 干净，`git ls-remote` 的 `refs/heads/main` 与本地 HEAD 一致。
