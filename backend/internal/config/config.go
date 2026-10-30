@@ -61,6 +61,11 @@ type Config struct {
 	TopK int
 	// MinKeywordCoverage / MinVectorScore 是「有无依据」的判定门槛（spec R5.2）：
 	// 命中信息量充足的查询词达到该比例，或向量相似度达到该分值，才认为材料中确有相关内容。
+	//
+	// 覆盖率默认 0.30 而非 0.25：长查询里两三个偶然命中的子串（如「诺贝尔」含「贝尔」、
+	// 「I-量子光合作用」含「量子」）能把 3/11 的覆盖率推过 0.25，跨领域问题仍被误判
+	// 为有依据（独立走查 N01 的贝尔不等式用例）。0.30 与正常问句仍有明显间距
+	// （实测「教师应该在哪里上传讲义」为 4/7≈0.57）。
 	MinKeywordCoverage float64
 	MinVectorScore     float64
 }
@@ -135,7 +140,7 @@ func Load() (Config, error) {
 		ChunkOverlap: optInt("CHUNK_OVERLAP", 80, 0, 2000, &problems),
 		TopK:         optInt("RETRIEVAL_TOPK", 4, 1, 20, &problems),
 
-		MinKeywordCoverage: optFloat("MIN_KEYWORD_COVERAGE", 0.25, 0, 1, &problems),
+		MinKeywordCoverage: optFloat("MIN_KEYWORD_COVERAGE", 0.30, 0, 1, &problems),
 		MinVectorScore:     optFloat("MIN_VECTOR_SCORE", 0.55, 0, 1, &problems),
 	}
 	if cfg.ChunkOverlap >= cfg.ChunkSize {

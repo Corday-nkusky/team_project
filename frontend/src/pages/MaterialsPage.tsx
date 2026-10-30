@@ -3,6 +3,8 @@ import { listMaterials, reindex, uploadFile, uploadText, type Material, type Use
 
 export default function MaterialsPage({ user }: { user: User }) {
   const [items, setItems] = useState<Material[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
@@ -11,13 +13,17 @@ export default function MaterialsPage({ user }: { user: User }) {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const isTeacher = user.role === 'teacher'
+  const titleLen = [...title].length
 
   const refresh = async () => {
+    setLoading(true)
     try {
       setItems(await listMaterials())
-      setError('')
+      setLoadError('')
     } catch (e) {
-      setError((e as Error).message)
+      setLoadError((e as Error).message)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -77,56 +83,77 @@ export default function MaterialsPage({ user }: { user: User }) {
       <div className="card">
         <h2>本班教学材料（{user.class_name}）</h2>
         <p className="hint">这里只会出现你所在班级的材料。</p>
-        <table>
-          <thead>
-            <tr>
-              <th>标题</th>
-              <th>索引状态</th>
-              <th>上传时间</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((m) => (
-              <tr key={m.id}>
-                <td>{m.title}</td>
-                <td>
-                  <span className={`status ${m.index_status}`}>{statusText(m.index_status)}</span>
-                </td>
-                <td>{new Date(m.created_at).toLocaleString()}</td>
-                <td>
-                  {isTeacher && m.index_status === 'failed' && (
-                    <button className="ghost" onClick={() => handleReindex(m.id)}>
-                      重试索引
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {items.length === 0 && (
+
+        {loading && <p className="hint">加载中…</p>}
+
+        {!loading && loadError && (
+          <div className="state-block error-state">
+            <div className="error">材料列表加载失败：{loadError}</div>
+            <button className="ghost" onClick={refresh}>
+              重试
+            </button>
+          </div>
+        )}
+
+        {!loading && !loadError && items.length === 0 && (
+          <p className="hint">
+            {isTeacher ? '还没有材料，请在下方上传第一份讲义。' : '本班还没有材料，请联系教师上传。'}
+          </p>
+        )}
+
+        {!loading && !loadError && items.length > 0 && (
+          <table>
+            <thead>
               <tr>
-                <td colSpan={4} className="hint">
-                  暂无材料
-                </td>
+                <th>标题</th>
+                <th className="col-status">索引状态</th>
+                <th className="col-time">上传时间</th>
+                <th className="col-action" />
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {items.map((m) => (
+                <tr key={m.id}>
+                  <td className="mat-title" title={m.title}>
+                    <span>{m.title}</span>
+                  </td>
+                  <td className="col-status">
+                    <span className={`status ${m.index_status}`}>{statusText(m.index_status)}</span>
+                  </td>
+                  <td className="col-time">{new Date(m.created_at).toLocaleString()}</td>
+                  <td className="col-action">
+                    {isTeacher && m.index_status === 'failed' && (
+                      <button className="ghost" onClick={() => handleReindex(m.id)}>
+                        重试索引
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {isTeacher && (
         <div className="card">
           <h2>上传材料</h2>
-          <p className="hint">支持纯文本 / Markdown / PDF。</p>
-          <label htmlFor="t">标题</label>
-          <input id="t" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="例如：第一节讲义" />
+          <p className="hint">支持纯文本 / Markdown / PDF，单个文件不超过 32 MiB。</p>
+          <label htmlFor="t">标题（最多 255 字，当前 {titleLen} 字）</label>
+          <input
+            id="t"
+            value={title}
+            maxLength={255}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="例如：第一节讲义"
+          />
           <label htmlFor="c">正文（纯文本 / Markdown）</label>
           <textarea id="c" value={content} onChange={(e) => setContent(e.target.value)} />
           <button className="primary" onClick={handleText} disabled={busy || !content.trim()}>
             上传文本
           </button>
 
-          <label htmlFor="f">或选择文件（.txt / .md / .pdf）</label>
+          <label htmlFor="f">或选择文件（.txt / .md / .markdown / .pdf）</label>
           <input
             id="f"
             type="file"

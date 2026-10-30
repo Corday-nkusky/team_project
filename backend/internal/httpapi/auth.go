@@ -65,7 +65,7 @@ func (s *Server) newTokens(ctx context.Context, u store.User) (tokenResp, error)
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	var req loginReq
 	if err := decodeJSON(r, &req); err != nil {
-		writeErr(w, http.StatusBadRequest, "bad_request", "请求体格式不正确")
+		writeDecodeErr(w, err, "请求体格式不正确")
 		return
 	}
 	ctx := r.Context()
@@ -106,7 +106,8 @@ func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		RefreshToken string `json:"refresh_token"`
 	}
 	if err := decodeJSON(r, &payload); err != nil || payload.RefreshToken == "" {
-		writeErr(w, http.StatusUnauthorized, "invalid_refresh", "刷新凭证无效")
+		// 解析失败与凭证无效同形，避免通过错误码探测令牌格式（R1.2 / R11）。
+		writeDecodeErrAs(w, err, http.StatusUnauthorized, "invalid_refresh", "刷新凭证无效")
 		return
 	}
 	ctx := r.Context()
@@ -136,7 +137,10 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
 		RefreshToken string `json:"refresh_token"`
 	}
-	_ = decodeJSON(r, &payload)
+	if err := decodeJSON(r, &payload); err != nil {
+		writeDecodeErr(w, err, "请求体格式不正确")
+		return
+	}
 	if payload.RefreshToken != "" {
 		_ = s.st.RevokeRefreshToken(r.Context(), auth.HashToken(payload.RefreshToken))
 	}

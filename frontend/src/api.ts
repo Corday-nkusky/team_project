@@ -137,15 +137,15 @@ function ensureRefreshed(): Promise<boolean> {
 
 /** 带认证的请求：遇 401 自动续期并重放一次。 */
 export async function request(path: string, init: RequestInit = {}): Promise<Response> {
-  const send = (token: string | null) =>
-    fetch(path, {
-      ...init,
-      headers: {
-        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(init.headers ?? {}),
-      },
-    })
+  const send = (token: string | null) => {
+    const headers = new Headers(init.headers)
+    // 只为字符串体补 JSON 头；FormData 必须让浏览器自己生成 multipart boundary（B01）。
+    if (typeof init.body === 'string' && !headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json')
+    }
+    if (token) headers.set('Authorization', `Bearer ${token}`)
+    return fetch(path, { ...init, headers })
+  }
 
   let resp = await send(getAccessToken())
   if (resp.status === 401) {
@@ -200,6 +200,8 @@ export async function reindex(id: number): Promise<Material> {
 
 export interface AskHandlers {
   onMeta?: (citations: Citation[], noEvidence: boolean) => void
+  /** 模型在首字前不可用，后端改用材料原文作答（design D3）。 */
+  onDegraded?: (reason: string) => void
   onDelta?: (text: string) => void
   onDone?: () => void
   onError?: (message: string) => void
@@ -241,6 +243,15 @@ export function streamAsk(question: string, handlers: AskHandlers): AbortControl
     let buffer = ''
     let eventName = ''
     let dataLines: string[] = []
+    // settled 表示本次流已经以 done 或 error 收尾；
+    // 连接在两者之前结束，一律按中断处理，不能把半截回答当完整（design D3）。
+    let settled = false
+
+    const fail = (message: string) => {
+      if (settled) return
+      settled = true
+      handlers.onError?.(message)
+    }
 
     const dispatch = () => {
       if (!eventName || dataLines.length === 0) {
@@ -253,11 +264,20 @@ export function streamAsk(question: string, handlers: AskHandlers): AbortControl
         if (eventName === 'meta') {
           const m = JSON.parse(data) as { citations: Citation[]; no_evidence: boolean }
           handlers.onMeta?.(m.citations ?? [], m.no_evidence)
+        } else if (eventName === 'degraded') {
+          const d = JSON.parse(data) as { reason?: string }
+          handlers.onDegraded?.(d.reason ?? 'upstream_error')
         } else if (eventName === 'delta') {
           const d = JSON.parse(data) as { text: string }
           if (d.text) handlers.onDelta?.(d.text)
+        } else if (eventName === 'error') {
+          const d = JSON.parse(data) as { code?: string; message?: string }
+          fail(d.message || '生成中断，请重试')
         } else if (eventName === 'done') {
-          handlers.onDone?.()
+          if (!settled) {
+            settled = true
+            handlers.onDone?.()
+          }
         }
       } catch {
         /* 忽略无法解析的帧 */
@@ -285,8 +305,10 @@ export function streamAsk(question: string, handlers: AskHandlers): AbortControl
         }
       }
       dispatch()
+      // 流结束却没有 done/error：上游被截断或代理提前关闭。
+      fail('连接中断，请重试')
     } catch (e) {
-      if ((e as Error).name !== 'AbortError') handlers.onError?.('连接中断')
+      if ((e as Error).name !== 'AbortError') fail('连接中断，请重试')
     }
   })()
 

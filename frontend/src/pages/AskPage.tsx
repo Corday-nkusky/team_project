@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { streamAsk, type Citation } from '../api'
 
+type Phase = 'idle' | 'streaming' | 'done' | 'error' | 'stopped'
+
 export default function AskPage() {
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState('')
   const [citations, setCitations] = useState<Citation[]>([])
   const [noEvidence, setNoEvidence] = useState(false)
-  const [streaming, setStreaming] = useState(false)
+  const [phase, setPhase] = useState<Phase>('idle')
+  const [degraded, setDegraded] = useState(false)
   const [error, setError] = useState('')
   const [openCite, setOpenCite] = useState<number | null>(null)
 
@@ -17,6 +20,8 @@ export default function AskPage() {
     return () => controllerRef.current?.abort()
   }, [])
 
+  const streaming = phase === 'streaming'
+
   const ask = () => {
     const q = question.trim()
     if (!q || streaming) return
@@ -25,27 +30,29 @@ export default function AskPage() {
     setAnswer('')
     setCitations([])
     setNoEvidence(false)
+    setDegraded(false)
     setError('')
     setOpenCite(null)
-    setStreaming(true)
+    setPhase('streaming')
 
     controllerRef.current = streamAsk(q, {
       onMeta: (cs, ne) => {
         setCitations(cs)
         setNoEvidence(ne)
       },
+      onDegraded: () => setDegraded(true),
       onDelta: (t) => setAnswer((prev) => prev + t),
-      onDone: () => setStreaming(false),
+      onDone: () => setPhase('done'),
       onError: (msg) => {
         setError(msg)
-        setStreaming(false)
+        setPhase('error')
       },
     })
   }
 
   const stop = () => {
     controllerRef.current?.abort()
-    setStreaming(false)
+    setPhase('stopped')
   }
 
   /** 把回答里的 [n] 渲染成可点击的引用标记（R7.1）。 */
@@ -66,6 +73,16 @@ export default function AskPage() {
   }
 
   const opened = citations.find((c) => c.index === openCite)
+
+  // 流结束但不算「正常完成」时，明确标出状态，避免半截回答看起来像完整回答（B13）。
+  const stateLabel = () => {
+    if (phase === 'streaming') return <span className="hint">（流式生成中…）</span>
+    if (phase === 'stopped') return <span className="state-tag stopped">已停止生成，以上为不完整内容</span>
+    if (phase === 'error') return <span className="state-tag failed">生成中断，以上为不完整内容</span>
+    if (degraded) return <span className="state-tag degraded">模型暂不可用，已改用材料原文作答</span>
+    if (phase === 'done' && noEvidence) return <span className="state-tag degraded">材料中无依据，未生成回答</span>
+    return null
+  }
 
   return (
     <>
@@ -97,7 +114,9 @@ export default function AskPage() {
 
       {(answer || noEvidence) && (
         <div className="card">
-          <h2>回答 {streaming && <span className="hint">（流式生成中…）</span>}</h2>
+          <h2>
+            回答 {stateLabel()}
+          </h2>
           <div className="answer">{renderAnswer(answer)}</div>
 
           {opened && (

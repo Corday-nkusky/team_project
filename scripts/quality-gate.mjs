@@ -26,9 +26,9 @@ const gofmtBin =
 
 const failures = [];
 
-function run(name, cmd, args, { cwd = root, expectEmpty = false } = {}) {
+function run(name, cmd, args, { cwd = root, expectEmpty = false, shell = false } = {}) {
   const started = Date.now();
-  const res = spawnSync(cmd, args, { cwd, encoding: "utf8" });
+  const res = spawnSync(cmd, args, { cwd, encoding: "utf8", shell });
   const ms = Date.now() - started;
   const output = `${res.stdout || ""}${res.stderr || ""}`.trim();
   const ok = !res.error && res.status === 0 && (!expectEmpty || output === "");
@@ -90,7 +90,15 @@ if (goProbe.error || goProbe.status !== 0) {
 }
 
 if (withSpec) {
-  run("OpenSpec 严格校验", "npx", ["--yes", "@fission-ai/openspec@latest", "validate", "--all", "--strict"]);
+  // Windows 上 npx 是 npx.cmd，Node 20+ 必须经 shell 才能启动；
+  // 走 shell 时把参数并入命令串，避免 Node 对 args+shell 的弃用告警。
+  const win = process.platform === "win32";
+  run(
+    "OpenSpec 严格校验",
+    win ? 'npx --yes "@fission-ai/openspec@latest" validate --all --strict' : "npx",
+    win ? [] : ["--yes", "@fission-ai/openspec@latest", "validate", "--all", "--strict"],
+    { shell: win },
+  );
 }
 
 if (withE2E) {

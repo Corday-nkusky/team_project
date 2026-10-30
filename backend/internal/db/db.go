@@ -8,6 +8,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -69,7 +70,7 @@ var schema = []string{
 		class_id     BIGINT       NOT NULL,
 		owner_id     BIGINT       NOT NULL,
 		title        VARCHAR(255) NOT NULL,
-		content      MEDIUMTEXT   NOT NULL,
+		content      LONGTEXT     NOT NULL,
 		index_status ENUM('pending','ready','failed') NOT NULL DEFAULT 'pending',
 		index_error  VARCHAR(500) NOT NULL DEFAULT '',
 		created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -119,12 +120,32 @@ var schema = []string{
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 }
 
-// Migrate 执行全部建表语句。
+// Migrate 执行全部建表语句，并做一次幂等的列扩容。
 func Migrate(ctx context.Context, conn *sql.DB) error {
 	for i, ddl := range schema {
 		if _, err := conn.ExecContext(ctx, ddl); err != nil {
 			return fmt.Errorf("建表失败(第 %d 条): %w", i+1, err)
 		}
+	}
+	return migrateMaterialContent(ctx, conn)
+}
+
+// migrateMaterialContent 把早期 MEDIUMTEXT（16 MiB）的原文列扩为 LONGTEXT，
+// 与 32 MiB 上传上限对齐（spec R3.5）。只增容量、不丢数据，重复执行安全。
+func migrateMaterialContent(ctx context.Context, conn *sql.DB) error {
+	var dataType string
+	err := conn.QueryRowContext(ctx, `
+		SELECT DATA_TYPE FROM information_schema.COLUMNS
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'materials' AND COLUMN_NAME = 'content'`).
+		Scan(&dataType)
+	if err != nil {
+		return fmt.Errorf("检查 materials.content 列类型失败: %w", err)
+	}
+	if strings.EqualFold(dataType, "longtext") {
+		return nil
+	}
+	if _, err := conn.ExecContext(ctx, `ALTER TABLE materials MODIFY COLUMN content LONGTEXT NOT NULL`); err != nil {
+		return fmt.Errorf("扩容 materials.content 失败: %w", err)
 	}
 	return nil
 }
