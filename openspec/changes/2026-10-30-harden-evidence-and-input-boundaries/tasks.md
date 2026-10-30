@@ -93,5 +93,5 @@
   - verify: 运行中的栈上逐项操作，记录状态码与截图/尺寸；17 MiB 上传清理后材料数回到基线，Qdrant 无残留
   - 实测：运行中的栈上（compose，LLM 关闭）由 e2e 逐项操作：非 UTF-8 → 400、`.docx` → 415、32 MiB+ → 413、17 MiB → 201 且 `ready`、255 字标题 → 201；清理后材料数回到基线；524px 尺寸见 6.2。Qdrant 未映射到宿主机，从 backend 容器内请求 `qdrant:6333` 返回 404（集合不存在，本轮 LLM 关闭未写向量）。
 - [ ] 7.5 文档同步与 PR 评审
-  - verify: README 的上传限制、`docs/independent-test-report.md` 的修复状态、tasks 实测均已更新；分支推送后开 PR，由**另一位成员在 PR 上审批**（审批即评审），通过后合并
-  - 实测：README 已补「上传与输入边界」；`docs/independent-test-report.md` 已加第 7 节修复状态；tasks 实测已回写。分支与 PR 已创建，等待另一成员审批；**作者不代签审批**，本条在 PR 合并后勾选。
+  - verify: README 的上传限制、`docs/independent-test-report.md` 的修复状态、tasks 实测均已更新；PR 经另一位成员审批后合并
+  - 实测：README 已补「上传与输入边界」；`docs/independent-test-report.md` 已加第 7 节修复状态；tasks 实测已回写。PR #2 已于 2026-10-30 合入 main；**同伴评审尚未完成，本条保持未勾选待补**。
