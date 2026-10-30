@@ -66,16 +66,34 @@ button.ghost {
   padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 13px;
 }
 
-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); }
-th { color: var(--muted); font-weight: 500; font-size: 13px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; table-layout: fixed; }
+th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; font-size: 13px; white-space: nowrap; }
+th.col-status, td.col-status { width: 92px; white-space: nowrap; }
+th.col-time, td.col-time { width: 172px; white-space: nowrap; }
+th.col-action, td.col-action { width: 88px; white-space: nowrap; }
 
-.status { font-size: 12px; padding: 2px 8px; border-radius: 999px; display: inline-block; }
+/* 长标题最多两行，完整标题通过 title 悬停查看（spec R3.8）。 */
+.mat-title { overflow-wrap: anywhere; word-break: break-word; }
+.mat-title > span {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.status { font-size: 12px; padding: 2px 8px; border-radius: 999px; display: inline-block; white-space: nowrap; }
 .status.ready { background: #e8f7ee; color: var(--ok); }
 .status.failed { background: #fdecec; color: var(--danger); }
 .status.pending { background: #fdf5e6; color: var(--warn); }
 
-.answer { white-space: pre-wrap; line-height: 1.8; font-size: 15px; }
+.answer { white-space: pre-wrap; line-height: 1.8; font-size: 15px; overflow-wrap: anywhere; }
+.state-tag {
+  font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 999px;
+  margin-left: 8px; vertical-align: middle; white-space: nowrap;
+}
+.state-tag.stopped { background: #fdf5e6; color: var(--warn); }
+.state-tag.failed { background: #fdecec; color: var(--danger); }
+.state-tag.degraded { background: #eef2ff; color: #4338ca; }
+.state-block { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .cite {
   color: var(--brand); cursor: pointer; font-weight: 600;
   background: var(--brand-weak); border-radius: 4px; padding: 0 3px;
@@ -91,3 +109,14 @@ th { color: var(--muted); font-weight: 500; font-size: 13px; }
 .cite-item strong { display: block; margin-bottom: 4px; }
 
 .hidden { display: none; }
+
+/* 窄视口：状态列保持单行，时间列让位给标题（spec R3.8 / N07）。 */
+@media (max-width: 640px) {
+  .app { padding: 16px 10px 48px; }
+  .topbar { flex-wrap: wrap; gap: 8px 12px; }
+  .tabs { flex-wrap: wrap; }
+  th, td { padding: 8px 6px; }
+  .col-time { display: none; }
+  .col-status { width: 84px; }
+  .col-action { width: 72px; }
+}

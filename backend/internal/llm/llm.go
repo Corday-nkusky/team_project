@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -118,6 +119,13 @@ func (c *Client) ChatStream(ctx context.Context, system, user string) (<-chan Ev
 		defer resp.Body.Close()
 		sc := bufio.NewScanner(resp.Body)
 		sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+		sawDone := false
+		emitErr := func(err error) {
+			select {
+			case ch <- Event{Err: err}:
+			case <-ctx.Done():
+			}
+		}
 		for sc.Scan() {
 			line := strings.TrimSpace(sc.Text())
 			if line == "" || !strings.HasPrefix(line, "data:") {
@@ -125,7 +133,11 @@ func (c *Client) ChatStream(ctx context.Context, system, user string) (<-chan Ev
 			}
 			data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
 			if data == "[DONE]" {
-				ch <- Event{Done: true}
+				sawDone = true
+				select {
+				case ch <- Event{Done: true}:
+				case <-ctx.Done():
+				}
 				return
 			}
 			var piece struct {
@@ -149,10 +161,14 @@ func (c *Client) ChatStream(ctx context.Context, system, user string) (<-chan Ev
 			}
 		}
 		if err := sc.Err(); err != nil {
-			select {
-			case ch <- Event{Err: err}:
-			case <-ctx.Done():
+			if ctx.Err() == nil {
+				emitErr(err)
 			}
+			return
+		}
+		// 连接正常关闭但未收到 [DONE]：流被上游截断，不能当作完整回答（R6.4）。
+		if !sawDone && ctx.Err() == nil {
+			emitErr(io.ErrUnexpectedEOF)
 		}
 	}()
 	return ch, nil

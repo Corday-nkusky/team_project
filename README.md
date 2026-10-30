@@ -129,6 +129,16 @@ curl -s --noproxy '*' http://127.0.0.1:8080/health   # 期望 200
 **零密钥也能跑通**：`LLM_API_KEY` 留空时，问答退化为「抽取式」回答（直接引用本班材料片段），
 检索只走关键词路；填入任意 OpenAI 兼容网关的 key（同时要填 `LLM_API_BASE`）后，问答由模型生成，并额外启用向量检索。
 
+**上传与输入边界**（spec R3.4 / R11）
+
+- 正文上限 32 MiB；超过返回 413 `payload_too_large`（上传接口总请求上限 33 MiB）。
+- 标题去空白后按字符计最多 255 个；超过返回 400 `title_too_long`，为空回退「未命名材料」。
+- 只接受 `.txt / .md / .markdown / .pdf`；其余返回 415 `unsupported_file_type`。
+- 文本正文必须是合法 UTF-8，否则 400 `invalid_encoding`；PDF 抽不出文本时 400 `empty_content`。
+- 普通 JSON 接口只接受 `application/json`（否则 415），请求体上限 1 MiB（否则 413），
+  且只允许单个顶层 JSON 值（尾随内容返回 400）。
+- 材料正文列已迁移为 `LONGTEXT`；17 MiB 文本可正常落库并建立索引。
+
 **演示语料（可选）**
 
 `seed-data/biology/` 提供一批生物学材料（9 个领域，约 100 条），用于填充知识库做演示与检索测试：

@@ -113,6 +113,16 @@ func withLogging(next http.Handler) http.Handler {
 	})
 }
 
+// logServerError 只在确实返回 500 的分支调用（design D6）。
+// 字段固定为 request_id / operation / error；不记录请求体、令牌或 SQL 原文。
+func logServerError(r *http.Request, operation string, err error) {
+	slog.ErrorContext(r.Context(), "http_server_error",
+		"request_id", requestIDFrom(r.Context()),
+		"operation", operation,
+		"error", err.Error(),
+	)
+}
+
 // acceptableRequestID 透传客户端 ID 的条件：长度 1–128 且全部为可打印 ASCII（R10.5）。
 // 不满足时返回空串，由调用方重新生成。
 func acceptableRequestID(raw string) string {

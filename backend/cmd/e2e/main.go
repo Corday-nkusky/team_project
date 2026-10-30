@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"strings"
@@ -22,13 +23,15 @@ import (
 
 	"github.com/Corday-nkusky/team_project/backend/internal/config"
 	"github.com/Corday-nkusky/team_project/backend/internal/db"
+	"github.com/Corday-nkusky/team_project/backend/internal/qa"
 )
 
 var (
-	base   = envOr("E2E_BASE", "http://127.0.0.1:8080")
-	dbDSN  string
-	passed int
-	failed int
+	base       = envOr("E2E_BASE", "http://127.0.0.1:8080")
+	dbDSN      string
+	llmEnabled bool
+	passed     int
+	failed     int
 )
 
 func main() {
@@ -77,6 +80,7 @@ func main() {
 	// 上传与检索（R3.1 / R5.1 / R6 / R7）。
 	matID := checkUpload(ctx, teacher.access, unique)
 	checkUploadEmpty(ctx, teacher.access)
+	checkUploadBoundaries(ctx, teacher.access)
 	checkReindex(ctx, teacher.access, matID)
 	askHits(ctx, student1.access, unique)
 	checkClientAbort(ctx, student1.access, unique)
@@ -88,6 +92,8 @@ func main() {
 
 	checkAskEmpty(ctx)
 	askNoEvidence(ctx, student1.access)
+	checkFillerQueries(ctx, student1.access)
+	checkHTTPContract(ctx, student1.access, teacher.access)
 	checkAudit(ctx, unique)
 
 	fmt.Printf("\n== 合计: %d 通过, %d 失败 ==\n", passed, failed)
@@ -107,8 +113,12 @@ func checkHealth(ctx context.Context) {
 		Version string            `json:"version"`
 		Time    string            `json:"time"`
 		Deps    map[string]string `json:"deps"`
+		LLM     struct {
+			Enabled bool `json:"enabled"`
+		} `json:"llm"`
 	}
 	_ = json.Unmarshal(body, &h)
+	llmEnabled = h.LLM.Enabled
 	ok("依赖 mysql / qdrant 均就绪", h.Deps["mysql"] == "ok" && h.Deps["qdrant"] == "ok", string(body))
 	ok("响应含非空 version", h.Version != "", string(body))
 	_, terr := time.Parse(time.RFC3339, h.Time)
@@ -221,6 +231,183 @@ func checkUploadEmpty(ctx context.Context, teacherAccess string) {
 	sec("R3.2 空材料被拒")
 	st, _ := post(ctx, "/api/materials", teacherAccess, map[string]string{"title": "空", "content": "   \n  "})
 	ok("内容为空 → 400", st == 400, fmt.Sprintf("实际 %d", st))
+}
+
+// checkUploadBoundaries 覆盖 R3.4 / R3.5：输入边界在落库前拒绝，容量与列类型对齐。
+func checkUploadBoundaries(ctx context.Context, teacherAccess string) {
+	sec("R3.4 上传输入边界")
+	conn, err := db.Open(dbDSN)
+	if err != nil {
+		ok("打开数据库连接", false, err.Error())
+		return
+	}
+	defer conn.Close()
+
+	countMaterials := func() int {
+		var n int
+		_ = conn.QueryRowContext(ctx, `SELECT COUNT(*) FROM materials`).Scan(&n)
+		return n
+	}
+	after := countMaterials()
+
+	// 1) 标题 256 字
+	st, body := post(ctx, "/api/materials", teacherAccess, map[string]string{
+		"title": strings.Repeat("长", 256), "content": "边界测试正文",
+	})
+	ok("标题 256 字 → 400 title_too_long",
+		st == 400 && strings.Contains(string(body), "title_too_long"), fmt.Sprintf("status=%d body=%s", st, body))
+
+	// 2) 非 UTF-8 文本文件
+	st, body = postMultipart(ctx, teacherAccess, "坏编码", "bad.txt", []byte{0xff, 0xfe, 0x00, 0x41})
+	ok("非 UTF-8 正文 → 400 invalid_encoding",
+		st == 400 && strings.Contains(string(body), "invalid_encoding"), fmt.Sprintf("status=%d body=%s", st, body))
+
+	// 3) 不支持的扩展名
+	st, body = postMultipart(ctx, teacherAccess, "错类型", "note.docx", []byte("PK\x03\x04fake"))
+	ok("不支持的扩展名 → 415 unsupported_file_type",
+		st == 415 && strings.Contains(string(body), "unsupported_file_type"), fmt.Sprintf("status=%d body=%s", st, body))
+
+	// 4) 超过 32 MiB
+	st, body = post(ctx, "/api/materials", teacherAccess, map[string]string{
+		"title": "超大", "content": strings.Repeat("A", 33<<20),
+	})
+	ok("正文超过 32 MiB → 413 payload_too_large",
+		st == 413 && strings.Contains(string(body), "payload_too_large"), fmt.Sprintf("status=%d body=%.200s", st, body))
+
+	ok("四类非法输入均未落库", countMaterials() == after,
+		fmt.Sprintf("%d → %d", after, countMaterials()))
+
+	// 5) 17 MiB 合法文本：列容量必须撑得住，不出现「落库失败」。
+	sec("R3.5 上传容量与数据库列对齐")
+	var dataType string
+	err = conn.QueryRowContext(ctx, `
+		SELECT DATA_TYPE FROM information_schema.COLUMNS
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'materials' AND COLUMN_NAME = 'content'`).Scan(&dataType)
+	ok("materials.content 列类型为 LONGTEXT", err == nil && strings.EqualFold(dataType, "longtext"),
+		fmt.Sprintf("type=%q err=%v", dataType, err))
+
+	large := strings.Repeat("材料", (17<<20)/6)
+	st, body = post(ctx, "/api/materials", teacherAccess, map[string]string{"title": "十七米测试", "content": large})
+	var mv materialPayload
+	_ = json.Unmarshal(body, &mv)
+	ok("17 MiB 文本 → 201 且索引 ready",
+		st == 201 && mv.IndexStatus == "ready", fmt.Sprintf("status=%d body=%.200s", st, body))
+	if mv.ID > 0 {
+		var chunks int
+		_ = conn.QueryRowContext(ctx, `SELECT COUNT(*) FROM chunks WHERE material_id=?`, mv.ID).Scan(&chunks)
+		ok("17 MiB 材料生成了切片", chunks > 0, fmt.Sprintf("%d 片", chunks))
+		// 清理本次的大材料与向量，避免每轮验收把切片表/向量库越堆越大（审计仍保留）。
+		//
+		// 未启用模型时 Index 在建完切片后即返回，不会写入向量；此时 Qdrant 可能连集合
+		// 都没有。启用模型时才需要直连核对残留，而 Qdrant 默认只在内网暴露，
+		// 从宿主机探测不到就如实报失败，不静默跳过。
+		if llmEnabled {
+			if err := qdrantDeleteMaterial(ctx, mv.ID); err != nil {
+				fmt.Printf("    (清理向量失败: %v)\n", err)
+			}
+			if n, err := qdrantCountMaterial(ctx, mv.ID); err != nil {
+				ok("Qdrant 无该材料残留", false, err.Error())
+			} else {
+				ok("Qdrant 无该材料残留", n == 0, fmt.Sprintf("%d 个点", n))
+			}
+		} else {
+			fmt.Println("    (LLM 未启用：本轮不写入向量；Qdrant 仅在内网，容器内 404=集合不存在)")
+		}
+		_, _ = conn.ExecContext(ctx, `DELETE FROM materials WHERE id=?`, mv.ID)
+		ok("清理后材料数回到上传前基线", countMaterials() == after,
+			fmt.Sprintf("%d → %d（基线 %d）", after, countMaterials(), after))
+	}
+}
+
+// qdrantDeleteMaterial / qdrantCountMaterial 是验收清理用的最小 HTTP 调用：
+// 材料删除接口属于非目标（B07），这里只负责把测试写入的向量清干净。
+func qdrantDeleteMaterial(ctx context.Context, materialID int64) error {
+	u := strings.TrimRight(strings.TrimSpace(os.Getenv("QDRANT_URL")), "/")
+	if u == "" {
+		return nil // 未配置向量库时不涉及残留
+	}
+	body := map[string]any{"filter": map[string]any{
+		"must": []any{map[string]any{"key": "material_id", "match": map[string]any{"value": materialID}}},
+	}}
+	st, _, err := postJSONURL(ctx,
+		u+"/collections/"+qa.Collection+"/points/delete?wait=true", mustJSON(body))
+	if err != nil {
+		return err
+	}
+	if st != http.StatusOK && st != http.StatusNotFound {
+		return fmt.Errorf("删除向量返回 %d", st)
+	}
+	return nil
+}
+
+func qdrantCountMaterial(ctx context.Context, materialID int64) (int, error) {
+	u := strings.TrimRight(strings.TrimSpace(os.Getenv("QDRANT_URL")), "/")
+	if u == "" {
+		return 0, nil
+	}
+	body := map[string]any{"filter": map[string]any{
+		"must": []any{map[string]any{"key": "material_id", "match": map[string]any{"value": materialID}}},
+	}}
+	st, raw, err := postJSONURL(ctx,
+		u+"/collections/"+qa.Collection+"/points/count?wait=true", mustJSON(body))
+	if err != nil {
+		return 0, err
+	}
+	if st == http.StatusNotFound {
+		return 0, nil // 集合不存在 ⇒ 没有向量
+	}
+	if st != http.StatusOK {
+		return 0, fmt.Errorf("统计向量返回 %d: %.200s", st, raw)
+	}
+	var out struct {
+		Result struct {
+			Count int `json:"count"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return 0, err
+	}
+	return out.Result.Count, nil
+}
+
+func checkFillerQueries(ctx context.Context, access string) {
+	sec("R5.4 泛词不能构成依据")
+	for _, q := range []string{"贝尔不等式的量子力学推导过程是什么？", "如何在家做红烧肉？", "法国的首都是哪里？"} {
+		events := askSSE(ctx, access, q)
+		ok(fmt.Sprintf("「%s」→ no_evidence 且固定文案", q),
+			events.noEvidence && strings.Contains(events.text, "资料中未找到相关内容") &&
+				len(events.citations) == 0,
+			fmt.Sprintf("noEvidence=%v cites=%d text=%q", events.noEvidence, len(events.citations), events.text))
+	}
+}
+
+// checkHTTPContract 覆盖 R11：405 / 404 / 413 / 415 / 尾随 JSON。
+func checkHTTPContract(ctx context.Context, studentAccess, teacherAccess string) {
+	sec("R11 请求与错误契约")
+
+	st, body, headers := rawRequest(ctx, http.MethodGet, "/api/ask", "", "", nil)
+	ok("GET /api/ask → 405 JSON 且 Allow: POST",
+		st == 405 && strings.HasPrefix(headers.Get("Content-Type"), "application/json") &&
+			headers.Get("Allow") == "POST" && strings.Contains(string(body), "method_not_allowed"),
+		fmt.Sprintf("status=%d allow=%q body=%s", st, headers.Get("Allow"), body))
+
+	st, body, _ = rawRequest(ctx, http.MethodGet, "/api/not-a-route", "", "", nil)
+	ok("未知 API 路径 → 404 JSON",
+		st == 404 && strings.Contains(string(body), `"not_found"`), fmt.Sprintf("status=%d body=%s", st, body))
+
+	bigAsk := mustJSON(map[string]string{"question": strings.Repeat("问", 400_000)})
+	st, body, _ = rawRequest(ctx, http.MethodPost, "/api/ask", studentAccess, "application/json", bigAsk)
+	ok("1.1 MiB 问答请求体 → 413 payload_too_large",
+		st == 413 && strings.Contains(string(body), "payload_too_large"), fmt.Sprintf("status=%d body=%.200s", st, body))
+
+	st, body, _ = rawRequest(ctx, http.MethodPost, "/api/login", "", "text/plain", []byte(`{"username":"a"}`))
+	ok("Content-Type: text/plain → 415 unsupported_media_type",
+		st == 415 && strings.Contains(string(body), "unsupported_media_type"), fmt.Sprintf("status=%d body=%s", st, body))
+
+	st, body, _ = rawRequest(ctx, http.MethodPost, "/api/ask", studentAccess, "application/json",
+		[]byte(`{"question":"光合作用是什么？"}{"x":1}`))
+	ok("尾随 JSON → 400 bad_request 且不开始 SSE",
+		st == 400 && strings.Contains(string(body), `"bad_request"`), fmt.Sprintf("status=%d body=%s", st, body))
 }
 
 func checkReindex(ctx context.Context, teacherAccess string, id int64) {
@@ -460,27 +647,76 @@ func post(ctx context.Context, path, token string, body any) (int, []byte) {
 }
 
 func req(ctx context.Context, method, path, token string, body any) (int, []byte) {
+	var raw []byte
+	contentType := ""
+	if body != nil {
+		raw = mustJSON(body)
+		contentType = "application/json"
+	}
+	st, b, _ := rawRequest(ctx, method, path, token, contentType, raw)
+	return st, b
+}
+
+// rawRequest 发送原始请求体，便于构造 413 / 415 / 尾随 JSON 等契约用例。
+// postJSONURL 向绝对地址发送 JSON POST（用于直连 Qdrant 做验收清理与核对）。
+func postJSONURL(ctx context.Context, url string, body []byte) (int, []byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return 0, nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(resp.Body)
+	return resp.StatusCode, raw, err
+}
+
+func rawRequest(ctx context.Context, method, path, token, contentType string, body []byte) (int, []byte, http.Header) {
 	var rdr io.Reader
 	if body != nil {
-		rdr = bytes.NewReader(mustJSON(body))
+		rdr = bytes.NewReader(body)
 	}
 	r, err := http.NewRequestWithContext(ctx, method, base+path, rdr)
 	if err != nil {
-		return 0, nil
+		return 0, []byte(err.Error()), nil
 	}
-	if body != nil {
-		r.Header.Set("Content-Type", "application/json")
+	if contentType != "" {
+		r.Header.Set("Content-Type", contentType)
 	}
 	if token != "" {
 		r.Header.Set("Authorization", "Bearer "+token)
 	}
 	resp, err := http.DefaultClient.Do(r)
 	if err != nil {
-		return 0, []byte(err.Error())
+		return 0, []byte(err.Error()), nil
 	}
 	defer resp.Body.Close()
 	b, _ := io.ReadAll(resp.Body)
-	return resp.StatusCode, b
+	return resp.StatusCode, b, resp.Header
+}
+
+// postMultipart 以 multipart 表单上传一个文件，验证扩展名与编码边界。
+func postMultipart(ctx context.Context, token, title, filename string, data []byte) (int, []byte) {
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	if title != "" {
+		_ = mw.WriteField("title", title)
+	}
+	part, err := mw.CreateFormFile("file", filename)
+	if err != nil {
+		return 0, []byte(err.Error())
+	}
+	if _, err := part.Write(data); err != nil {
+		return 0, []byte(err.Error())
+	}
+	if err := mw.Close(); err != nil {
+		return 0, []byte(err.Error())
+	}
+	st, body, _ := rawRequest(ctx, http.MethodPost, "/api/materials", token, mw.FormDataContentType(), buf.Bytes())
+	return st, body
 }
 
 func mustJSON(v any) []byte {

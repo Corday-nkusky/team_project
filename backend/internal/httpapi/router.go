@@ -18,11 +18,29 @@ type Checker interface {
 	Check(ctx context.Context) map[string]error
 }
 
+// qaService 是 httpapi 需要的问答能力（生产由 *qa.Service 实现）。
+//
+// 用窄接口而非具体类型，一是让问答流的失败分支可在无数据库的情况下单测，
+// 二是防止 handler 直接触达检索/向量细节（分层规范）。
+type qaService interface {
+	Retrieve(ctx context.Context, classID int64, question string) ([]qa.Citation, error)
+	LLMEnabled() bool
+	ChatStream(ctx context.Context, system, user string) (<-chan qa.StreamEvent, error)
+	Index(ctx context.Context, materialID, classID int64, content string) error
+}
+
+// askRecorder 是问答落库与审计所需的最小存储能力（spec R6.4 / R6.3）。
+type askRecorder interface {
+	Audit(ctx context.Context, actorID *int64, actorName string, classID *int64, action, result, detail string) error
+	SaveConversation(ctx context.Context, userID, classID int64, question, answer string, citationsJSON []byte) error
+}
+
 // Server 汇总依赖并提供路由。
 type Server struct {
 	cfg     config.Config
 	st      *store.Store
-	qa      *qa.Service
+	rec     askRecorder
+	qa      qaService
 	checker Checker
 	version string
 }
@@ -32,7 +50,7 @@ func New(cfg config.Config, st *store.Store, svc *qa.Service, checker Checker, v
 	if version == "" {
 		version = "dev"
 	}
-	return &Server{cfg: cfg, st: st, qa: svc, checker: checker, version: version}
+	return &Server{cfg: cfg, st: st, rec: st, qa: svc, checker: checker, version: version}
 }
 
 // Handler 返回装配完成的 http.Handler。
@@ -41,27 +59,61 @@ func (s *Server) Handler() http.Handler {
 
 	// 探活（tasks 1.4）。
 	mux.HandleFunc("GET /health", s.handleHealth)
+	mux.HandleFunc("/health", methodNotAllowed(http.MethodGet))
 
 	// 认证（公开）。
 	mux.HandleFunc("POST /api/login", s.handleLogin)
+	mux.HandleFunc("/api/login", methodNotAllowed(http.MethodPost))
 	mux.HandleFunc("POST /api/refresh", s.handleRefresh)
+	mux.HandleFunc("/api/refresh", methodNotAllowed(http.MethodPost))
 	mux.HandleFunc("POST /api/logout", s.handleLogout)
+	mux.HandleFunc("/api/logout", methodNotAllowed(http.MethodPost))
 
 	// 需要登录的接口。
 	mux.Handle("GET /api/me", s.requireAuth(http.HandlerFunc(s.handleMe)))
+	mux.HandleFunc("/api/me", methodNotAllowed(http.MethodGet))
 	mux.Handle("GET /api/materials", s.requireAuth(http.HandlerFunc(s.handleListMaterials)))
 	mux.Handle("POST /api/ask", s.requireAuth(http.HandlerFunc(s.handleAsk)))
+	mux.HandleFunc("/api/ask", methodNotAllowed(http.MethodPost))
 
 	// 仅教师：上传与重索引（R2.3）。
 	mux.Handle("POST /api/materials",
 		s.requireAuth(requireRole("teacher", http.HandlerFunc(s.handleCreateMaterial))))
+	mux.HandleFunc("/api/materials", methodNotAllowed(http.MethodGet, http.MethodPost))
 	mux.Handle("POST /api/materials/{id}/reindex",
 		s.requireAuth(requireRole("teacher", http.HandlerFunc(s.handleReindex))))
+	mux.HandleFunc("/api/materials/{id}/reindex", methodNotAllowed(http.MethodPost))
 
-	// 前端静态资源（同源，免跨域）。
-	mux.Handle("GET /", s.staticHandler())
+	// 未注册的 API 路径统一返回 JSON 404，绝不回落到 SPA（spec R11.2）。
+	mux.HandleFunc("/api/", notFoundAPI)
+	mux.HandleFunc("/api", notFoundAPI)
+
+	// 前端静态资源（同源，免跨域）。用无方法模式注册，避免与更具体的 /api/ 兜底冲突；
+	// 非 GET/HEAD 的页面请求返回 JSON 405，而不是把 index.html 当响应。
+	static := s.staticHandler()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			w.Header().Set("Allow", "GET, HEAD")
+			writeErr(w, http.StatusMethodNotAllowed, "method_not_allowed", "该接口不支持此请求方法")
+			return
+		}
+		static.ServeHTTP(w, r)
+	})
 
 	return withLogging(mux)
+}
+
+// methodNotAllowed 为已注册路径兜底未支持的方法，返回 JSON 405 并写明 Allow（spec R11.1）。
+func methodNotAllowed(allow ...string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Allow", strings.Join(allow, ", "))
+		writeErr(w, http.StatusMethodNotAllowed, "method_not_allowed", "该接口不支持此请求方法")
+	}
+}
+
+// notFoundAPI 让未知的 /api 路径返回统一 JSON 错误体（spec R11.2）。
+func notFoundAPI(w http.ResponseWriter, r *http.Request) {
+	writeErr(w, http.StatusNotFound, "not_found", "接口不存在")
 }
 
 // handleHealth 依赖全好 → 200；任一不可用 → 503（如实报告）。
