@@ -64,6 +64,39 @@ func TestHealthOK(t *testing.T) {
 	}
 }
 
+func TestHealthReportsLLMModels(t *testing.T) {
+	cfg := config.Config{
+		APIKey: "sk-test", APIBase: "https://internal.example/v1",
+		ChatModel: "course-chat", EmbedModel: "course-embedding",
+	}
+	s := New(cfg, nil, nil, stubChecker{results: map[string]error{"mysql": nil, "qdrant": nil}}, "test-version")
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/health", nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("期望 200，得到 %d", rec.Code)
+	}
+	var body struct {
+		LLM struct {
+			Enabled    bool   `json:"enabled"`
+			ChatModel  string `json:"chat_model"`
+			EmbedModel string `json:"embed_model"`
+		} `json:"llm"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("响应不是 JSON: %v", err)
+	}
+	if !body.LLM.Enabled || body.LLM.ChatModel != "course-chat" || body.LLM.EmbedModel != "course-embedding" {
+		t.Fatalf("llm 健康字段不符合预期: %+v", body.LLM)
+	}
+	low := strings.ToLower(rec.Body.String())
+	for _, banned := range []string{"sk-test", "api_key", "secret", "internal.example"} {
+		if strings.Contains(low, banned) {
+			t.Fatalf("响应体不得包含 %q: %s", banned, low)
+		}
+	}
+}
+
 func TestHealthDegraded(t *testing.T) {
 	s := newTestServer(map[string]error{"mysql": context.DeadlineExceeded, "qdrant": nil})
 	rec := httptest.NewRecorder()

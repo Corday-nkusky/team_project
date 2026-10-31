@@ -132,6 +132,13 @@ window.__t = {
           start(controller) {
             const enc = new TextEncoder();
             const push = (s) => controller.enqueue(enc.encode(s));
+            if (mode === 'cite') {
+              push('event: meta\\ndata: {"citations":[{"index":1,"material_id":1,"material_title":"键盘验证材料","chunk_id":1,"snippet":"键盘验证引用片段。"}],"no_evidence":false}\\n\\n');
+              push('event: delta\\ndata: {"text":"键盘验证回答 [1]"}\\n\\n');
+              push('event: done\\ndata: {"conversation_id":null}\\n\\n');
+              controller.close();
+              return;
+            }
             push('event: meta\\ndata: {"citations":[],"no_evidence":false}\\n\\n');
             push('event: delta\\ndata: {"text":"慢流开始。"}\\n\\n');
             if (mode === 'slow') {
@@ -341,6 +348,53 @@ async function main() {
       await evaluate(`document.querySelector('.reader-close').click()`)
       await evaluate(`window.__t.waitFor(() => !document.querySelector('[role="dialog"]')).then(() => true).catch(() => false)`)
 
+      // T5c/T5d 原生按钮必须支持真实键盘，不能只响应鼠标 click。
+      // 用即时 mock 流触发：本机 headless Chrome 在真实网关的长 SSE 结束后不再把 CDP
+      // 键盘事件派发给页面（keydown 计数为 0，document.hasFocus 仍为 true），
+      // 放在真实回答之后会把「事件未送达」误判成「按钮不响应键盘」。
+      // 真实回答路径的引用展开与完整切片仍由 T5/T5b 覆盖。
+      await evaluate(`window.__t.byText('button', '提问问答').click()`)
+      await evaluate(`window.__t.waitFor(() => document.querySelector('#q'))`)
+      await evaluate(`window.__t.installFetchMock()`)
+      await evaluate(`window.__t.setAskMode('cite')`)
+      await evaluate(`window.__t.askQuestion('键盘可操作性验证')`)
+      await evaluate(`window.__t.waitFor(() => !!document.querySelector('.cite')).then(() => true).catch(() => false)`)
+      const citeFocusable = await evaluate(`new Promise((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          const el = document.querySelector('.cite');
+          if (!el) return resolve(false);
+          el.focus();
+          resolve(document.activeElement === el);
+        }));
+      })`)
+      ok('T5c 引用按钮可获得键盘焦点', citeFocusable)
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', text: '\r', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 })
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', text: '\r', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 })
+      const keyboardOpened = await evaluate(
+        `window.__t.waitFor(() => {
+           const el = document.querySelector('.cite');
+           return el && el.getAttribute('aria-pressed') === 'true' && !!document.querySelector('.cite-item.focused');
+         }).then(() => true).catch(() => false)`,
+      )
+      ok('T5c Enter 可展开当前引用', keyboardOpened)
+      // Space 的默认激活发生在 keyup；keyDown 必须带 text 才会产生默认动作。
+      // 只有 Enter 确实展开过，才可能验证 Space 收起，避免两条断言同时空转。
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key: ' ', code: 'Space', text: ' ', windowsVirtualKeyCode: 32, nativeVirtualKeyCode: 32 })
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: ' ', code: 'Space', windowsVirtualKeyCode: 32, nativeVirtualKeyCode: 32 })
+      const keyboardClosed = keyboardOpened && await evaluate(
+        `window.__t.waitFor(() => {
+           const el = document.querySelector('.cite');
+           if (!el || el.getAttribute('aria-pressed') !== 'false') return false;
+           if (document.querySelector('.cite-item.focused')) return false;
+           if (document.activeElement !== el) return false;
+           const style = getComputedStyle(el);
+           return el.matches(':focus-visible') && (style.outlineStyle !== 'none' || style.boxShadow !== 'none');
+         }).then(() => true).catch(() => false)`,
+      )
+      ok('T5d Space 可收起引用且焦点清晰可见', keyboardClosed)
+      await evaluate(`window.__t.setAskMode('normal')`)
+      await evaluate(`window.__t.restoreFetch()`)
+
       // T4 流式问答 + 引用
       await evaluate(`window.__t.byText('button', '提问问答').click()`)
       await evaluate(`window.__t.waitFor(() => document.querySelector('#q'))`)
@@ -364,17 +418,14 @@ async function main() {
         ),
       )
 
-      // T5 点开引用
-      await evaluate(`document.querySelector('.cite').click()`)
-      ok(
-        'T5 点击 [n] 可展开对应材料原文片段',
-        await evaluate(
-          `window.__t.waitFor(() => {
-             const el = document.querySelector('.cite-item');
-             return el && el.innerText.includes('《');
-           }, 5000).then(() => true).catch(() => false)`,
-        ),
+      // 等本轮流结束，确保引用清单与回答都已完整渲染。
+      await evaluate(
+        `window.__t.waitFor(() => document.querySelector('.answer-card')?.getAttribute('aria-busy') === 'false')
+           .then(() => true).catch(() => false)`,
       )
+
+      // T5b 收起状态下来源清单展开全部切片；引用片段必须是完整切片，
+      // 不能是 300 字摘要（尾注位于 300 字之后）。
       ok(
         'T5b 引用片段为完整切片，包含 300 字之后的尾注',
         await evaluate(`window.__t.waitFor(() => {
@@ -384,24 +435,21 @@ async function main() {
          }, 5000).then(() => true).catch(() => false)`),
       )
 
-      // T5c/T5d 原生按钮必须支持真实键盘，不能只响应鼠标 click。
-      await evaluate(`document.querySelector('.cite').focus()`)
-      await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', text: '\r', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 })
-      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 })
-      ok('T5c Enter 可收起当前引用', await evaluate(
-        `window.__t.waitFor(() => document.querySelector('.cite')?.getAttribute('aria-pressed') === 'false')
-           .then(() => true).catch(() => false)`,
-      ))
-      await send('Input.dispatchKeyEvent', { type: 'keyDown', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 })
-      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 })
-      ok('T5d Space 可展开引用且焦点清晰可见', await evaluate(
-        `window.__t.waitFor(() => {
+      // T5 鼠标点击 [n] 聚焦对应来源：回答里的标记与清单条目一一对应。
+      const citeIndex = await evaluate(`(() => {
+        const el = document.querySelector('.cite');
+        return el ? el.textContent.replace(/[^0-9]/g, '') : '';
+      })()`)
+      await evaluate(`document.querySelector('.cite').click()`)
+      ok(
+        'T5 点击 [n] 可聚焦对应材料原文片段',
+        await evaluate(`window.__t.waitFor(() => {
            const el = document.querySelector('.cite');
-           if (!el || el.getAttribute('aria-pressed') !== 'true') return false;
-           const style = getComputedStyle(el);
-           return el.matches(':focus-visible') && (style.outlineStyle !== 'none' || style.boxShadow !== 'none');
-         }).then(() => true).catch(() => false)`,
-      ))
+           const item = document.querySelector('.cite-item.focused');
+           const num = item && item.querySelector('.cite-number');
+           return el && el.getAttribute('aria-pressed') === 'true' && !!num && num.textContent.trim() === ${JSON.stringify(citeIndex)};
+         }, 5000).then(() => true).catch(() => false)`),
+      )
 
       // T6 未命中不编造
       // 先等上一轮流结束：流式期间提交按钮文案为「生成中…」，此时 byText('button','提问')

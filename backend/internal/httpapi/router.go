@@ -143,7 +143,12 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		body["status"] = "degraded"
 	}
 	body["deps"] = detail
-	body["llm"] = map[string]any{"enabled": s.cfg.LLMEnabled()}
+	llmInfo := map[string]any{"enabled": s.cfg.LLMEnabled()}
+	if s.cfg.LLMEnabled() {
+		llmInfo["chat_model"] = s.cfg.ChatModel
+		llmInfo["embed_model"] = s.cfg.EmbedModel
+	}
+	body["llm"] = llmInfo
 	writeJSON(w, status, body)
 }
 
