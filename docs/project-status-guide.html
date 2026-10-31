@@ -56,7 +56,7 @@
   <div class="hero-grid">
     <div class="hero-stat"><small>代码基线</small><strong>main@49b1c3a</strong></div>
     <div class="hero-stat"><small>核心垂直切片</small><strong><span class="dot"></span>已实现</strong></div>
-    <div class="hero-stat"><small>当前工作区总门禁</small><strong><span class="dot"></span>全部通过</strong></div>
+    <div class="hero-stat"><small>当前分支总门禁</small><strong><span class="dot"></span>全部通过</strong></div>
     <div class="hero-stat"><small>生产服务与 e2e</small><strong><span class="dot"></span>200 · 50 / 50</strong></div>
     <div class="hero-stat"><small>流程记录</small><strong><span class="dot warn"></span>评审 / 归档待闭环</strong></div>
   </div>
@@ -66,7 +66,7 @@
 <main id="main">
 <section id="snapshot">
   <div class="section-head"><div class="section-no">01</div><div><h2>先建立一页结论</h2><p>项目状态不是“好 / 不好”一个标签，而是代码、验证、运行和流程四个维度。</p></div></div>
-  <div class="verdict">CampusClaw 当前已经实现一条<strong>可运行的核心垂直切片</strong>：登录与班级隔离、教师上传材料、索引、材料全文阅读、学生检索问答、SSE 流式输出、引用回看与无依据拒答。它还不是 README 描绘的全部“教学闭环”成品。2026-11-01 当前工作区实测中，完整质量门禁（含 OpenSpec 与 Go 接口 e2e）全部通过；新前端已构建进生产容器，<code>/health</code> 返回 200，MySQL 与 Qdrant 正常，Go 接口 e2e 为 72 / 72、浏览器 e2e 为 50 / 50。Windows 换行导致的 gofmt 红项已通过仓库级 LF 属性稳定修复；但这些改进仍在未提交工作区，且评审、提交和归档尚未闭环。</div>
+  <div class="verdict">CampusClaw 当前已经实现一条<strong>可运行的核心垂直切片</strong>：登录与班级隔离、教师上传材料、索引、材料全文阅读、学生检索问答、SSE 流式输出、引用回看与无依据拒答。它还不是 README 描绘的全部“教学闭环”成品。2026-11-01 当前分支实测中，完整质量门禁（含 OpenSpec 与 Go 接口 e2e）全部通过；新前端已构建进生产容器，<code>/health</code> 返回 200，MySQL 与 Qdrant 正常，Go 接口 e2e 为 72 / 72、浏览器 e2e 为 50 / 50。Windows 换行导致的 gofmt 红项已通过仓库级 LF 属性稳定修复；这些改进已提交到 <code>feat/workspace-material-reader</code> 分支与 PR #3，但尚未评审、合并和归档。</div>
   <div class="grid-2">
     <div class="card"><h3>你真正要掌握的五个问题</h3><ol><li><b>产品：</b>为谁解决什么问题？</li><li><b>范围：</b>当前代码实际做到了哪一步？</li><li><b>健康：</b>当前这次检查是否真的通过？</li><li><b>流程：</b>哪些变更已合并，哪些证据未闭环？</li><li><b>决策：</b>下一步由哪个风险或 Requirement 驱动？</li></ol></div>
     <div class="card"><h3>不要踩的四个认知陷阱</h3><ul><li>README 写到，不等于已经实现。</li><li>历史上全绿，不等于当前仍全绿。</li><li><code>/health</code> 返回 200，不等于业务 e2e 全通过。</li><li>PR 已合并，不等于 DoD、评审记录和归档都完成。</li></ul></div>
@@ -114,15 +114,15 @@
   <div class="callout green"><b>推荐状态词：</b><span class="badge ok">当前实测通过</span> <span class="badge info">历史通过</span> <span class="badge warn">待复验</span> <span class="badge bad">当前失败</span> <span class="badge neutral">未实现 / 非目标</span>。避免一律写“已完成”。</div>
   <h3>2026-11-01 状态板</h3>
   <div class="card">
-    <div class="status-row"><b>Git 基线与工作区</b><p><code>main@49b1c3a</code>，与 <code>origin/main</code> 同步。当前另有未提交的前端重设计、Go 换行治理、材料阅读三个独立 change、浏览器断言与文档；不能把工作区实测直接称为 main 基线结果。</p><span class="badge info">当前核对</span></div>
+    <div class="status-row"><b>Git 基线与工作区</b><p><code>main@49b1c3a</code> 是代码基线。当前分支 <code>feat/workspace-material-reader</code>（PR #3）包含前端重设计、Go 换行治理、材料阅读三个独立 change、浏览器断言与文档，尚未合并；不能把分支实测直接称为 main 基线结果。</p><span class="badge info">当前核对</span></div>
     <div class="status-row"><b>完整质量门禁</b><p>配置样例、分层、密钥、gofmt、build、vet、test、OpenSpec 严格校验与 Go 接口 e2e 均通过，最终输出「质量门禁全部通过。」，退出码 0。材料详情接口的非法 id、未认证与跨班路径均有单元或 e2e 断言。</p><span class="badge ok">当前全绿</span></div>
     <div class="status-row"><b>换行红项已稳定修复</b><p>根因是 <code>core.autocrlf=true</code> 将索引中的 LF Go 文件检出为 CRLF。根 <code>.gitattributes</code> 现固定 <code>*.go text eol=lf</code>；强制 CRLF 偏好的隔离重检出仍为纯 LF，后端没有业务逻辑 diff。</p><span class="badge ok">根因已治理</span></div>
     <div class="status-row"><b>OpenSpec</b><p><code>validate --all --strict</code> 当前通过。前端重设计、换行治理与材料阅读各有独立 change 和实测记录；它证明规约结构与校验通过，不替代运行时业务验证。</p><span class="badge ok">当前通过</span></div>
     <div class="status-row"><b>生产服务与两套 e2e</b><p>2026-11-01 本轮实测：新前端与材料详情接口已构建进 8080 生产容器，<code>/health</code> 为 200，MySQL / Qdrant 均为 <code>ok</code>；Go 接口 e2e 为 72 通过、0 失败，浏览器 e2e 为 50 通过、0 失败。当前为零密钥抽取式模式，外部模型与向量路不在本轮验证范围。</p><span class="badge ok">当前实测通过</span></div>
-    <div class="status-row"><b>本轮界面与交互</b><p>完成响应式应用外壳、登录、提问、引用与材料工作台重设计；材料列表可打开全文阅读抽屉，覆盖加载、错误重试、空正文与正常四态。新增 Enter / Space 引用操作、Esc 关闭与焦点回归、可见焦点、减少动态效果和学生上传控件隐藏断言。既有业务 selector、固定文案与原有回归全部保留，浏览器 e2e 增至 50 项。</p><span class="badge info">工作区已实测</span></div>
-    <div class="status-row"><b>流程闭环</b><p>本轮三个 change 尚未评审、提交或归档；此前第七课 <code>peer-review.md</code> 也仍标为未签署。先核对团队实际评审，再补真实记录，不能代签。</p><span class="badge warn">记录待闭环</span></div>
+    <div class="status-row"><b>本轮界面与交互</b><p>完成响应式应用外壳、登录、提问、引用与材料工作台重设计；材料列表可打开全文阅读抽屉，覆盖加载、错误重试、空正文与正常四态。新增 Enter / Space 引用操作、Esc 关闭与焦点回归、可见焦点、减少动态效果和学生上传控件隐藏断言。既有业务 selector、固定文案与原有回归全部保留，浏览器 e2e 增至 50 项。</p><span class="badge info">分支已实测</span></div>
+    <div class="status-row"><b>流程闭环</b><p>本轮三个 change 已提交到 PR #3，但尚未评审、合并或归档；此前第七课 <code>peer-review.md</code> 也仍标为未签署。先核对团队实际评审，再补真实记录，不能代签。</p><span class="badge warn">记录待闭环</span></div>
   </div>
-  <div class="callout blue"><b>当前不能说：</b>“外部模型路径已验证、本轮改动已进入 main、DoD 全部完成。”<br><b>当前可以说：</b>“当前工作区完整质量门禁全绿，生产 8080 已部署新界面与材料全文阅读，Go 接口 e2e 72 / 72、浏览器 e2e 50 / 50 通过；评审、提交与归档仍待真实闭环。”</div>
+  <div class="callout blue"><b>当前不能说：</b>“外部模型路径已验证、本轮改动已进入 main、DoD 全部完成。”<br><b>当前可以说：</b>“当前分支完整质量门禁全绿，生产 8080 已部署新界面与材料全文阅读，Go 接口 e2e 72 / 72、浏览器 e2e 50 / 50 通过；PR #3 等待评审合并，归档仍待闭环。”</div>
 </section>
 <section id="routine">
   <div class="section-head"><div class="section-no">05</div><div><h2>一条固定巡检路线</h2><p>每次汇报、继续开发或接手项目前按同一顺序走。前 1–3 步不需要 Docker；第 4–5 步等服务启动后做。</p></div></div>
@@ -165,7 +165,7 @@ GO_BIN=/d/tools/go/bin/go.exe node scripts/quality-gate.mjs --with-e2e</code></p
 <section id="next">
   <div class="section-head"><div class="section-no">07</div><div><h2>把状态转成下一步决策</h2><p>优先处理会阻断交付或破坏信任的问题，再谈新功能。</p></div></div>
   <div class="card">
-    <div class="priority"><div class="p">P1</div><div><b>评审并合入本轮三个独立 change</b><p>前端重设计、Go 换行治理与材料阅读均已有当前实测，但仍在工作区。按真实评审、提交、合并与归档流程闭环，不把本地全绿冒充 main 状态。</p></div></div>
+    <div class="priority"><div class="p">P1</div><div><b>评审并合入 PR #3 的三个独立 change</b><p>前端重设计、Go 换行治理与材料阅读均已有当前实测，并已提交到 <code>feat/workspace-material-reader</code>。按真实评审、合并与归档流程闭环，不把分支全绿冒充 main 状态。</p></div></div>
     <div class="priority"><div class="p">P1</div><div><b>按需复验外部模型与向量路径</b><p>本轮 <code>llm.enabled=false</code>，已证明零密钥抽取式降级链路；若产品要启用模型生成与向量检索，需另配声明的兼容网关并做独立验收。</p></div></div>
     <div class="priority"><div class="p">P1</div><div><b>核对并补齐真实流程记录</b><p>检查此前 PR 审批事实、tasks、peer-review 与 change 归档之间的关系；按真实事实闭环，不代签、不补造过程。</p></div></div>
     <div class="priority"><div class="p">P2</div><div><b>再选择下一个产品或架构 change</b><p>从历史、规模、限流、异步索引或 README 后续模块中选题。先回答价值三问、失败路径与非目标，再写实现任务。</p></div></div>
@@ -174,7 +174,7 @@ GO_BIN=/d/tools/go/bin/go.exe node scripts/quality-gate.mjs --with-e2e</code></p
 </section>
 <section id="talk">
   <div class="section-head"><div class="section-no">08</div><div><h2>随时能做 60 秒项目汇报</h2><p>下面这段对应当前快照。处理红项或运行状态变化后，要更新相应句子，不能长期照读。</p></div></div>
-  <div class="speech"><p>目前 CampusClaw 已实现本班材料问答的核心垂直切片，包括教师上传、索引、材料全文阅读、学生流式提问、引用回看、无依据拒答和班级隔离；README 中的疑问收集、个人复习与反馈看板仍属于后续目标。当前 main 在 <em>49b1c3a</em>，本轮前端重设计、Go 换行治理与材料阅读仍在未提交工作区。今天实测完整质量门禁全部通过，新界面与全文阅读已进入生产容器，<em>/health 返回 200，Go 接口 e2e 为 72 / 72，浏览器 e2e 为 50 / 50</em>；当前验证的是零密钥抽取式降级链路。gofmt 的 CRLF 根因已通过仓库级 LF 属性修复，下一步是完成真实评审、提交与 change 归档，再按需验收外部模型路径。</p></div>
+  <div class="speech"><p>目前 CampusClaw 已实现本班材料问答的核心垂直切片，包括教师上传、索引、材料全文阅读、学生流式提问、引用回看、无依据拒答和班级隔离；README 中的疑问收集、个人复习与反馈看板仍属于后续目标。当前 main 在 <em>49b1c3a</em>，本轮前端重设计、Go 换行治理与材料阅读已提交到 PR #3，等待评审合并。今天实测完整质量门禁全部通过，新界面与全文阅读已进入生产容器，<em>/health 返回 200，Go 接口 e2e 为 72 / 72，浏览器 e2e 为 50 / 50</em>；当前验证的是零密钥抽取式降级链路。gofmt 的 CRLF 根因已通过仓库级 LF 属性修复，下一步是完成真实评审、合并与 change 归档，再按需验收外部模型路径。</p></div>
   <div class="grid-2">
     <div class="card"><h3>汇报时的顺序</h3><ol><li>一句话产品价值。</li><li>当前真实范围，而非最终愿景。</li><li>当前证据：代码、门禁、运行、e2e。</li><li>明确红项与未验证项。</li><li>按风险排序的下一步。</li></ol></div>
     <div class="card"><h3>你不需要记住的内容</h3><p>不必背所有包名、全部测试数或每条规则。需要记住的是：<b>去哪里查、怎样运行、结果能证明什么。</b></p><p>只要坚持“当前实测优先、历史记录标日期、未验证就明说”，你对项目的判断就会比堆砌功能名称更准确。</p></div>
