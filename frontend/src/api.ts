@@ -21,6 +21,11 @@ export interface Material {
   created_at: string
 }
 
+/** 单篇材料详情：正文只在阅读时按 id 获取，不进入列表响应。 */
+export interface MaterialDetail extends Material {
+  content: string
+}
+
 export interface Citation {
   index: number
   material_id: number
@@ -167,8 +172,17 @@ export async function listMaterials(): Promise<Material[]> {
   return data.materials ?? []
 }
 
-export async function uploadText(title: string, content: string): Promise<Material> {
-  const resp = await request('/api/materials', {
+/** 读取本班单篇材料；跨班或不存在时后端统一返回 404。 */
+export async function getMaterial(id: number): Promise<MaterialDetail> {
+  const resp = await request(`/api/materials/${id}`)
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => null)
+    throw new Error(body?.error?.message ?? '读取材料失败')
+  }
+  return (await resp.json()) as MaterialDetail
+}
+
+export async function uploadText(title: string, content: string): Promise<Material> {  const resp = await request('/api/materials', {
     method: 'POST',
     body: JSON.stringify({ title, content }),
   })

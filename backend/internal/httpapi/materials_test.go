@@ -38,6 +38,29 @@ func multipartMaterial(t *testing.T, filename string, data []byte) (*bytes.Buffe
 	return buf, w.FormDataContentType()
 }
 
+// TestGetMaterialRejectsInvalidID 对应 MR1.3：非法 id 在触达存储前返回 400。
+// 这里是纯参数校验用例，Server 不需要 store。
+func TestGetMaterialRejectsInvalidID(t *testing.T) {
+	for _, raw := range []string{"abc", "0", "-3"} {
+		t.Run(raw, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/api/materials/"+raw, nil)
+			req.SetPathValue("id", raw)
+			req = req.WithContext(context.WithValue(req.Context(), claimsKey,
+				auth.Claims{UserID: 1, ClassID: 2, Role: "student", Name: "学生"}))
+			s := &Server{}
+			rr := httptest.NewRecorder()
+			s.handleGetMaterial(rr, req)
+
+			if rr.Code != http.StatusBadRequest {
+				t.Fatalf("非法 id %q 期望 400，得到 %d：%s", raw, rr.Code, rr.Body.String())
+			}
+			if code := errorCode(t, rr); code != "bad_request" {
+				t.Fatalf("错误码不符：%q", code)
+			}
+		})
+	}
+}
+
 // TestCreateMaterialRejectsLongTitle 对应 R3.4：标题按 rune 计数，超过 255 拒绝且不落库。
 // 这些用例都在落库前返回，因此 Server 不需要 store。
 func TestCreateMaterialRejectsLongTitle(t *testing.T) {

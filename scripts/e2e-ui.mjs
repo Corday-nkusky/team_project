@@ -64,15 +64,49 @@ window.__t = {
     window.__t.setVal(document.querySelector('#q'), q);
     window.__t.byText('button', '提问').click();
   },
+  openReader: (text) => {
+    const all = [...document.querySelectorAll('.mat-title-button')];
+    const btn = all.find(b => b.textContent.trim() === text)
+             || all.find(b => b.textContent.includes(text));
+    if (!btn) return false;
+    btn.click();
+    return true;
+  },
   installFetchMock: () => {
     if (window.__origFetch) return true;
     window.__origFetch = window.fetch.bind(window);
     window.__matMode = 'normal';
     window.__askMode = 'normal';
+    window.__detailMode = 'normal';
     window.__matResolve = null;
+    window.__detailResolve = null;
     window.fetch = (input, init) => {
       const url = typeof input === 'string' ? input : input.url;
       const method = ((init && init.method) || 'GET').toUpperCase();
+      const isDetail = typeof url === 'string' && url.includes('/api/materials/') && !url.includes('/reindex');
+      const detailId = isDetail ? Number(url.split('/').pop()) : null;
+      if (isDetail && method === 'GET' && window.__detailMode !== 'normal') {
+        if (window.__detailMode === 'delay') {
+          return new Promise((resolve, reject) => {
+            window.__detailResolve = () => window.__origFetch(input, init).then(resolve, reject);
+          });
+        }
+        if (window.__detailMode === 'fail') {
+          return Promise.resolve(new Response(
+            JSON.stringify({ error: { code: 'internal', message: '模拟读取失败' } }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } },
+          ));
+        }
+        if (window.__detailMode === 'empty') {
+          return Promise.resolve(new Response(
+            JSON.stringify({
+              id: detailId, title: '空正文材料', content: '', index_status: 'ready',
+              owner_id: 1, created_at: new Date().toISOString(),
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ));
+        }
+      }
       if (typeof url === 'string' && url.includes('/api/materials') && method === 'GET') {
         if (window.__matMode === 'delay') {
           return new Promise((resolve, reject) => {
@@ -127,10 +161,18 @@ window.__t = {
   },
   setMatMode: (m) => { window.__matMode = m },
   setAskMode: (m) => { window.__askMode = m },
+  setDetailMode: (m) => { window.__detailMode = m },
   resolveMat: () => {
     if (!window.__matResolve) return false;
     const f = window.__matResolve;
     window.__matResolve = null;
+    f();
+    return true;
+  },
+  resolveDetail: () => {
+    if (!window.__detailResolve) return false;
+    const f = window.__detailResolve;
+    window.__detailResolve = null;
     f();
     return true;
   },
@@ -139,6 +181,8 @@ window.__t = {
     window.__origFetch = null;
     window.__matMode = 'normal';
     window.__askMode = 'normal';
+    window.__detailMode = 'normal';
+    window.__detailResolve = null;
   },
 };
 true;
@@ -238,6 +282,65 @@ async function main() {
       })()`))
       await evaluate(`window.__t.setVal(document.querySelector('#t'), '')`)
 
+      // T3c–T3g 材料阅读：从列表打开全文，Esc 关闭并归还焦点。
+      const readerOpened = await evaluate(`(() => {
+        const buttons = [...document.querySelectorAll('.mat-title-button')];
+        const btn = buttons.find(b => b.textContent.trim() === ${JSON.stringify(unique)})
+                 || buttons.find(b => b.textContent.includes(${JSON.stringify(unique)}));
+        if (!btn) return false;
+        btn.click();
+        return window.__t.waitFor(() => {
+          const panel = document.querySelector('[role="dialog"]');
+          const content = document.querySelector('.material-content');
+          return panel && content && content.innerText.includes(${JSON.stringify(marker)});
+        }).then(() => true).catch(() => false);
+      })()`)
+      ok('T3c 教师可从材料列表打开并读到完整正文', readerOpened)
+      const readerMeta = await evaluate(`(() => {
+        const content = document.querySelector('.material-content');
+        if (!content) return null;
+        return {
+          length: content.innerText.length,
+          whiteSpace: getComputedStyle(content).whiteSpace,
+          hasHeader: !!document.querySelector('[role="dialog"] .reader-meta .status'),
+        };
+      })()`)
+      ok(
+        'T3d 阅读面板展示超过 300 字的完整原文且按纯文本保留换行',
+        readerMeta && readerMeta.length > 300 && readerMeta.whiteSpace === 'pre-wrap' && readerMeta.hasHeader,
+        JSON.stringify(readerMeta),
+      )
+      await send('Input.dispatchKeyEvent', {
+        type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27, nativeVirtualKeyCode: 27,
+      })
+      await send('Input.dispatchKeyEvent', {
+        type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27, nativeVirtualKeyCode: 27,
+      })
+      ok('T3e Esc 关闭阅读面板且焦点回到标题按钮', await evaluate(
+        `window.__t.waitFor(() => !document.querySelector('[role="dialog"]') && document.activeElement?.classList.contains('mat-title-button'))
+           .then(() => true).catch(() => false)`,
+      ))
+
+      // T3f/T3g 键盘激活标题按钮打开，焦点落在关闭按钮。
+      await evaluate(`(() => {
+        const buttons = [...document.querySelectorAll('.mat-title-button')];
+        const btn = buttons.find(b => b.textContent.trim() === ${JSON.stringify(unique)})
+                 || buttons.find(b => b.textContent.includes(${JSON.stringify(unique)}));
+        if (!btn) return false;
+        btn.focus();
+        return true;
+      })()`)
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', text: '\r', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 })
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', text: '\r', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 })
+      ok('T3f 键盘 Enter 可打开阅读面板', await evaluate(
+        `window.__t.waitFor(() => !!document.querySelector('[role="dialog"] .material-content')).then(() => true).catch(() => false)`,
+      ))
+      ok('T3g 打开后焦点落在关闭按钮', await evaluate(
+        `window.__t.waitFor(() => document.activeElement?.classList.contains('reader-close')).then(() => true).catch(() => false)`,
+      ))
+      await evaluate(`document.querySelector('.reader-close').click()`)
+      await evaluate(`window.__t.waitFor(() => !document.querySelector('[role="dialog"]')).then(() => true).catch(() => false)`)
+
       // T4 流式问答 + 引用
       await evaluate(`window.__t.byText('button', '提问问答').click()`)
       await evaluate(`window.__t.waitFor(() => document.querySelector('#q'))`)
@@ -280,6 +383,25 @@ async function main() {
            return el && el.innerText.includes(${JSON.stringify(marker)});
          }, 5000).then(() => true).catch(() => false)`),
       )
+
+      // T5c/T5d 原生按钮必须支持真实键盘，不能只响应鼠标 click。
+      await evaluate(`document.querySelector('.cite').focus()`)
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', text: '\r', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 })
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 })
+      ok('T5c Enter 可收起当前引用', await evaluate(
+        `window.__t.waitFor(() => document.querySelector('.cite')?.getAttribute('aria-pressed') === 'false')
+           .then(() => true).catch(() => false)`,
+      ))
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 })
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 })
+      ok('T5d Space 可展开引用且焦点清晰可见', await evaluate(
+        `window.__t.waitFor(() => {
+           const el = document.querySelector('.cite');
+           if (!el || el.getAttribute('aria-pressed') !== 'true') return false;
+           const style = getComputedStyle(el);
+           return el.matches(':focus-visible') && (style.outlineStyle !== 'none' || style.boxShadow !== 'none');
+         }).then(() => true).catch(() => false)`,
+      ))
 
       // T6 未命中不编造
       // 先等上一轮流结束：流式期间提交按钮文案为「生成中…」，此时 byText('button','提问')
@@ -434,6 +556,27 @@ async function main() {
       await send('Emulation.clearDeviceMetricsOverride')
       await sleep(200)
 
+      // T13 系统减少动态效果偏好必须同时命中媒体查询与实际样式。
+      await send('Emulation.setEmulatedMedia', {
+        features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
+      })
+      const reducedMotion = await evaluate(`(() => {
+        const el = document.querySelector('button');
+        if (!el) return null;
+        const style = getComputedStyle(el);
+        return {
+          matches: matchMedia('(prefers-reduced-motion: reduce)').matches,
+          transitionMs: parseFloat(style.transitionDuration) * 1000,
+          animationMs: parseFloat(style.animationDuration) * 1000,
+        };
+      })()`)
+      ok(
+        'T13 减少动态效果偏好禁用过渡与循环动画',
+        reducedMotion && reducedMotion.matches && reducedMotion.transitionMs <= 0.01 && reducedMotion.animationMs <= 0.01,
+        JSON.stringify(reducedMotion),
+      )
+      await send('Emulation.setEmulatedMedia', { features: [] })
+
       // T7 access 失效后静默续期
       await evaluate(`window.__t.byText('button', '提问问答').click()`)
       ok('T7 本地存在 access / refresh 双令牌', await evaluate(`!!localStorage.getItem('cc_access') && !!localStorage.getItem('cc_refresh')`))
@@ -451,6 +594,124 @@ async function main() {
         `window.__t.waitFor(() => document.querySelector('#u')).then(() => true).catch(() => false)`,
       )
       ok('T8 登出后回到登录页并清空本地会话', loggedOut && (await evaluate(`!localStorage.getItem('cc_refresh')`)))
+
+      // T14 学生只能查看本班材料，不渲染教师上传控件。
+      await evaluate(`(() => {
+        window.__t.setVal(document.querySelector('#u'), 'student1');
+        window.__t.setVal(document.querySelector('#p'), 'student123');
+        window.__t.byText('button', '登录').click();
+      })()`)
+      await evaluate(`window.__t.waitFor(() => document.body.innerText.includes('退出登录'))`)
+      await evaluate(`window.__t.byText('button', '教学材料').click()`)
+      await evaluate(`window.__t.waitFor(() => document.body.innerText.includes('班级材料，有序沉淀'))`)
+      ok('T14 学生材料视图不显示上传控件', await evaluate(`(() => {
+        const uploadButton = window.__t.byText('button', '上传文本');
+        return !document.querySelector('#t') && !document.querySelector('#c') &&
+          !document.querySelector('#f') && !uploadButton;
+      })()`))
+
+      // T14b–T14d 学生只读阅读本班材料，关闭后焦点回归。
+      const studentRead = await evaluate(`(() => {
+        const buttons = [...document.querySelectorAll('.mat-title-button')];
+        const btn = buttons.find(b => b.textContent.trim() === ${JSON.stringify(unique)})
+                 || buttons.find(b => b.textContent.includes(${JSON.stringify(unique)}));
+        if (!btn) return false;
+        btn.click();
+        return window.__t.waitFor(() => {
+          const content = document.querySelector('.material-content');
+          return content && content.innerText.includes(${JSON.stringify(marker)});
+        }).then(() => true).catch(() => false);
+      })()`)
+      ok('T14b 学生可打开本班材料并读到完整正文', studentRead)
+      ok('T14c 学生阅读面板不含上传与重索引写操作', await evaluate(`(() => {
+        const panel = document.querySelector('[role="dialog"]');
+        return !!panel && !panel.querySelector('textarea') && !panel.querySelector('input') &&
+          !window.__t.byText('button', '上传文本') && !window.__t.byText('button', '重试索引');
+      })()`))
+      await evaluate(`document.querySelector('.reader-close').click()`)
+      ok('T14d 关闭后焦点回到学生点击的标题按钮', await evaluate(
+        `window.__t.waitFor(() => !document.querySelector('[role="dialog"]') && document.activeElement?.classList.contains('mat-title-button'))
+           .then(() => true).catch(() => false)`,
+      ))
+
+      // T15 阅读面板加载 / 错误重试 / 空正文 / 窄屏（mock 详情请求）
+      await evaluate(`window.__t.installFetchMock()`)
+      await evaluate(`window.__t.setDetailMode('delay')`)
+      ok('T15a 请求中显示「正在读取材料原文…」且不提前显示空态', await evaluate(`(() => {
+        if (!window.__t.openReader(${JSON.stringify(uploadName)})) return false;
+        return window.__t.waitFor(() => {
+          const dialog = document.querySelector('[role="dialog"]');
+          const loading = document.querySelector('.reader-loading');
+          return dialog && loading && loading.innerText.includes('正在读取材料原文') &&
+            !document.body.innerText.includes('材料正文为空') &&
+            !document.querySelector('.reader-error') && document.body.style.overflow === 'hidden';
+        }).then(() => true).catch(() => false);
+      })()`))
+      await evaluate(`window.__t.resolveDetail()`)
+      ok('T15b 详情返回后显示正文', await evaluate(
+        `window.__t.waitFor(() => (document.querySelector('.material-content')?.innerText || '').includes(${JSON.stringify(unique + 'F')})).then(() => true).catch(() => false)`,
+      ))
+      await evaluate(`document.querySelector('.reader-close').click()`)
+      await evaluate(`window.__t.waitFor(() => !document.querySelector('[role="dialog"]')).catch(() => false)`)
+
+      await evaluate(`window.__t.setDetailMode('fail')`)
+      ok('T15c 读取失败显示可读错误与「重试读取」', await evaluate(`(() => {
+        if (!window.__t.openReader(${JSON.stringify(uploadName)})) return false;
+        return window.__t.waitFor(() => {
+          const err = document.querySelector('.reader-error');
+          return err && err.innerText.includes('暂时无法读取这篇材料') && err.innerText.includes('模拟读取失败') &&
+            !!window.__t.byText('button', '重试读取');
+        }).then(() => true).catch(() => false);
+      })()`))
+      await evaluate(`window.__t.setDetailMode('normal')`)
+      await evaluate(`window.__t.byText('button', '重试读取').click()`)
+      ok('T15d 点击「重试读取」后恢复正文', await evaluate(
+        `window.__t.waitFor(() => (document.querySelector('.material-content')?.innerText || '').includes(${JSON.stringify(unique + 'F')})).then(() => true).catch(() => false)`,
+      ))
+      await evaluate(`document.querySelector('.reader-close').click()`)
+      await evaluate(`window.__t.waitFor(() => !document.querySelector('[role="dialog"]')).catch(() => false)`)
+
+      await evaluate(`window.__t.setDetailMode('empty')`)
+      ok('T15e 空正文显示「材料正文为空」且不渲染正文块', await evaluate(`(() => {
+        if (!window.__t.openReader(${JSON.stringify(uploadName)})) return false;
+        return window.__t.waitFor(() => document.querySelector('.reader-empty')?.innerText.includes('材料正文为空'))
+          .then(() => !document.querySelector('.material-content')).catch(() => false);
+      })()`))
+      await evaluate(`document.querySelector('.reader-close').click()`)
+      await evaluate(`window.__t.waitFor(() => !document.querySelector('[role="dialog"]')).catch(() => false)`)
+      await evaluate(`window.__t.setDetailMode('normal')`)
+
+      await evaluate(`window.__t.openReader(${JSON.stringify(unique)})`)
+      await evaluate(`window.__t.waitFor(() => !!document.querySelector('[role="dialog"] .material-content')).catch(() => false)`)
+      await send('Emulation.setDeviceMetricsOverride', { width: 524, height: 900, deviceScaleFactor: 1, mobile: false })
+      await sleep(300)
+      const readerLayout = await evaluate(`(() => {
+        const panel = document.querySelector('.reader-panel');
+        const body = document.querySelector('.reader-body');
+        const content = document.querySelector('.material-content');
+        if (!panel || !body || !content) return null;
+        const r = panel.getBoundingClientRect();
+        return {
+          overflow: document.documentElement.scrollWidth - window.innerWidth,
+          left: Math.round(r.left),
+          right: Math.round(r.right),
+          width: Math.round(r.width),
+          overflowY: getComputedStyle(body).overflowY,
+          contentOverflow: content.scrollWidth - content.clientWidth,
+        };
+      })()`)
+      console.log(`  · 阅读面板 524px 实测: ${JSON.stringify(readerLayout)}`)
+      ok(
+        'T15f 524px 阅读长正文无页面级横向溢出且内容区可滚动',
+        readerLayout && readerLayout.overflow <= 1 && readerLayout.left >= -1 && readerLayout.right <= 525 &&
+          readerLayout.overflowY === 'auto' && readerLayout.contentOverflow <= 1,
+        JSON.stringify(readerLayout),
+      )
+      await send('Emulation.clearDeviceMetricsOverride')
+      await sleep(200)
+      await evaluate(`document.querySelector('.reader-close').click()`)
+      await evaluate(`window.__t.waitFor(() => !document.querySelector('[role="dialog"]')).catch(() => false)`)
+      await evaluate(`window.__t.restoreFetch()`)
 
       console.log(`\n== 合计: ${passed} 通过, ${failed} 失败 ==`)
     } finally {

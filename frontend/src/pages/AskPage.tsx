@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { streamAsk, type Citation } from '../api'
+import Icon from '../components/Icon'
 
 type Phase = 'idle' | 'streaming' | 'done' | 'error' | 'stopped'
+
+const SUGGESTIONS = [
+  '这份讲义的核心概念是什么？',
+  '帮我梳理材料中的重点',
+  '哪些内容需要特别注意？',
+]
 
 export default function AskPage() {
   const [question, setQuestion] = useState('')
@@ -55,6 +62,10 @@ export default function AskPage() {
     setPhase('stopped')
   }
 
+  const toggleCitation = (index: number) => {
+    setOpenCite((current) => current === index ? null : index)
+  }
+
   /** 把回答里的 [n] 渲染成可点击的引用标记（R7.1）。 */
   const renderAnswer = (text: string) => {
     const parts = text.split(/(\[\d+\])/g)
@@ -65,93 +76,129 @@ export default function AskPage() {
       const cite = citations.find((c) => c.index === idx)
       if (!cite) return <span key={i}>{p}</span>
       return (
-        <span key={i} className="cite" onClick={() => setOpenCite(openCite === idx ? null : idx)}>
+        <button
+          type="button"
+          key={i}
+          className="cite"
+          onClick={() => toggleCitation(idx)}
+          aria-label={`查看引用 ${idx}`}
+          aria-pressed={openCite === idx}
+        >
           [{idx}]
-        </span>
+        </button>
       )
     })
   }
 
-  const opened = citations.find((c) => c.index === openCite)
-
   // 流结束但不算「正常完成」时，明确标出状态，避免半截回答看起来像完整回答（B13）。
   const stateLabel = () => {
-    if (phase === 'streaming') return <span className="hint">（流式生成中…）</span>
+    if (phase === 'streaming') return <span className="stream-state" role="status"><span className="live-dot" />流式生成中…</span>
     if (phase === 'stopped') return <span className="state-tag stopped">已停止生成，以上为不完整内容</span>
     if (phase === 'error') return <span className="state-tag failed">生成中断，以上为不完整内容</span>
     if (degraded) return <span className="state-tag degraded">模型暂不可用，已改用材料原文作答</span>
     if (phase === 'done' && noEvidence) return <span className="state-tag degraded">材料中无依据，未生成回答</span>
+    if (phase === 'done') return <span className="state-tag complete"><Icon name="check" size={14} />回答完成</span>
     return null
   }
 
   return (
-    <>
-      <div className="card">
-        <h2>向本班材料提问</h2>
-        <p className="hint">
-          回答只依据你所在班级的材料；材料里没有依据时会明确告知，不会编造。
-        </p>
-        <label htmlFor="q">问题</label>
+    <div className="ask-layout">
+      <section className="composer-card">
+        <div className="composer-heading">
+          <span className="section-icon"><Icon name="spark" size={22} /></span>
+          <div>
+            <h2>向本班材料提问</h2>
+            <p>问题越具体，越容易定位到对应讲义。</p>
+          </div>
+          <span className="evidence-pill"><Icon name="shield" size={15} />仅依据本班资料</span>
+        </div>
+
+        <label htmlFor="q" className="composer-label">你的问题</label>
         <textarea
           id="q"
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           placeholder="例如：这份讲义里提到的核心概念是什么？"
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) ask()
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault()
+              ask()
+            }
           }}
         />
-        <button className="primary" onClick={ask} disabled={streaming || !question.trim()}>
-          {streaming ? '生成中…' : '提问'}
-        </button>
-        {streaming && (
-          <button className="ghost" style={{ marginLeft: 8 }} onClick={stop}>
-            停止
-          </button>
+
+        <div className="composer-footer">
+          <span className="keyboard-hint"><kbd>Ctrl</kbd> / <kbd>⌘</kbd> + <kbd>Enter</kbd> 发送</span>
+          <div className="composer-actions">
+            {streaming && (
+              <button className="ghost stop-button" onClick={stop}>
+                <Icon name="stop" size={15} />停止
+              </button>
+            )}
+            <button className="primary ask-button" onClick={ask} disabled={streaming || !question.trim()}>
+              {streaming ? <span className="spinner" /> : <Icon name="send" size={17} />}
+              {streaming ? '生成中…' : '提问'}
+            </button>
+          </div>
+        </div>
+
+        {phase === 'idle' && !question && (
+          <div className="suggestions">
+            <span>可以这样问</span>
+            <div>{SUGGESTIONS.map((item) => <button key={item} onClick={() => setQuestion(item)}>{item}</button>)}</div>
+          </div>
         )}
-        {error && <div className="error">{error}</div>}
-      </div>
+        {error && <div className="error composer-error" role="alert"><Icon name="alert" size={17} />{error}</div>}
+      </section>
 
-      {(answer || noEvidence) && (
-        <div className="card">
-          <h2>
-            回答 {stateLabel()}
-          </h2>
-          <div className="answer">{renderAnswer(answer)}</div>
+      {(streaming || answer || noEvidence) && (
+        <section className="answer-card" aria-busy={streaming}>
+          <div className="answer-header">
+            <div className="answer-title">
+              <span className="section-icon answer-icon"><Icon name="quote" size={21} /></span>
+              <div><span className="eyebrow">ANSWER</span><h2>回答</h2></div>
+            </div>
+            <div className="answer-state">{stateLabel()}</div>
+          </div>
 
-          {opened && (
-            <div className="list">
-              <div className="cite-item">
-                <strong>
-                  引用 [{opened.index}] · 《{opened.material_title}》
-                </strong>
-                {opened.snippet}
+          {streaming && !answer && (
+            <div className="answer-waiting" role="status">
+              <span /><span /><span />
+              <p>正在检索本班材料并组织回答…</p>
+            </div>
+          )}
+          {answer && <div className="answer">{renderAnswer(answer)}</div>}
+
+          {citations.length > 0 && (
+            <div className="citations-panel">
+              <div className="citations-heading">
+                <h3>引用来源 <span>{citations.length}</span></h3>
+                <p>{openCite === null ? '选择一条引用，聚焦核对完整原文切片。' : '再次选择当前引用，可返回全部来源。'}</p>
+              </div>
+              <div className="list">
+                {citations.map((c) => {
+                  const focused = openCite === c.index
+                  return (
+                    <article key={c.chunk_id} className={`cite-item ${focused ? 'focused' : ''}`}>
+                      <button
+                        type="button"
+                        className="cite-source-button"
+                        onClick={() => toggleCitation(c.index)}
+                        aria-expanded={focused}
+                      >
+                        <span className="cite-number">{c.index}</span>
+                        <strong>《{c.material_title}》</strong>
+                        <Icon name="chevron" size={17} />
+                      </button>
+                      {(openCite === null || focused) && <div className="cite-snippet">{c.snippet}</div>}
+                    </article>
+                  )
+                })}
               </div>
             </div>
           )}
-
-          {citations.length > 0 && (
-            <>
-              <h2 style={{ marginTop: 20 }}>引用来源（{citations.length}）</h2>
-              <div className="list">
-                {citations.map((c) => (
-                  <div
-                    key={c.chunk_id}
-                    className="cite-item"
-                    onClick={() => setOpenCite(openCite === c.index ? null : c.index)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <strong>
-                      [{c.index}] 《{c.material_title}》
-                    </strong>
-                    {c.snippet}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+        </section>
       )}
-    </>
+    </div>
   )
 }
