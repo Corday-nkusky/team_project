@@ -5,9 +5,9 @@ import Icon from '../components/Icon'
 type Phase = 'idle' | 'streaming' | 'done' | 'error' | 'stopped'
 
 const SUGGESTIONS = [
-  '本班材料中，核心概念是如何定义的？',
-  '帮我梳理本班材料的重点',
-  '哪些内容需要特别注意？',
+  '酶为什么能加快化学反应？',
+  '有丝分裂和减数分裂的主要区别是什么？',
+  '孟德尔分离定律的核心内容是什么？',
 ]
 
 export default function AskPage() {
@@ -118,7 +118,7 @@ export default function AskPage() {
           id="q"
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          placeholder="例如：这个概念在本班材料中是如何解释的？"
+          placeholder="例如：三羧酸循环发生在细胞的什么部位？"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
               e.preventDefault()
