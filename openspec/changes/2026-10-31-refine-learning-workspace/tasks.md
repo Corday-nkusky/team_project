@@ -25,6 +25,9 @@
 - [x] 3.2 重构引用标记、来源与完整切片，支持键盘操作
   - verify: 浏览器 e2e T4b、T4c、T5、T5b 通过；Tab + Enter/Space 可切换引用来源
   - 实测：T4b、T4c、T5、T5b 通过；新增 T5c/T5d 使用 CDP 真实 Enter 与 Space 键输入，验证收起、展开、`:focus-visible` 和可见焦点样式，均通过。完整切片仍包含 300 字之后的独有尾注。
+- [x] 3.3 修正提问页范围文案，避免暗示可指定单份材料
+  - verify: 提问页不再出现「这份讲义」「对应讲义」；`cd frontend && npm run build` 退出码 0
+  - 实测：`grep -rn "这份讲义\|对应讲义" frontend/src` 无匹配；`cd frontend && npm run build` 通过（36 modules），产物进入 `backend/internal/web/dist`。
 
 ## 4. 材料管理工作台
 

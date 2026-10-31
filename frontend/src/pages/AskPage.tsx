@@ -5,8 +5,8 @@ import Icon from '../components/Icon'
 type Phase = 'idle' | 'streaming' | 'done' | 'error' | 'stopped'
 
 const SUGGESTIONS = [
-  '这份讲义的核心概念是什么？',
-  '帮我梳理材料中的重点',
+  '本班材料中，核心概念是如何定义的？',
+  '帮我梳理本班材料的重点',
   '哪些内容需要特别注意？',
 ]
 
@@ -108,7 +108,7 @@ export default function AskPage() {
           <span className="section-icon"><Icon name="spark" size={22} /></span>
           <div>
             <h2>向本班材料提问</h2>
-            <p>问题越具体，越容易定位到对应讲义。</p>
+            <p>每次提问都会检索本班全部材料，问题越具体，越容易找到对应原文。</p>
           </div>
           <span className="evidence-pill"><Icon name="shield" size={15} />仅依据本班资料</span>
         </div>
@@ -118,7 +118,7 @@ export default function AskPage() {
           id="q"
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          placeholder="例如：这份讲义里提到的核心概念是什么？"
+          placeholder="例如：这个概念在本班材料中是如何解释的？"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
               e.preventDefault()
