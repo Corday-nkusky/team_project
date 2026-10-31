@@ -24,7 +24,7 @@ Windows 工作区当前由系统级 `core.autocrlf=true` 把 20 个 Go 文件检
 
 ### Modified Capabilities
 
-- `runtime-baseline`: 新增 R11，要求 Go 源码换行策略随仓库分发，并要求 gofmt 门禁在不同操作系统上得到一致结果。
+- `runtime-baseline`: 新增 R12，要求 Go 源码换行策略随仓库分发，并要求 gofmt 门禁在不同操作系统上得到一致结果。
 
 ## Non-goals（本次不做）
 
