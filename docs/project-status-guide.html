@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>CampusClaw · 项目全景掌握指南</title>
+<style>
+  :root{
+    --deep:#123c3a;--deep-2:#1a4c48;--paper:#f5f1e8;--card:#fffdf8;--ink:#1d302f;
+    --muted:#6c7c79;--line:#d9dfd9;--teal:#147d70;--teal-soft:#dcefe8;--orange:#d56b35;
+    --orange-soft:#fae6d7;--red:#ad463e;--red-soft:#f8e5df;--amber:#936417;--amber-soft:#f6ecd4;
+    --blue:#42647a;--blue-soft:#e4edf1;--shadow:0 18px 50px rgba(18,60,58,.08);
+    --serif:"Noto Serif CJK SC","Source Han Serif SC","Songti SC",STSong,SimSun,serif;
+    --sans:"PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;--max:1260px;
+  }
+  *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:82px}body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.82;-webkit-font-smoothing:antialiased}
+  body:before{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle at 90% 8%,rgba(20,125,112,.08),transparent 26%),radial-gradient(circle at 5% 35%,rgba(213,107,53,.06),transparent 24%)}
+  a{color:inherit}button{font:inherit}code{font-family:var(--mono);font-size:.88em;background:#eaf0ed;border:1px solid #d7e2dd;border-radius:5px;padding:.08em .35em;overflow-wrap:anywhere}pre code{background:none;border:0;padding:0;color:inherit;font:inherit}
+  ::selection{background:var(--orange);color:white}.skip{position:fixed;top:-80px;left:16px;z-index:300;background:white;padding:8px 14px}.skip:focus{top:10px}.progress{position:fixed;z-index:250;left:0;top:0;height:3px;width:0;background:var(--orange)}
+  .topbar{position:sticky;top:0;z-index:100;background:rgba(245,241,232,.94);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}.topbar-inner{max-width:var(--max);margin:auto;padding:10px 28px;display:flex;align-items:center;gap:12px}.topbar b{font-size:13px;letter-spacing:.08em}.spacer{flex:1}.btn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:7px 14px;cursor:pointer;font-size:13px;font-weight:650}.btn:hover{border-color:var(--teal);color:var(--teal)}.btn.primary{background:var(--deep);color:white;border-color:var(--deep)}.btn.primary:hover{background:var(--orange);border-color:var(--orange)}
+  .hero{position:relative;background:var(--deep);color:#f8f4e9;padding:68px 0 0;overflow:hidden}.hero:before{content:"";position:absolute;width:520px;height:520px;border:1px solid rgba(255,255,255,.06);border-radius:50%;right:-130px;top:-210px;box-shadow:0 0 0 80px rgba(255,255,255,.018),0 0 0 160px rgba(255,255,255,.012)}.hero-inner{max-width:var(--max);margin:auto;padding:0 32px;position:relative}.eyebrow{font:12px var(--mono);letter-spacing:.14em;color:#8fd3bd}.hero h1{font:600 clamp(44px,6.5vw,80px)/1.1 var(--serif);letter-spacing:-.04em;margin:20px 0;max-width:920px}.hero h1 span{color:#f0a476;white-space:nowrap}.hero .intro{max-width:800px;color:#c7d9d4;font-size:18px;margin:0 0 34px}.hero-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border-top:1px solid rgba(255,255,255,.16);margin-top:44px}.hero-stat{padding:22px 18px 26px 0}.hero-stat:not(:last-child){border-right:1px solid rgba(255,255,255,.12);margin-right:18px}.hero-stat small{display:block;color:#9dbab3;font-size:11px;letter-spacing:.06em}.hero-stat strong{display:block;font-size:15px;margin-top:7px;line-height:1.45}.hero-stat .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:#8fd3bd}.hero-stat .dot.warn{background:#f0b469}.hero-stat .dot.bad{background:#ef8c7e}
+  .layout{max-width:var(--max);margin:auto;padding:46px 32px 90px;display:grid;grid-template-columns:218px minmax(0,1fr);gap:48px;position:relative}.side{position:sticky;top:82px;align-self:start}.side-title{font:11px var(--mono);letter-spacing:.12em;color:var(--muted);margin-bottom:12px}.side a{display:block;text-decoration:none;color:var(--muted);font-size:13px;padding:7px 10px;border-left:2px solid var(--line)}.side a:hover{color:var(--teal);border-color:var(--teal)}.side .companion{margin-top:24px;background:var(--orange-soft);border:1px solid #efd3bc;border-radius:12px;padding:14px;font-size:12px;line-height:1.65}.side .companion a{border:0;padding:6px 0;color:#9b4e26}
+  main{min-width:0}section{margin-bottom:72px;scroll-margin-top:82px}.section-head{display:flex;align-items:flex-start;gap:18px;margin-bottom:24px}.section-no{flex:0 0 auto;border:1px solid var(--teal);color:var(--teal);border-radius:50%;width:42px;height:42px;text-align:center;font:600 15px/40px var(--mono)}.section-head h2{font:600 clamp(28px,4vw,42px)/1.25 var(--serif);letter-spacing:-.025em;margin:0}.section-head p{margin:7px 0 0;color:var(--muted)}h3{font-size:20px;line-height:1.45;margin:30px 0 13px}p{margin:10px 0}.lead{font-size:19px}.muted{color:var(--muted)}.small{font-size:13px}.teal{color:var(--teal)}.orange{color:var(--orange)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:24px;box-shadow:0 6px 20px rgba(18,60,58,.035);margin:16px 0}.card h3:first-child{margin-top:0}.grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.callout{border-left:4px solid var(--orange);background:var(--orange-soft);padding:16px 20px;border-radius:0 12px 12px 0;margin:18px 0}.callout.green{border-color:var(--teal);background:var(--teal-soft)}.callout.red{border-color:var(--red);background:var(--red-soft)}.callout.blue{border-color:var(--blue);background:var(--blue-soft)}
+  .verdict{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:30px;box-shadow:var(--shadow);font:500 20px/1.9 var(--serif)}.verdict strong{color:var(--teal)}
+  .badge{display:inline-flex;align-items:center;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:750;white-space:nowrap}.badge.ok{background:var(--teal-soft);color:#176357}.badge.warn{background:var(--amber-soft);color:#7b5517}.badge.bad{background:var(--red-soft);color:#913e37}.badge.info{background:var(--blue-soft);color:#365a70}.badge.neutral{background:#eceeea;color:#5e6965}
+  .scope{border-top:4px solid var(--teal)}.scope.plan{border-color:var(--blue)}.scope.no{border-color:var(--muted)}.scope ul{padding-left:19px;margin-bottom:0}.scope li{margin:7px 0}.scope p{color:var(--muted);font-size:13px}
+  .flow{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:22px 0}.flow-step{position:relative;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 12px;min-height:126px}.flow-step:not(:last-child):after{content:"→";position:absolute;right:-10px;top:44px;z-index:2;color:var(--orange);font:20px var(--mono)}.flow-step b{display:block;font-size:13px;line-height:1.5;margin:7px 0}.flow-step span{font-size:11px;color:var(--muted);line-height:1.5;display:block}.flow-num{font:12px var(--mono);color:var(--teal)}
+  .diagram{background:#102f2e;color:#e6f0ec;border-radius:20px;padding:28px;margin:18px 0;overflow:auto}.arch{min-width:690px;display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:18px;align-items:stretch}.arch-col{display:flex;flex-direction:column;gap:10px}.arch-box{border:1px solid #3e6661;background:#173e3b;border-radius:12px;padding:13px 15px}.arch-box b{display:block;font-size:13px;color:#f7f3e9}.arch-box span{display:block;font-size:11px;color:#a8c5bd;line-height:1.55}.arch-arrow{text-align:center;color:#efaa7c;font:18px var(--mono)}.arch-caption{font-size:12px;color:#9dbab3;margin:16px 0 0}
+  table{width:100%;border-collapse:collapse;margin:16px 0;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;font-size:14px}th,td{text-align:left;padding:13px 15px;border-bottom:1px solid var(--line);vertical-align:top}th{background:#e9efeb;color:#35524d;font-size:12px;letter-spacing:.03em}tr:last-child td{border-bottom:0}td code{font-size:12px}.table-wrap{overflow:auto;border-radius:14px}
+  .file{display:flex;gap:12px;align-items:flex-start;background:#edf1ed;border:1px solid #d9e1da;border-radius:12px;padding:13px 16px;margin:10px 0;text-decoration:none}.file:hover{border-color:var(--teal)}.file .icon{color:var(--teal);font:18px var(--mono)}.file b{display:block;font:600 13px var(--mono);overflow-wrap:anywhere}.file span{display:block;color:var(--muted);font-size:12px;line-height:1.55;margin-top:3px}
+  pre{background:#102927;color:#e7f0ec;border-radius:14px;padding:20px;overflow:auto;font:13px/1.75 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;margin:10px 0}.code-wrap{position:relative}.copy{position:absolute;right:10px;top:10px;border:1px solid #46645e;background:#193b36;color:#dce8e3;border-radius:7px;padding:4px 9px;font:11px var(--sans);cursor:pointer;z-index:2}.copy:hover{border-color:#efaa7c;color:#efaa7c}.code-label{font:11px var(--mono);letter-spacing:.08em;color:var(--muted);margin:18px 0 6px}
+  .evidence{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;counter-reset:ev}.evidence-item{counter-increment:ev;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}.evidence-item:before{content:"0" counter(ev);font:12px var(--mono);color:var(--orange)}.evidence-item b{display:block;margin:8px 0;font-size:14px}.evidence-item p{font-size:12px;color:var(--muted);margin:0}
+  .status-row{display:grid;grid-template-columns:150px minmax(0,1fr) 110px;gap:16px;align-items:start;padding:16px 0;border-bottom:1px solid var(--line)}.status-row:last-child{border-bottom:0}.status-row b{font-size:14px}.status-row p{font-size:13px;margin:0;color:var(--muted)}
+  .routine{counter-reset:routine;list-style:none;padding:0}.routine>li{counter-increment:routine;position:relative;padding:0 0 28px 58px}.routine>li:before{content:counter(routine);position:absolute;left:0;top:0;width:36px;height:36px;border-radius:10px;background:var(--deep);color:white;text-align:center;font:600 16px/36px var(--mono)}.routine>li:not(:last-child):after{content:"";position:absolute;left:17px;top:42px;bottom:4px;width:2px;background:var(--line)}.routine h3{margin:0 0 8px}.routine p{margin:6px 0}
+  .checklist{list-style:none;padding:0}.checklist li{display:flex;gap:11px;align-items:flex-start;margin:10px 0}.checklist input{margin-top:7px;accent-color:var(--teal);width:16px;height:16px}.checklist label{cursor:pointer}.check-progress{background:var(--deep);color:white;border-radius:14px;padding:16px 20px;display:flex;align-items:center;gap:16px;margin-bottom:14px}.check-progress strong{font:24px var(--mono);color:#a8dfcc}.check-progress span{font-size:13px}
+  details{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:12px 0;overflow:hidden}summary{cursor:pointer;padding:16px 20px;font-weight:700;list-style:none;display:flex;gap:12px;align-items:center}summary::-webkit-details-marker{display:none}summary:before{content:"+";font:22px var(--mono);color:var(--orange)}details[open] summary:before{content:"−"}details[open] summary{border-bottom:1px solid var(--line)}.details-body{padding:18px 22px}.details-body p:first-child{margin-top:0}.details-body p:last-child{margin-bottom:0}
+  .speech{background:var(--deep);color:#edf4f0;border-radius:18px;padding:28px;font:17px/2 var(--serif);margin:18px 0}.speech:before{content:"60 秒项目口述";display:block;font:11px var(--mono);letter-spacing:.12em;color:#93d5bf;margin-bottom:12px}.speech em{font-style:normal;color:#f1aa7b}.speech p{margin:0}
+  .priority{display:grid;grid-template-columns:64px minmax(0,1fr);gap:16px;padding:18px 0;border-bottom:1px solid var(--line)}.priority:last-child{border-bottom:0}.priority .p{font:700 14px var(--mono);color:var(--orange)}.priority b{font-size:15px}.priority p{font-size:13px;color:var(--muted);margin:4px 0}
+  .footer{border-top:1px solid var(--line);padding:28px 32px 40px;text-align:center;color:var(--muted);font-size:12px;background:var(--card)}
+  @media(max-width:1050px){.hero-grid{grid-template-columns:repeat(3,1fr)}.layout{grid-template-columns:1fr}.side{display:none}.flow{grid-template-columns:repeat(3,1fr)}.flow-step:nth-child(3):after{display:none}.evidence{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:680px){.topbar-inner{padding:9px 16px}.topbar b{display:none}.hero{padding-top:48px}.hero-inner{padding:0 20px}.hero h1{font-size:43px}.hero-grid{grid-template-columns:1fr 1fr}.hero-stat{padding:16px 8px 16px 0}.layout{padding:34px 18px 60px}.grid-2,.grid-3{grid-template-columns:1fr}.flow{grid-template-columns:1fr 1fr}.flow-step:after{display:none}.evidence{grid-template-columns:1fr}.status-row{grid-template-columns:1fr;gap:6px}.card,.verdict{padding:20px}.section-head{gap:12px}.section-no{width:34px;height:34px;font-size:12px;line-height:32px}.speech{padding:22px;font-size:16px}}
+  @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  @media print{body{background:white;font-size:11pt}.topbar,.side,.progress,.copy,.no-print{display:none!important}.hero{background:white;color:var(--ink);padding:20px 0}.hero .intro,.hero-stat small{color:var(--ink)}.hero-grid{border-color:var(--line)}.hero-stat:not(:last-child){border-color:var(--line)}.hero h1{font-size:40px}.layout{display:block;padding:20px 0}.card,details,.verdict,.diagram,.speech{box-shadow:none;break-inside:avoid}.diagram,.speech{background:#edf1ee;color:var(--ink)}.arch-box{background:#f7f8f6;border-color:#ccd7d1}.arch-box b,.arch-box span,.arch-caption{color:var(--ink)}section{margin-bottom:34px}.footer{background:white}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">跳到正文</a><div class="progress" id="progress"></div>
+<header class="topbar no-print"><div class="topbar-inner"><b>CAMPUSCLAW / PROJECT FIELD GUIDE</b><div class="spacer"></div><a class="btn" href="class-sharing-runbook.html">课堂分享手册</a><button class="btn" onclick="window.print()">打印 / 导出 PDF</button></div></header>
+<section class="hero"><div class="hero-inner">
+  <div class="eyebrow">PROJECT CLARITY · CURRENT SNAPSHOT 2026.11.01</div>
+  <h1>看懂项目，<br>不是看完<span>所有代码。</span></h1>
+  <p class="intro">先分清产品愿景与当前实现，再用 Git、OpenSpec、质量门禁、运行健康和端到端证据建立判断。这份指南教你随时回答：现在做到了什么、是否健康、还欠什么、下一步做什么。</p>
+  <div class="hero-grid">
+    <div class="hero-stat"><small>代码基线</small><strong>main@49b1c3a</strong></div>
+    <div class="hero-stat"><small>核心垂直切片</small><strong><span class="dot"></span>已实现</strong></div>
+    <div class="hero-stat"><small>当前分支总门禁</small><strong><span class="dot"></span>全部通过</strong></div>
+    <div class="hero-stat"><small>生产服务与 e2e</small><strong><span class="dot"></span>200 · 50 / 50</strong></div>
+    <div class="hero-stat"><small>流程记录</small><strong><span class="dot warn"></span>评审 / 归档待闭环</strong></div>
+  </div>
+</div></section>
+<div class="layout">
+<nav class="side no-print" aria-label="页面目录"><div class="side-title">ON THIS PAGE</div><a href="#snapshot">一页结论</a><a href="#scope">现实与愿景</a><a href="#architecture">业务与架构</a><a href="#evidence">证据与现状</a><a href="#routine">固定巡检</a><a href="#interpret">结果判读</a><a href="#next">下一步</a><a href="#talk">60 秒口述</a><div class="companion">要去课堂分享？<br><a href="class-sharing-runbook.html">打开《课堂分享作战手册》→</a></div></nav>
+<main id="main">
+<section id="snapshot">
+  <div class="section-head"><div class="section-no">01</div><div><h2>先建立一页结论</h2><p>项目状态不是“好 / 不好”一个标签，而是代码、验证、运行和流程四个维度。</p></div></div>
+  <div class="verdict">CampusClaw 当前已经实现一条<strong>可运行的核心垂直切片</strong>：登录与班级隔离、教师上传材料、索引、材料全文阅读、学生检索问答、SSE 流式输出、引用回看与无依据拒答。它还不是 README 描绘的全部“教学闭环”成品。2026-11-01 当前分支实测中，完整质量门禁（含 OpenSpec 与 Go 接口 e2e）全部通过；新前端已构建进生产容器，<code>/health</code> 返回 200，MySQL 与 Qdrant 正常，Go 接口 e2e 为 72 / 72、浏览器 e2e 为 50 / 50。Windows 换行导致的 gofmt 红项已通过仓库级 LF 属性稳定修复；这些改进已提交到 <code>feat/workspace-material-reader</code> 分支与 PR #3，但尚未评审、合并和归档。</div>
+  <div class="grid-2">
+    <div class="card"><h3>你真正要掌握的五个问题</h3><ol><li><b>产品：</b>为谁解决什么问题？</li><li><b>范围：</b>当前代码实际做到了哪一步？</li><li><b>健康：</b>当前这次检查是否真的通过？</li><li><b>流程：</b>哪些变更已合并，哪些证据未闭环？</li><li><b>决策：</b>下一步由哪个风险或 Requirement 驱动？</li></ol></div>
+    <div class="card"><h3>不要踩的四个认知陷阱</h3><ul><li>README 写到，不等于已经实现。</li><li>历史上全绿，不等于当前仍全绿。</li><li><code>/health</code> 返回 200，不等于业务 e2e 全通过。</li><li>PR 已合并，不等于 DoD、评审记录和归档都完成。</li></ul></div>
+  </div>
+</section>
+<section id="scope">
+  <div class="section-head"><div class="section-no">02</div><div><h2>划清现实、愿景与非目标</h2><p>判断功能状态要看当前路由、页面和主规约，而不是只看项目介绍。</p></div></div>
+  <div class="grid-3">
+    <article class="card scope"><span class="badge ok">当前已实现</span><h3>核心问答闭环</h3><ul><li>账号登录、刷新、登出；教师 / 学生角色。</li><li>两班种子数据与班级隔离。</li><li>教师上传文本、Markdown、PDF 文本；重索引。</li><li>材料切片、关键词检索；配置模型后增加向量路。</li><li>材料列表打开全文阅读；加载 / 错误 / 空正文 / 正常四态，学生只读。</li><li>SSE 流式回答、引用回看、无依据固定文案。</li><li>抽取式降级、审计、会话记录、健康检查与 JSON 日志。</li></ul><p>证据：当前 App 只有“提问问答 / 教学材料”两页，路由只暴露核心 API。</p></article>
+    <article class="card scope plan"><span class="badge info">README 目标 / 后续</span><h3>完整教学闭环</h3><ul><li>课堂疑问收集、匿名展示、相似问题合并。</li><li>个人学习路径、掌握状态与复习提醒。</li><li>教师教学反馈看板与知识点聚合。</li><li>技能路由、多轮会话、MCP 等后续能力。</li></ul><p>这些描述定义方向，不应当作当前功能清单。当前代码没有对应页面和路由。</p></article>
+    <article class="card scope no"><span class="badge neutral">本轮明确不做</span><h3>避免范围蔓延</h3><ul><li>材料编辑 / 删除、版本历史与多轮会话。</li><li>材料内搜索、引用直接跳转到原文位置。</li><li>全量切片检索的规模重构。</li><li>问题长度与频率限制。</li><li>异步索引 worker。</li><li>模型总超时策略重构。</li><li>Markdown 渲染与阅读体验扩展。</li></ul><p>来源：2026-10-30 缺陷修复与 2026-11-01 材料阅读 change 的 Non-goals；后续要做需另起 change。</p></article>
+  </div>
+  <div class="callout"><b>一句话范围判断：</b>现在是“可信、可验证的班级材料问答底座”，不是“疑问—复习—反馈全部打通的最终系统”。</div>
+</section>
+<section id="architecture">
+  <div class="section-head"><div class="section-no">03</div><div><h2>沿一次请求看懂业务与架构</h2><p>先理解数据怎样流动，再看包名；这样不会被目录结构淹没。</p></div></div>
+  <h3>用户视角：一条核心链路</h3>
+  <div class="flow">
+    <div class="flow-step"><span class="flow-num">01</span><b>登录识别身份</b><span>账号口令 → 双令牌；角色与班级进入鉴权上下文。</span></div>
+    <div class="flow-step"><span class="flow-num">02</span><b>教师上传材料</b><span>校验标题、UTF-8、类型和 32 MiB 边界。</span></div>
+    <div class="flow-step"><span class="flow-num">03</span><b>切片并索引</b><span>原文入库；切片进入本班检索，状态 ready / failed。</span></div>
+    <div class="flow-step"><span class="flow-num">04</span><b>学生本班提问</b><span>class_id 同时约束数据库与向量检索。</span></div>
+    <div class="flow-step"><span class="flow-num">05</span><b>生成流式回答</b><span>模型或抽取式降级；SSE 区分完成、中断与降级。</span></div>
+    <div class="flow-step"><span class="flow-num">06</span><b>引用与记录</b><span>[n] 对应真实切片；问答与审计留痕，无依据则明说。</span></div>
+  </div>
+  <div class="grid-2">
+    <div class="card"><h3>权限判断先于功能判断</h3><p>教师能上传与重索引，学生只能查看材料原文和提问；所有资源都先限定本班。跨班返回 403 / 404，不能通过响应差异泄漏资源是否存在。</p><p class="small muted">所以“学生能否读某份材料”不是前端隐藏按钮的问题，而是后端每个查询都必须带 <code>class_id</code>。</p></div>
+    <div class="card"><h3>AI 的核心承诺不是“会回答”</h3><p>而是“只依据本班 ready 材料回答”。命中时引用可回看；无依据时固定返回“资料中未找到相关内容”；材料文本被当作数据而不是指令。</p><p class="small muted">没有模型密钥时使用抽取式降级，这是设计能力，不应误判成服务故障。</p></div>
+  </div>
+  <h3>技术视角：同源单端口与单向分层</h3>
+  <div class="diagram"><div class="arch">
+    <div class="arch-col"><div class="arch-box"><b>React 18 + TypeScript</b><span>Vite 构建；Login / Materials / Ask；SSE 客户端</span></div><div class="arch-arrow">↓ 同源 HTTP</div><div class="arch-box"><b>Go embed 静态资源</b><span>前端产物内嵌进后端；对外仅 8080</span></div></div>
+    <div class="arch-col"><div class="arch-box"><b>cmd/server · 入口层</b><span>配置校验 → 依赖检查 → 迁移种子 → HTTP</span></div><div class="arch-arrow">↓</div><div class="arch-box"><b>internal/httpapi · 传输层</b><span>路由、鉴权、输入边界、SSE、统一错误与日志</span></div><div class="arch-arrow">↓ 只允许向下</div><div class="arch-box"><b>internal/qa · 应用层</b><span>依据判定、检索编排、提示词、索引与降级</span></div><div class="arch-arrow">↓</div><div class="arch-box"><b>基础层</b><span>store / retrieval / llm / qdrant / config / auth / db / deps / web</span></div></div>
+    <div class="arch-col"><div class="arch-box"><b>MySQL 8.4</b><span>用户、班级、材料、切片、会话、审计；宿主端口 13306</span></div><div class="arch-box"><b>Qdrant</b><span>按班级过滤的向量检索；仅容器内网</span></div><div class="arch-box"><b>OpenAI 兼容网关</b><span>配置密钥后启用生成与向量；材料只发往声明网关</span></div></div>
+  </div><p class="arch-caption">分层门禁特别禁止 httpapi 直接 import llm / qdrant / retrieval；store 直连仅限白名单文件。新增内部包还必须登记层级。</p></div>
+  <h3>仓库地图：按问题找文件</h3>
+  <div class="grid-2">
+    <div><a class="file" href="../README.md"><span class="icon">↗</span><span><b>README.md</b><span>产品定位、技术方案、启动命令、账号与项目级愿景。</span></span></a><a class="file" href="../backend/internal/httpapi/router.go"><span class="icon">↗</span><span><b>backend/internal/httpapi/router.go</b><span>当前真实 API 总表与健康检查。</span></span></a><a class="file" href="../frontend/src/App.tsx"><span class="icon">↗</span><span><b>frontend/src/App.tsx</b><span>当前页面范围与角色呈现。</span></span></a><a class="file" href="../deploy/docker-compose.yml"><span class="icon">↗</span><span><b>deploy/docker-compose.yml</b><span>MySQL / Qdrant / Backend 三容器及必填配置。</span></span></a></div>
+    <div><a class="file" href="../AGENTS.md"><span class="icon">↗</span><span><b>AGENTS.md</b><span>工程协作唯一入口。</span></span></a><a class="file" href="../openspec/changes/2026-10-30-harden-evidence-and-input-boundaries/tasks.md"><span class="icon">↗</span><span><b>openspec/changes/…/tasks.md</b><span>最近变更的逐条验收与未闭环任务。</span></span></a><a class="file" href="independent-test-report.md"><span class="icon">↗</span><span><b>docs/independent-test-report.md</b><span>独立走查发现的问题、修复状态与后续风险。</span></span></a><a class="file" href="../scripts/quality-gate.mjs"><span class="icon">↗</span><span><b>scripts/quality-gate.mjs</b><span>离线检查聚合器；退出码即判定。</span></span></a></div>
+  </div>
+</section>
+<section id="evidence">
+  <div class="section-head"><div class="section-no">04</div><div><h2>用证据层级判断“现在”</h2><p>最重要的习惯：给每个结论贴上来源与时间。</p></div></div>
+  <div class="evidence"><div class="evidence-item"><b>当前实测</b><p>你刚运行的命令、退出码、响应与时间；优先级最高。</p></div><div class="evidence-item"><b>当前代码与规约</b><p>路由、页面、主 spec、活动 change；说明“现在是什么”。</p></div><div class="evidence-item"><b>历史验收记录</b><p>tasks、verification、独立报告；说明“当时验证过什么”。</p></div><div class="evidence-item"><b>愿景与建议</b><p>README 后续模块、proposal Non-goals；说明方向，不证明完成。</p></div></div>
+  <div class="callout green"><b>推荐状态词：</b><span class="badge ok">当前实测通过</span> <span class="badge info">历史通过</span> <span class="badge warn">待复验</span> <span class="badge bad">当前失败</span> <span class="badge neutral">未实现 / 非目标</span>。避免一律写“已完成”。</div>
+  <h3>2026-11-01 状态板</h3>
+  <div class="card">
+    <div class="status-row"><b>Git 基线与工作区</b><p><code>main@49b1c3a</code> 是代码基线。当前分支 <code>feat/workspace-material-reader</code>（PR #3）包含前端重设计、Go 换行治理、材料阅读三个独立 change、浏览器断言与文档，尚未合并；不能把分支实测直接称为 main 基线结果。</p><span class="badge info">当前核对</span></div>
+    <div class="status-row"><b>完整质量门禁</b><p>配置样例、分层、密钥、gofmt、build、vet、test、OpenSpec 严格校验与 Go 接口 e2e 均通过，最终输出「质量门禁全部通过。」，退出码 0。材料详情接口的非法 id、未认证与跨班路径均有单元或 e2e 断言。</p><span class="badge ok">当前全绿</span></div>
+    <div class="status-row"><b>换行红项已稳定修复</b><p>根因是 <code>core.autocrlf=true</code> 将索引中的 LF Go 文件检出为 CRLF。根 <code>.gitattributes</code> 现固定 <code>*.go text eol=lf</code>；强制 CRLF 偏好的隔离重检出仍为纯 LF，后端没有业务逻辑 diff。</p><span class="badge ok">根因已治理</span></div>
+    <div class="status-row"><b>OpenSpec</b><p><code>validate --all --strict</code> 当前通过。前端重设计、换行治理与材料阅读各有独立 change 和实测记录；它证明规约结构与校验通过，不替代运行时业务验证。</p><span class="badge ok">当前通过</span></div>
+    <div class="status-row"><b>生产服务与两套 e2e</b><p>2026-11-01 本轮实测：新前端与材料详情接口已构建进 8080 生产容器，<code>/health</code> 为 200，MySQL / Qdrant 均为 <code>ok</code>；Go 接口 e2e 为 72 通过、0 失败，浏览器 e2e 为 50 通过、0 失败。当前为零密钥抽取式模式，外部模型与向量路不在本轮验证范围。</p><span class="badge ok">当前实测通过</span></div>
+    <div class="status-row"><b>本轮界面与交互</b><p>完成响应式应用外壳、登录、提问、引用与材料工作台重设计；材料列表可打开全文阅读抽屉，覆盖加载、错误重试、空正文与正常四态。新增 Enter / Space 引用操作、Esc 关闭与焦点回归、可见焦点、减少动态效果和学生上传控件隐藏断言。既有业务 selector、固定文案与原有回归全部保留，浏览器 e2e 增至 50 项。</p><span class="badge info">分支已实测</span></div>
+    <div class="status-row"><b>流程闭环</b><p>本轮三个 change 已提交到 PR #3，但尚未评审、合并或归档；此前第七课 <code>peer-review.md</code> 也仍标为未签署。先核对团队实际评审，再补真实记录，不能代签。</p><span class="badge warn">记录待闭环</span></div>
+  </div>
+  <div class="callout blue"><b>当前不能说：</b>“外部模型路径已验证、本轮改动已进入 main、DoD 全部完成。”<br><b>当前可以说：</b>“当前分支完整质量门禁全绿，生产 8080 已部署新界面与材料全文阅读，Go 接口 e2e 72 / 72、浏览器 e2e 50 / 50 通过；PR #3 等待评审合并，归档仍待闭环。”</div>
+</section>
+<section id="routine">
+  <div class="section-head"><div class="section-no">05</div><div><h2>一条固定巡检路线</h2><p>每次汇报、继续开发或接手项目前按同一顺序走。前 1–3 步不需要 Docker；第 4–5 步等服务启动后做。</p></div></div>
+  <div class="check-progress no-print"><strong id="checkCount">0 / 6</strong><span>本次巡检进度（只用于当前页面，不会修改仓库）</span><div class="spacer"></div><button class="btn" id="resetChecks">清空</button></div>
+  <ol class="routine">
+    <li><h3>看 Git：我正在基于什么工作？</h3><div class="code-wrap"><button class="btn copy" data-copy="git status --short --branch
+git log -5 --oneline --decorate">复制</button><pre><code>git status --short --branch
+git log -5 --oneline --decorate</code></pre></div><p><b>判读：</b>当前分支是否落后远端？未提交的是自己的改动、他人文件还是生成物？最近提交对应哪个 change / PR？</p><label class="small no-print"><input type="checkbox" class="routine-check"> 我已记录基线提交与工作区范围</label></li>
+    <li><h3>看活动 change：正在做什么，什么没做完？</h3><p>打开 <code>openspec/changes/</code> 中未归档目录，先读 proposal 的 Why / Non-goals，再读 tasks 的未勾项和“实测”。</p><div class="code-wrap"><button class="btn copy" data-copy="npx --yes @fission-ai/openspec@latest validate --all --strict">复制</button><pre><code>npx --yes @fission-ai/openspec@latest validate --all --strict</code></pre></div><p><b>判读：</b>规约通过只说明结构有效；还要检查主 spec、实现和 e2e 是否对应。</p><label class="small no-print"><input type="checkbox" class="routine-check"> 我已知道活动 change 的范围与未勾项</label></li>
+    <li><h3>跑离线门禁：代码是否达到提交基线？</h3><div class="code-wrap"><button class="btn copy" data-copy="GO_BIN=/d/tools/go/bin/go.exe node scripts/quality-gate.mjs --with-spec">复制</button><pre><code>GO_BIN=/d/tools/go/bin/go.exe node scripts/quality-gate.mjs --with-spec</code></pre></div><p><b>判读：</b>以最终退出码判定，不只看某几个 ✓。失败时先区分格式 / 分层 / 密钥 / 构建 / 单测 / spec，不重跑掩盖问题。</p><label class="small no-print"><input type="checkbox" class="routine-check"> 我已保存本次门禁结果与失败项</label></li>
+    <li><h3>看运行态：依赖是否真实可用？</h3><p class="small muted">以下命令会生成或修复本机 <code>deploy/.env</code> 并启动容器；在你准备启动 Docker 后执行。</p><div class="code-wrap"><button class="btn copy" data-copy="node scripts/up.mjs
+curl -sS --noproxy '*' http://127.0.0.1:8080/health">复制</button><pre><code>node scripts/up.mjs
+curl -sS --noproxy '*' http://127.0.0.1:8080/health</code></pre></div><p><b>判读：</b>200 且 deps 全 ok 只说明运行依赖健康；503 时看具体依赖。<code>llm.enabled=false</code> 表示抽取式模式，不是错误。响应不应含密钥或连接串。</p><label class="small no-print"><input type="checkbox" class="routine-check"> 我已记录 HTTP 状态、version 与 deps</label></li>
+    <li><h3>跑端到端：核心承诺是否仍成立？</h3><p>服务与依赖就绪后，在仓库根目录加载本机配置，把宿主机连接地址覆盖到当前命令，再运行 Go 与浏览器 e2e：</p><div class="code-wrap"><button class="btn copy" data-copy="set -a; source deploy/.env; set +a
+export MYSQL_HOST=127.0.0.1 MYSQL_PORT=13306 QDRANT_URL=http://127.0.0.1:6333
+GO_BIN=/d/tools/go/bin/go.exe node scripts/quality-gate.mjs --with-e2e">复制</button><pre><code>set -a; source deploy/.env; set +a
+export MYSQL_HOST=127.0.0.1 MYSQL_PORT=13306 QDRANT_URL=http://127.0.0.1:6333
+GO_BIN=/d/tools/go/bin/go.exe node scripts/quality-gate.mjs --with-e2e</code></pre></div><div class="code-wrap"><button class="btn copy" data-copy="node scripts/e2e-ui.mjs">复制</button><pre><code>node scripts/e2e-ui.mjs</code></pre></div><p><b>判读：</b>分别记录 Go e2e、浏览器 e2e 与总门禁结果，不能把不同结论混成一句。重点看班级隔离、无依据、引用、材料全文阅读的加载 / 错误 / 空态、键盘操作、流中断、上传边界与学生权限视图。不要打印或公开本机密钥。</p><label class="small no-print"><input type="checkbox" class="routine-check"> 我已记录两套 e2e 的当前结果</label></li>
+    <li><h3>回写证据：别人能否复现我的结论？</h3><p>把命令、日期、提交号、结果写进对应 tasks / 验收记录；未执行就明确写“待复验”。有真实评审再更新评审记录；按流程归档 change。</p><p><b>判读：</b>不代填、不代签、不为了好看把历史数字改成当前数字。</p><label class="small no-print"><input type="checkbox" class="routine-check"> 我已把结论回写到合适的位置</label></li>
+  </ol>
+</section>
+<section id="interpret">
+  <div class="section-head"><div class="section-no">06</div><div><h2>常见信号，应该怎样解释</h2><p>掌握项目不是靠记住命令，而是知道每个信号能证明什么、不能证明什么。</p></div></div>
+  <div class="table-wrap"><table><thead><tr><th>观察到的信号</th><th>可以得出的结论</th><th>不能据此声称 / 下一步</th></tr></thead><tbody>
+    <tr><td><code>go test</code> 全通过</td><td>当前单元测试覆盖的逻辑通过。</td><td>不能替代真实数据库、Qdrant、浏览器与 SSE e2e。</td></tr>
+    <tr><td>只有 <code>gofmt</code> 失败</td><td>总门禁仍失败；构建和单测可在本次独立通过。</td><td>不能忽略退出码。先看 <code>gofmt -d</code> 与 <code>git ls-files --eol</code>，再治理换行。</td></tr>
+    <tr><td>OpenSpec strict 通过</td><td>规约结构与严格校验通过。</td><td>不能证明场景已经实现或测试映射完整。</td></tr>
+    <tr><td><code>/health</code> 200</td><td>服务可响应，当前 MySQL / Qdrant 探活正常。</td><td>不能证明登录、上传、检索、引用等全业务正常；继续 e2e。</td></tr>
+    <tr><td><code>/health</code> 503</td><td>至少一个依赖不健康，响应会指出 deps。</td><td>不要只看“服务挂了”；定位具体依赖，恢复后再探活。</td></tr>
+    <tr><td><code>llm.enabled=false</code></td><td>当前是零密钥抽取式降级模式。</td><td>不是模型故障；若要验证模型与向量路，需另配声明的兼容网关。</td></tr>
+    <tr><td>PR 已合并</td><td>对应代码进入目标分支。</td><td>不能自动证明 tasks、真实评审、文档与归档全部闭环。</td></tr>
+    <tr><td>历史记录 63 / 32 全绿</td><td>对应日期与环境曾通过这些 e2e。</td><td>不能当作今天的实测；服务启动后重跑并记录新结果。</td></tr>
+  </tbody></table></div>
+  <h3>遇到矛盾证据时，这样处理</h3>
+  <details><summary>README 写了很多功能，但界面找不到</summary><div class="details-body">以当前路由、页面、主规约和已归档 change 判断实现范围。README 中的“目标 / 后续轮次”保留为愿景，不改写成已实现。</div></details>
+  <details><summary>tasks 写全绿，但我刚跑出失败</summary><div class="details-body">当前实测优先。记录当前提交、环境、命令和失败项；历史记录不删除，因为它描述的是另一时点。先定位差异，再决定是代码回归还是环境问题。</div></details>
+  <details><summary>PR 已有审批，但仓库评审表仍为空</summary><div class="details-body">先核对真实 PR 审批与团队约定，再把可验证的评审事实回填到指定记录。不能虚构签字，也不必为了形式重复做一次没有必要的评审。</div></details>
+  <details><summary>偶发失败，重跑一次过了</summary><div class="details-body">不能把它当作解决。保留第一次输出、实际值和期望值，定位根因；规范明确禁止用重试掩盖偶发失败。</div></details>
+</section>
+<section id="next">
+  <div class="section-head"><div class="section-no">07</div><div><h2>把状态转成下一步决策</h2><p>优先处理会阻断交付或破坏信任的问题，再谈新功能。</p></div></div>
+  <div class="card">
+    <div class="priority"><div class="p">P1</div><div><b>评审并合入 PR #3 的三个独立 change</b><p>前端重设计、Go 换行治理与材料阅读均已有当前实测，并已提交到 <code>feat/workspace-material-reader</code>。按真实评审、合并与归档流程闭环，不把分支全绿冒充 main 状态。</p></div></div>
+    <div class="priority"><div class="p">P1</div><div><b>按需复验外部模型与向量路径</b><p>本轮 <code>llm.enabled=false</code>，已证明零密钥抽取式降级链路；若产品要启用模型生成与向量检索，需另配声明的兼容网关并做独立验收。</p></div></div>
+    <div class="priority"><div class="p">P1</div><div><b>核对并补齐真实流程记录</b><p>检查此前 PR 审批事实、tasks、peer-review 与 change 归档之间的关系；按真实事实闭环，不代签、不补造过程。</p></div></div>
+    <div class="priority"><div class="p">P2</div><div><b>再选择下一个产品或架构 change</b><p>从历史、规模、限流、异步索引或 README 后续模块中选题。先回答价值三问、失败路径与非目标，再写实现任务。</p></div></div>
+  </div>
+  <div class="callout blue"><b>判断优先级的方法：</b>先问“不处理会怎样”。门禁红会阻断交付；无依据误判会破坏核心信任；材料内搜索或 Markdown 体验则通常可以后排。严重度来自影响，不来自修改难易。</div>
+</section>
+<section id="talk">
+  <div class="section-head"><div class="section-no">08</div><div><h2>随时能做 60 秒项目汇报</h2><p>下面这段对应当前快照。处理红项或运行状态变化后，要更新相应句子，不能长期照读。</p></div></div>
+  <div class="speech"><p>目前 CampusClaw 已实现本班材料问答的核心垂直切片，包括教师上传、索引、材料全文阅读、学生流式提问、引用回看、无依据拒答和班级隔离；README 中的疑问收集、个人复习与反馈看板仍属于后续目标。当前 main 在 <em>49b1c3a</em>，本轮前端重设计、Go 换行治理与材料阅读已提交到 PR #3，等待评审合并。今天实测完整质量门禁全部通过，新界面与全文阅读已进入生产容器，<em>/health 返回 200，Go 接口 e2e 为 72 / 72，浏览器 e2e 为 50 / 50</em>；当前验证的是零密钥抽取式降级链路。gofmt 的 CRLF 根因已通过仓库级 LF 属性修复，下一步是完成真实评审、合并与 change 归档，再按需验收外部模型路径。</p></div>
+  <div class="grid-2">
+    <div class="card"><h3>汇报时的顺序</h3><ol><li>一句话产品价值。</li><li>当前真实范围，而非最终愿景。</li><li>当前证据：代码、门禁、运行、e2e。</li><li>明确红项与未验证项。</li><li>按风险排序的下一步。</li></ol></div>
+    <div class="card"><h3>你不需要记住的内容</h3><p>不必背所有包名、全部测试数或每条规则。需要记住的是：<b>去哪里查、怎样运行、结果能证明什么。</b></p><p>只要坚持“当前实测优先、历史记录标日期、未验证就明说”，你对项目的判断就会比堆砌功能名称更准确。</p></div>
+  </div>
+</section>
+</main></div>
+<footer class="footer">CampusClaw · 项目全景掌握指南　/　当前快照：2026-11-01　/　运行态与两套 e2e 已于当日实测</footer>
+<script>
+(function(){
+  const progress=document.getElementById('progress');function onScroll(){const h=document.documentElement,max=h.scrollHeight-h.clientHeight;progress.style.width=(max>0?h.scrollTop/max*100:0)+'%'}document.addEventListener('scroll',onScroll,{passive:true});onScroll();
+  document.querySelectorAll('[data-copy]').forEach(btn=>btn.addEventListener('click',async()=>{const text=btn.dataset.copy;let ok=false;try{await navigator.clipboard.writeText(text);ok=true}catch(e){const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();ok=document.execCommand('copy');ta.remove()}const old=btn.textContent;btn.textContent=ok?'已复制':'请手动复制';setTimeout(()=>btn.textContent=old,1400)}));
+  const checks=[...document.querySelectorAll('.routine-check')],count=document.getElementById('checkCount');function update(){count.textContent=checks.filter(c=>c.checked).length+' / '+checks.length}checks.forEach(c=>c.addEventListener('change',update));document.getElementById('resetChecks').addEventListener('click',()=>{checks.forEach(c=>c.checked=false);update()});update();
+  window.addEventListener('beforeprint',()=>document.querySelectorAll('details').forEach(d=>d.open=true));
+})();
+</script>
+</body>
+</html>

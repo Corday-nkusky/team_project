@@ -73,6 +73,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/me", s.requireAuth(http.HandlerFunc(s.handleMe)))
 	mux.HandleFunc("/api/me", methodNotAllowed(http.MethodGet))
 	mux.Handle("GET /api/materials", s.requireAuth(http.HandlerFunc(s.handleListMaterials)))
+	mux.Handle("GET /api/materials/{id}", s.requireAuth(http.HandlerFunc(s.handleGetMaterial)))
+	mux.HandleFunc("/api/materials/{id}", methodNotAllowed(http.MethodGet))
 	mux.Handle("POST /api/ask", s.requireAuth(http.HandlerFunc(s.handleAsk)))
 	mux.HandleFunc("/api/ask", methodNotAllowed(http.MethodPost))
 

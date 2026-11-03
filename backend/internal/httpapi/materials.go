@@ -40,6 +40,24 @@ func materialViewOf(m store.Material) materialView {
 	}
 }
 
+// materialDetailView 是单篇材料读取的响应；正文只在这里返回，列表不携带。
+type materialDetailView struct {
+	ID          int64     `json:"id"`
+	Title       string    `json:"title"`
+	Content     string    `json:"content"`
+	IndexStatus string    `json:"index_status"`
+	IndexError  string    `json:"index_error,omitempty"`
+	OwnerID     int64     `json:"owner_id"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+func materialDetailOf(m store.Material) materialDetailView {
+	return materialDetailView{
+		ID: m.ID, Title: m.Title, Content: m.Content, IndexStatus: m.IndexStatus,
+		IndexError: m.IndexError, OwnerID: m.OwnerID, CreatedAt: m.CreatedAt,
+	}
+}
+
 // handleCreateMaterial 处理 POST /api/materials（仅教师，R3.1 / R3.2 / R2.3）。
 //
 // 支持两种提交：
@@ -119,6 +137,28 @@ func (s *Server) handleListMaterials(w http.ResponseWriter, r *http.Request) {
 		out = append(out, materialViewOf(m))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"materials": out})
+}
+
+// handleGetMaterial 处理 GET /api/materials/{id}（MR1）：
+// 本班教师与学生都可读取原文；跨班与不存在统一 404，避免泄漏目标存在性。
+func (s *Server) handleGetMaterial(w http.ResponseWriter, r *http.Request) {
+	c, _ := claimsFrom(r.Context())
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		writeErr(w, http.StatusBadRequest, "bad_request", "材料 id 不合法")
+		return
+	}
+	m, err := s.st.GetMaterial(r.Context(), id, c.ClassID)
+	if errors.Is(err, store.ErrNotFound) {
+		writeErr(w, http.StatusNotFound, "not_found", "材料不存在")
+		return
+	}
+	if err != nil {
+		logServerError(r, "get_material_detail", err)
+		writeErr(w, http.StatusInternalServerError, "internal", "查询失败")
+		return
+	}
+	writeJSON(w, http.StatusOK, materialDetailOf(m))
 }
 
 // handleReindex 处理 POST /api/materials/{id}/reindex（仅教师，R3.3）。

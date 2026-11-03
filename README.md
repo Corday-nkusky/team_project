@@ -208,6 +208,9 @@ node scripts/e2e-ui.mjs       # 全绿退出码 0
   验收状态见 [`docs/lesson-07/verification.md`](./docs/lesson-07/verification.md)；同伴评审表见
   [`docs/lesson-07/peer-review.md`](./docs/lesson-07/peer-review.md)（尚未由第二位成员签署）。
   基线标签为 `v0.0.1-skeleton`；`main` 已启用保护（PR + 1 人批准、线性历史、禁强推/删除），日常改动走分支与 PR。
+- 2026-10-31 起的三个活动 change（学习工作台重设计、Go 换行治理、材料全文阅读）已实现并通过当前工作区验收：
+  完整质量门禁全绿，Go 接口 e2e 72 项、浏览器 e2e 50 项通过。`GET /api/materials/{id}` 为本班教师与学生
+  返回完整原文，跨班与不存在统一 404；三者尚未完成同伴评审与归档，状态以对应 change 与 PR 为准。
 - 选题说明（完整版，含表格与排期）：[`CampusClaw_课程项目选题说明_修订版.pdf`](./CampusClaw_课程项目选题说明_修订版.pdf)
 
 ## 文档

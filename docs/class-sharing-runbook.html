@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>CampusClaw · 规范不是建议｜课堂分享作战手册</title>
+<style>
+  :root{
+    --night:#101b2d;--night-2:#17263d;--paper:#f6f3ec;--card:#fffdf8;
+    --ink:#172235;--muted:#657084;--line:#dcdedb;--coral:#e76645;--coral-soft:#fbe4dc;
+    --mint:#207a68;--mint-soft:#dff0e9;--gold:#a66b16;--gold-soft:#f6ead2;
+    --red:#b6453c;--red-soft:#fae7e3;--shadow:0 20px 55px rgba(16,27,45,.09);
+    --serif:"Noto Serif CJK SC","Source Han Serif SC","Songti SC",STSong,SimSun,serif;
+    --sans:"PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;--max:1240px;
+  }
+  *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:86px}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.8;-webkit-font-smoothing:antialiased}
+  body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.32;background-image:linear-gradient(rgba(16,27,45,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(16,27,45,.025) 1px,transparent 1px);background-size:32px 32px}
+  a{color:inherit}button{font:inherit}code,kbd{font-family:var(--mono);font-size:.88em}code{background:#edf0f1;border:1px solid #dfe4e5;border-radius:5px;padding:.08em .35em;overflow-wrap:anywhere}
+  ::selection{background:var(--coral);color:white}.skip{position:fixed;top:-80px;left:16px;z-index:300;background:white;color:var(--night);padding:8px 14px}.skip:focus{top:10px}
+  .progress{position:fixed;z-index:250;left:0;top:0;height:3px;width:0;background:var(--coral)}
+  .topbar{position:sticky;top:0;z-index:100;background:rgba(246,243,236,.93);backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
+  .topbar-inner{max-width:var(--max);margin:auto;padding:10px 28px;display:flex;align-items:center;gap:12px}.topbar b{font-size:13px;letter-spacing:.08em}.topbar .spacer{flex:1}
+  .btn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:7px 14px;cursor:pointer;font-size:13px;font-weight:650}.btn:hover{border-color:var(--coral);color:var(--coral)}.btn.primary{background:var(--night);color:white;border-color:var(--night)}.btn.primary:hover{background:var(--coral);border-color:var(--coral);color:white}
+  .hero{position:relative;overflow:hidden;background:var(--night);color:#f8f4ea;padding:72px 0 64px}.hero:after{content:"RULES";position:absolute;right:-22px;bottom:-92px;font:700 220px/1 var(--sans);letter-spacing:-.08em;color:rgba(255,255,255,.025);pointer-events:none}
+  .hero-inner{max-width:var(--max);margin:auto;padding:0 32px;display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:70px;align-items:end;position:relative;z-index:1}
+  .eyebrow{font:12px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:#f4a48e}.hero h1{font-family:var(--serif);font-weight:600;font-size:clamp(46px,7vw,86px);line-height:1.08;letter-spacing:-.04em;margin:22px 0}.hero h1 span{color:#f49a80}.hero p{max-width:720px;color:#c9d2df;font-size:18px;margin:0}.hero-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:28px}.hero-meta span{font-size:12px;border:1px solid #3a485c;border-radius:999px;padding:5px 12px;color:#dce3eb}
+  .timer{background:#f8f4ea;color:var(--night);border-radius:20px;padding:24px;box-shadow:0 24px 70px rgba(0,0,0,.2)}.timer-label{font:11px var(--mono);letter-spacing:.12em;color:var(--muted)}.time{font:600 58px/1.2 var(--mono);letter-spacing:-.07em;margin:8px 0 14px}.timer-controls{display:flex;gap:8px;flex-wrap:wrap}.timer .btn{background:transparent;color:var(--night)}.timer .btn.primary{background:var(--night);color:white}.timer .btn.primary:hover{background:var(--coral);border-color:var(--coral)}.timer .timer-note{font-size:12px;color:var(--muted);margin:12px 0 0;line-height:1.6}
+  .layout{max-width:var(--max);margin:0 auto;padding:44px 32px 90px;display:grid;grid-template-columns:210px minmax(0,1fr);gap:48px;position:relative}
+  .side{position:sticky;top:82px;align-self:start}.side-title{font:11px var(--mono);letter-spacing:.12em;color:var(--muted);margin-bottom:12px}.side a{display:block;text-decoration:none;color:var(--muted);font-size:13px;padding:7px 10px;border-left:2px solid var(--line)}.side a:hover{color:var(--coral);border-color:var(--coral)}.side .companion{margin-top:24px;background:var(--mint-soft);border:1px solid #c7e2d8;border-radius:12px;padding:14px;font-size:12px;line-height:1.65}
+  main{min-width:0}section{scroll-margin-top:84px;margin-bottom:70px}.section-head{display:grid;grid-template-columns:70px minmax(0,1fr);gap:20px;align-items:start;margin-bottom:24px}.num{font:500 42px/1 var(--serif);color:var(--coral)}.section-head h2{font:600 clamp(28px,4vw,42px)/1.25 var(--serif);letter-spacing:-.025em;margin:0}.section-head p{margin:8px 0 0;color:var(--muted)}
+  h3{font-size:20px;line-height:1.45;margin:32px 0 14px}p{margin:10px 0}.muted{color:var(--muted)}.small{font-size:13px}.lead{font-size:19px;line-height:1.85}.accent{color:var(--coral)}.mint{color:var(--mint)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:24px;box-shadow:0 6px 20px rgba(16,27,45,.035);margin:16px 0}.card h3:first-child{margin-top:0}.grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+  .callout{border-left:4px solid var(--coral);background:var(--coral-soft);padding:16px 20px;border-radius:0 12px 12px 0;margin:18px 0}.callout.green{border-color:var(--mint);background:var(--mint-soft)}.callout.gold{border-color:var(--gold);background:var(--gold-soft)}.callout b{font-weight:750}
+  .script{position:relative;background:var(--night);color:#eef2f6;border-radius:18px;padding:26px 28px;margin:18px 0;box-shadow:var(--shadow)}.script:before{content:"讲稿";display:block;color:#f4a48e;font:11px var(--mono);letter-spacing:.15em;margin-bottom:12px}.script p{margin:0;font-family:var(--serif);font-size:18px;line-height:1.95}.script em{color:#f4a48e;font-style:normal}
+  .file{display:flex;gap:12px;align-items:flex-start;background:#eef1f1;border:1px solid #dce2e2;border-radius:12px;padding:13px 16px;margin:10px 0;text-decoration:none}.file:hover{border-color:var(--mint)}.file .icon{color:var(--mint);font:18px var(--mono)}.file b{display:block;font:600 13px var(--mono);overflow-wrap:anywhere}.file span{display:block;color:var(--muted);font-size:12px;line-height:1.55;margin-top:3px}
+  .timeline{border-top:1px solid var(--line)}.slot{display:grid;grid-template-columns:112px minmax(0,1fr);gap:22px;padding:25px 0;border-bottom:1px solid var(--line)}.slot-time{font:600 16px var(--mono);color:var(--coral)}.slot h3{margin:0 0 8px}.slot p{margin:6px 0}.slot ul{margin:10px 0;padding-left:20px}.slot li{margin:5px 0}
+  pre{position:relative;background:#0c1524;color:#e7edf4;border-radius:14px;padding:20px;overflow:auto;font:13px/1.75 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0}pre code{background:none;border:0;padding:0;color:inherit;font:inherit}.copy{position:absolute;right:10px;top:10px;border:1px solid #405069;background:#17263d;color:#dce5ef;border-radius:7px;padding:4px 9px;font:11px var(--sans);cursor:pointer}.copy:hover{border-color:#f4a48e;color:#f4a48e}.code-wrap{position:relative}.code-label{font:11px var(--mono);letter-spacing:.08em;color:var(--muted);margin:18px 0 6px}
+  .steps{counter-reset:step;list-style:none;padding:0;margin:16px 0}.steps li{counter-increment:step;position:relative;padding:0 0 22px 52px}.steps li:before{content:counter(step);position:absolute;left:0;top:0;width:32px;height:32px;border-radius:50%;background:var(--night);color:white;text-align:center;font:600 15px/32px var(--mono)}.steps li:not(:last-child):after{content:"";position:absolute;left:15px;top:36px;bottom:4px;width:2px;background:var(--line)}.steps b{font-weight:750}
+  .expected{border:1px solid #c9e0d6;background:var(--mint-soft);border-radius:12px;padding:14px 18px;color:#195f51}.danger{border:1px solid #ecc8c2;background:var(--red-soft);border-radius:12px;padding:14px 18px;color:#873a33}
+  details{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:12px 0;overflow:hidden}summary{cursor:pointer;padding:17px 20px;font-weight:700;list-style:none;display:flex;gap:12px;align-items:center}summary::-webkit-details-marker{display:none}summary:before{content:"+";font:22px var(--mono);color:var(--coral)}details[open] summary:before{content:"−"}details[open] summary{border-bottom:1px solid var(--line)}.details-body{padding:18px 22px}.details-body p:first-child{margin-top:0}.details-body p:last-child{margin-bottom:0}
+  .qa-tag{display:inline-block;background:var(--coral-soft);color:#9d432f;border-radius:999px;padding:2px 9px;font:11px var(--mono);margin-left:8px}.answer{font-family:var(--serif);font-size:17px}.answer b{color:var(--mint)}
+  .checklist{list-style:none;padding:0}.checklist li{display:flex;gap:11px;align-items:flex-start;margin:10px 0}.checklist input{margin-top:7px;accent-color:var(--mint);width:16px;height:16px}.checklist label{cursor:pointer}
+  .cue{border-top:2px solid var(--night);padding-top:14px;margin-top:16px}.cue b{font-family:var(--serif);font-size:18px}.footer{border-top:1px solid var(--line);padding:28px 32px 40px;text-align:center;color:var(--muted);font-size:12px;background:var(--card)}
+  .only-print{display:none}
+  @media(max-width:960px){.hero-inner{grid-template-columns:1fr;gap:34px}.timer{max-width:420px}.layout{grid-template-columns:1fr}.side{display:none}.grid-3{grid-template-columns:1fr}.hero:after{font-size:150px}}
+  @media(max-width:640px){.topbar-inner{padding:9px 16px}.topbar b{display:none}.hero{padding:50px 0}.hero-inner{padding:0 20px}.hero h1{font-size:45px}.layout{padding:34px 18px 60px}.section-head{grid-template-columns:46px 1fr;gap:12px}.num{font-size:32px}.grid-2{grid-template-columns:1fr}.slot{grid-template-columns:1fr;gap:6px}.card,.script{padding:20px}.time{font-size:48px}.hero-meta span{font-size:11px}}
+  @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  @media print{body{background:white;font-size:11pt}.topbar,.side,.progress,.timer,.copy,.no-print{display:none!important}.hero{background:white;color:var(--ink);padding:20px 0}.hero p,.hero-meta span{color:var(--ink)}.hero-inner{display:block}.hero h1{font-size:42px}.layout{display:block;padding:20px 0}.card,details,.script{box-shadow:none;break-inside:avoid}.script{background:#f1f3f4;color:var(--ink)}.script em{color:#8d3d2b}.only-print{display:block}section{margin-bottom:34px}.footer{background:white}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">跳到正文</a><div class="progress" id="progress"></div>
+<header class="topbar no-print"><div class="topbar-inner"><b>CAMPUSCLAW / CLASS RUNBOOK</b><div class="spacer"></div><button class="btn" id="expandAll">展开问答</button><button class="btn" onclick="window.print()">打印 / 导出 PDF</button></div></header>
+<section class="hero">
+  <div class="hero-inner">
+    <div>
+      <div class="eyebrow">10 MINUTE TALK + 5 MINUTE Q&amp;A · 2026.10</div>
+      <h1>规范不是建议。<br><span>门禁也不是。</span></h1>
+      <p>用一次“故意违规”讲清 CampusClaw 如何把规则、自动检查和违规处理连成闭环。现场只开仓库，不放幻灯片。</p>
+      <div class="hero-meta"><span>主线：规则如何被证明有效</span><span>演示：分层反向依赖</span><span>无需 Docker / 模型密钥</span></div>
+    </div>
+    <aside class="timer no-print" aria-label="演讲计时器">
+      <div class="timer-label">PRESENTATION TIMER</div><div class="time" id="time">10:00</div>
+      <div class="timer-controls"><button class="btn primary" id="startTimer">开始</button><button class="btn" id="resetTimer">重置</button><button class="btn" data-preset="10">10 分钟</button><button class="btn" data-preset="5">问答 5 分钟</button></div>
+      <p class="timer-note">到 04:00 应开始演示；到 07:00 必须收尾演示。时间一到，先还原，再总结。</p>
+    </aside>
+  </div>
+</section>
+<div class="layout">
+<nav class="side no-print" aria-label="页面目录"><div class="side-title">ON THIS PAGE</div><a href="#ready">上台前</a><a href="#route">10 分钟路线</a><a href="#demo">现场演示</a><a href="#fallback">救场方案</a><a href="#qa">5 分钟问答</a><a href="#cue">最后提词</a><div class="companion">配套文档<br><a href="project-status-guide.html" style="border:0;padding:6px 0;color:var(--mint)">打开《项目全景掌握指南》→</a></div></nav>
+<main id="main">
+<section id="ready">
+  <div class="section-head"><div class="num">00</div><div><h2>上台前，只准备一条主线</h2><p>目标不是展示“规则很多”，而是让全班亲眼看到：规则能拦住一次真实违规。</p></div></div>
+  <div class="callout"><b>一句话策略：</b>一个案例、一个门禁、一次失败、一次恢复。不要现场追加第二个故障，不要逐条朗读八份规范。</div>
+  <div class="grid-2">
+    <div class="card"><h3>课前 3 分钟检查</h3><ul class="checklist">
+      <li><input type="checkbox" id="r1"><label for="r1">终端位于仓库根目录，编辑器已打开仓库。</label></li>
+      <li><input type="checkbox" id="r2"><label for="r2">运行 <code>node scripts/check-layering.mjs</code>，当前应先通过。</label></li>
+      <li><input type="checkbox" id="r3"><label for="r3">提前打开 AGENTS、02-backend、check-layering、verification 四个标签。</label></li>
+      <li><input type="checkbox" id="r4"><label for="r4">编辑器字体调大；关闭无关通知；浏览器缩放不影响终端输出。</label></li>
+      <li><input type="checkbox" id="r5"><label for="r5">知道探针文件名，演示后必须删除；不创建、展示或修改真实密钥。</label></li>
+    </ul></div>
+    <div class="card"><h3>提前打开的仓库位置</h3>
+      <a class="file" href="../AGENTS.md"><span class="icon">01</span><span><b>AGENTS.md</b><span>总入口：变更流程、分层、门禁与完成定义。</span></span></a>
+      <a class="file" href="../.qoder/rules/02-backend.md"><span class="icon">02</span><span><b>.qoder/rules/02-backend.md</b><span>本场主案例：规则 / 检查 / 违规处理 / 有效性验证。</span></span></a>
+      <a class="file" href="../scripts/check-layering.mjs"><span class="icon">03</span><span><b>scripts/check-layering.mjs</b><span>可执行载体：层级表、禁止规则、退出码。</span></span></a>
+      <a class="file" href="lesson-07/verification.md"><span class="icon">04</span><span><b>docs/lesson-07/verification.md</b><span>历史演练证据；网络或现场操作异常时的备份。</span></span></a>
+    </div>
+  </div>
+</section>
+<section id="route">
+  <div class="section-head"><div class="num">01</div><div><h2>10 分钟现场路线</h2><p>每一段都有“打开哪里、说什么、做到什么程度”。讲稿可直接照读，熟悉后换成自己的表达。</p></div></div>
+  <div class="timeline">
+    <article class="slot"><div class="slot-time">00:00<br>— 01:00</div><div><h3>开场：我们如何解决“规范写了没人用”</h3><p class="muted">打开仓库根目录，不急着翻文件。</p><div class="script"><p>老师、同学们好。我们组这次想分享的，不是“写了八份规则”，而是我们怎么让这些规则<em>不只靠自觉</em>。AI 和人类一起写代码时，规范最容易变成文档摆设，所以我们给每份规则都补了检查方式、违规处理和一次有效性验证。接下来我会故意制造一次分层违规，让大家看看门禁是不是真的能拦住。</p></div></div></article>
+    <article class="slot"><div class="slot-time">01:00<br>— 02:30</div><div><h3>总入口：规范怎样进入开发过程</h3><a class="file" href="../AGENTS.md"><span class="icon">↗</span><span><b>AGENTS.md</b><span>指到第一、二、七、八、十节即可，不滚动朗读全文。</span></span></a><div class="script"><p>这个文件是所有成员和 AI 工具的共同入口。每次改动先写 OpenSpec，场景必须能判定；实现后跑统一门禁；最后还要同伴评审。也就是说，规范同时约束<em>需求、代码、测试和交付</em>，不是只管代码风格。</p></div><p><b>手势：</b>指向“规范不是建议”和“变更流程（不可跳过）”。</p></div></article>
+    <article class="slot"><div class="slot-time">02:30<br>— 04:00</div><div><h3>解剖一份规则：四层闭环</h3><a class="file" href="../.qoder/rules/02-backend.md"><span class="icon">↗</span><span><b>.qoder/rules/02-backend.md</b><span>重点看第 7–15、17–21、23–26、28–30 行。</span></span></a><div class="script"><p>以后端规范为例。第一层是可执行的规则，比如传输层不能直接接触向量库；第二层是检查方式，对应分层脚本和 Go 工具链；第三层是违规处理，失败就阻断合并；第四层最重要——<em>有效性验证</em>，主动放一个反向依赖，确认检查不是永远说“通过”。</p></div></div></article>
+    <article class="slot"><div class="slot-time">04:00<br>— 07:00</div><div><h3>高潮：故意违规 → 门禁失败 → 删除恢复</h3><p>按下一节的五个步骤操作。看到失败后只解释一条报错，不展开源码。</p><div class="script"><p>现在我不改任何业务逻辑，只临时增加一个探针文件，让 <code>httpapi</code> 直接引用 <code>qdrant</code>。按照规范，这应该被拦截。大家看，检查退出失败，而且准确指出了文件和原因。<em>这次失败，恰恰证明门禁成功。</em>现在删除探针，再跑一次，恢复通过。</p></div></div></article>
+    <article class="slot"><div class="slot-time">07:00<br>— 08:30</div><div><h3>从一个脚本到完整证据链</h3><div class="grid-2"><a class="file" href="../scripts/quality-gate.mjs"><span class="icon">↗</span><span><b>scripts/quality-gate.mjs</b><span>配置样例、分层、密钥、gofmt、build、vet、test。</span></span></a><a class="file" href="lesson-07/verification.md"><span class="icon">↗</span><span><b>verification.md 第四节</b><span>历史实测：分层与密钥演练、恢复结果。</span></span></a></div><div class="script"><p>单点脚本还会被收进统一质量门禁。更重要的是，演练结果会写进验收记录：做了什么、预期什么、实际是什么、最后有没有恢复。这样别人不需要相信我们的口头保证，可以<em>复现证据</em>。</p></div></div></article>
+    <article class="slot"><div class="slot-time">08:30<br>— 10:00</div><div><h3>收尾：门禁有效，但门禁不是全部</h3><div class="script"><p>我们的收获有三点。第一，规则要写成能检查的契约；第二，检查本身也要被测试；第三，失败之后必须有明确处置和恢复。我们也承认门禁不是万能的：产品价值、检索是否真正可信、真实依赖下的端到端行为，还需要场景测试和同伴评审。对我们来说，<em>工程规范不是让开发变慢，而是让信任变得可验证。</em>谢谢大家。</p></div><p class="muted"><b>最后一句说完就停。</b>不要再补充新例子，把剩余时间交给提问。</p></div></article>
+  </div>
+</section>
+<section id="demo">
+  <div class="section-head"><div class="num">02</div><div><h2>现场演示操作卡</h2><p>安全边界：只新增并删除一个以下划线开头的 Go 探针；不改业务文件，不需要 Docker，不接触模型密钥。</p></div></div>
+  <div class="callout green"><b>为什么用 <code>_probe_layering.go</code>？</b> Go 构建工具会忽略下划线开头的文件，而分层脚本会扫描所有 <code>.go</code> 文件。因此它能隔离地验证分层门禁，不影响业务二进制。</div>
+  <ol class="steps">
+    <li><b>先证明当前通过。</b>在仓库根目录运行：<div class="code-wrap"><button class="btn copy" data-copy="node scripts/check-layering.mjs">复制</button><pre><code>node scripts/check-layering.mjs</code></pre></div><p class="small muted">预期：输出“分层依赖检查通过”，退出码 0。若课前已是失败状态，不现场造第二个问题，直接改用历史证据方案。</p></li>
+    <li><b>新建探针文件。</b>路径必须是：<div class="code-wrap"><button class="btn copy" data-copy="backend/internal/httpapi/_probe_layering.go">复制</button><pre><code>backend/internal/httpapi/_probe_layering.go</code></pre></div><p>内容只有两行：</p><div class="code-wrap"><button class="btn copy" data-copy='package httpapi
+
+import _ "github.com/Corday-nkusky/team_project/backend/internal/qdrant"'>复制</button><pre><code>package httpapi
+
+import _ "github.com/Corday-nkusky/team_project/backend/internal/qdrant"</code></pre></div></li>
+    <li><b>再次运行同一命令。</b><div class="code-wrap"><button class="btn copy" data-copy="node scripts/check-layering.mjs">复制</button><pre><code>node scripts/check-layering.mjs</code></pre></div><div class="expected"><b>预期失败，且这就是演示成功：</b><br><code>httpapi 不得直接引用 internal/qdrant，应经 qa 间接调用</code><br>进程退出码为 1，并指名 <code>_probe_layering.go</code>。</div></li>
+    <li><b>解释“为什么拦”，只说一句。</b>传输层负责解析、鉴权与响应；向量和模型访问必须经过应用层 <code>qa</code>，这样业务编排不会散落到 handler。</li>
+    <li><b>立即删除探针并复跑。</b>确认文件已不存在，再运行：<div class="code-wrap"><button class="btn copy" data-copy="node scripts/check-layering.mjs">复制</button><pre><code>node scripts/check-layering.mjs</code></pre></div><p>预期恢复通过。可用 <code>git status --short</code> 确认列表中没有 <code>_probe_layering.go</code>；仓库里其他已有文档不属于本次探针。</p></li>
+  </ol>
+  <div class="danger no-print"><b>绝对不要：</b>为了让报错“更明显”而修改多个文件；不要演示真实密钥泄漏；不要在失败后跳过还原；不要把当前总门禁是否全绿与这次单点分层演示混为一谈。</div>
+</section>
+<section id="fallback">
+  <div class="section-head"><div class="num">03</div><div><h2>现场不顺，也有 30 秒救场方案</h2><p>救场的目标不是证明你操作熟练，而是保住论证完整性。</p></div></div>
+  <div class="grid-3">
+    <div class="card"><h3>命令本身失败</h3><p class="small">先读第一行错误。若是环境或既有工作区问题，不现场排查；打开 <code>verification.md</code> 第四节。</p><p class="small"><b>说：</b>“现场环境占用了时间，我们直接看已记录的同一演练；关键仍是它同时保存了失败和恢复证据。”</p></div>
+    <div class="card"><h3>时间已超过 07:00</h3><p class="small">立即删除探针并复跑。省略质量门禁源码，只打开验证记录。</p><p class="small"><b>说：</b>“脚本细节大家可以课后看，我只保留结论：失败可定位、恢复可复验、过程有记录。”</p></div>
+    <div class="card"><h3>探针没有触发失败</h3><p class="small">检查路径是否在 <code>backend/internal/httpapi</code>、扩展名是否为 <code>.go</code>、import 是否完整。最多纠正一次。</p><p class="small"><b>还不触发：</b>坦诚说这本身暴露了门禁盲区，停止演示，记录为待修问题；不要假装成功。</p></div>
+  </div>
+  <div class="callout gold"><b>表达纪律：</b>不把历史通过说成“今天刚刚通过”；不把“代码合并”说成“所有完成定义已闭环”。这两句话反而会让你们对证据的理解更可信。</div>
+</section>
+<section id="qa">
+  <div class="section-head"><div class="num">04</div><div><h2>5 分钟问答应答库</h2><p>每题控制在 25–40 秒。先给结论，再举一个仓库证据，最后承认边界。</p></div></div>
+  <details><summary>规则这么多，会不会拖慢开发？<span class="qa-tag">成本</span></summary><div class="details-body"><p class="answer"><b>会有固定成本，但它替代的是返工和争论。</b>小团队不需要每次都重读全部规则；入口文件告诉你要走 change、门禁和评审，细则只在涉及对应领域时查阅。真正省时间的是错误在本地、合并前就被发现，而不是演示或联调时才暴露。</p></div></details>
+  <details><summary>AI 真的会遵守这些规范吗？<span class="qa-tag">AI 协作</span></summary><div class="details-body"><p class="answer"><b>不能把“写给它看”等同于“它一定遵守”。</b>所以 AGENTS 只是发现入口，脚本和退出码才是硬约束。规范负责让要求可发现，门禁负责让违规可观察，评审负责处理自动检查覆盖不到的判断。</p></div></details>
+  <details><summary>为什么要故意违规？正常测试通过不就够了？<span class="qa-tag">核心</span></summary><div class="details-body"><p class="answer"><b>因为“没有报错”可能只是“没有检查到”。</b>正常样本通过只能证明门禁不拦正确代码，不能证明它会拦错误代码。故意违规相当于给门禁本身补一个负向测试：既要会放行，也要会拒绝。</p></div></details>
+  <details><summary>故意违规会不会把仓库或数据弄坏？<span class="qa-tag">安全</span></summary><div class="details-body"><p class="answer"><b>关键是选择隔离、可逆、无外部副作用的探针。</b>这次只新增下划线开头的 Go 文件，不进入业务构建，不启动服务、不碰数据库；验证后删除并复跑。真实密钥泄漏、破坏性迁移不适合课堂现场演练，应只用历史受控记录说明。</p></div></details>
+  <details><summary>全部门禁通过，是否说明项目质量没问题？<span class="qa-tag">边界</span></summary><div class="details-body"><p class="answer"><b>不能。</b>离线门禁主要保证结构、配置卫生、格式、构建和单元测试；真实 MySQL、Qdrant、浏览器和 SSE 行为还要靠端到端测试。产品是否有价值、规则是否合理、回答是否真的可信，仍需要独立走查和人的评审。</p></div></details>
+  <details><summary>为什么不让 CI 直接做，而要保留本地脚本？<span class="qa-tag">工程</span></summary><div class="details-body"><p class="answer"><b>同一套脚本本地和 CI 都能跑，反馈才一致。</b>本地门禁把问题拦在提交前，CI 再做独立复验；脚本进仓库后，检查逻辑本身也能被评审和版本追踪，而不是藏在某个平台配置里。</p></div></details>
+  <details><summary>新成员怎样开始，不会被规范吓住？<span class="qa-tag">上手</span></summary><div class="details-body"><p class="answer"><b>从一条真实改动走一遍，而不是背规范。</b>先看 AGENTS 的项目一句话和变更流程，再复制一个相近 change 的四件套；实现后按 tasks 的 verify 执行，最后跑统一门禁。三个技能把新增接口、质量检查和从零启动做成了可复用流程。</p></div></details>
+  <details><summary>你们现在的流程是否已经全部做到位？<span class="qa-tag">坦诚</span></summary><div class="details-body"><p class="answer"><b>还不能这样概括。</b>核心功能和修复已经落地，但“代码合并”不等于完成定义全部满足；评审记录、任务勾选和 change 归档仍要持续闭环。规范的价值也包括让这些缺口可见，而不是把项目包装成永远全绿。</p></div></details>
+  <details><summary>下一步最该改进什么？<span class="qa-tag">演进</span></summary><div class="details-body"><p class="answer"><b>优先让规范持续有效，而不是继续增加条目。</b>定期抽查已归档场景是否仍对应 e2e，检查最近合并是否都有门禁与评审证据，并对跨平台换行等环境问题做稳定化处理。只有规则被反复使用、违规确实被发现，规范体系才算活着。</p></div></details>
+</section>
+<section id="cue">
+  <div class="section-head"><div class="num">05</div><div><h2>带上台的六句提词</h2><p>忘词时只看这里。每句对应一个动作，不影响主线。</p></div></div>
+  <div class="card">
+    <div class="cue"><b>1</b>　“我们分享的不是规则数量，而是规则如何被证明有效。”</div>
+    <div class="cue"><b>2</b>　打开 AGENTS：“需求、代码、测试和交付走同一条契约。”</div>
+    <div class="cue"><b>3</b>　打开后端规范：“规则、检查、处置、有效性验证，四层闭环。”</div>
+    <div class="cue"><b>4</b>　制造探针：“现在这条错误应该被拦住——失败就是门禁成功。”</div>
+    <div class="cue"><b>5</b>　删除复跑：“可定位、可恢复、可复验，才值得信任。”</div>
+    <div class="cue"><b>6</b>　收尾：“自动门禁不是全部；端到端和人的评审仍然必要。”</div>
+  </div>
+  <div class="callout green"><b>最后检查：</b>探针已删除 · 分层检查恢复通过 · 没有展示任何本机 <code>.env</code> 或真实令牌 · 没有承诺“项目所有方面都全绿”。</div>
+</section>
+</main></div>
+<footer class="footer">CampusClaw · 课堂分享作战手册　/　内容依据当前仓库规约与验证记录整理　/　2026-10-31</footer>
+<script>
+(function(){
+  const progress=document.getElementById('progress');
+  function onScroll(){const h=document.documentElement;const max=h.scrollHeight-h.clientHeight;progress.style.width=(max>0?h.scrollTop/max*100:0)+'%'}
+  document.addEventListener('scroll',onScroll,{passive:true});onScroll();
+  document.querySelectorAll('[data-copy]').forEach(btn=>btn.addEventListener('click',async()=>{
+    const text=btn.dataset.copy;let ok=false;
+    try{await navigator.clipboard.writeText(text);ok=true}catch(e){const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();ok=document.execCommand('copy');ta.remove()}
+    const old=btn.textContent;btn.textContent=ok?'已复制':'请手动复制';setTimeout(()=>btn.textContent=old,1400);
+  }));
+  const details=[...document.querySelectorAll('details')];const expand=document.getElementById('expandAll');
+  expand.addEventListener('click',()=>{const open=!details.every(d=>d.open);details.forEach(d=>d.open=open);expand.textContent=open?'收起问答':'展开问答'});
+  window.addEventListener('beforeprint',()=>details.forEach(d=>d.open=true));
+  let total=600,left=600,running=false,id=null;const time=document.getElementById('time'),start=document.getElementById('startTimer');
+  function render(){const m=Math.floor(left/60),s=left%60;time.textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');time.style.color=left<=60&&left>0?'var(--red)':'';document.title=(running?time.textContent+' · ':'')+'CampusClaw · 规范不是建议'}
+  function stop(){running=false;clearInterval(id);id=null;start.textContent=left<total&&left>0?'继续':'开始';render()}
+  start.addEventListener('click',()=>{if(running){stop();return}if(left<=0)left=total;running=true;start.textContent='暂停';id=setInterval(()=>{left--;if(left<=0){left=0;stop();time.textContent='00:00';return}render()},1000);render()});
+  document.getElementById('resetTimer').addEventListener('click',()=>{stop();left=total;start.textContent='开始';render()});
+  document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>{stop();total=Number(b.dataset.preset)*60;left=total;start.textContent='开始';render()}));render();
+})();
+</script>
+</body>
+</html>

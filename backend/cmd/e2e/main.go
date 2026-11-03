@@ -79,6 +79,7 @@ func main() {
 
 	// 上传与检索（R3.1 / R5.1 / R6 / R7）。
 	matID := checkUpload(ctx, teacher.access, unique)
+	checkMaterialDetail(ctx, teacher.access, student1.access, matID, unique)
 	checkUploadEmpty(ctx, teacher.access)
 	checkUploadBoundaries(ctx, teacher.access)
 	checkReindex(ctx, teacher.access, matID)
@@ -87,7 +88,7 @@ func main() {
 
 	// 跨班负向（R2.1 / R2.2）。
 	mat2 := uploadMaterial(ctx, teacher2.access, "B班材料", uniqueB) // 仅存在于 2 班
-	checkCrossClassReindex(ctx, teacher.access, mat2)
+	checkCrossClassReindex(ctx, teacher.access, student1.access, mat2, uniqueB)
 	checkCrossClassSearch(ctx, student1.access, uniqueB)
 
 	checkAskEmpty(ctx)
@@ -225,6 +226,70 @@ func checkUpload(ctx context.Context, teacherAccess, unique string) int64 {
 	ok("教师上传非空材料 → 201", st == 201, fmt.Sprintf("实际 %d: %s", st, body))
 	ok("索引状态为 ready", mv.IndexStatus == "ready", mv.IndexStatus+mv.IndexError)
 	return mv.ID
+}
+
+// checkMaterialDetail 覆盖 MR1.1 / MR1.3 / MR1.4：本班师生可读全文，
+// 未认证与非法 id 被拒，索引失败不阻止读取原文。
+func checkMaterialDetail(ctx context.Context, teacherAccess, studentAccess string, id int64, unique string) {
+	sec("MR1.1 本班教师与学生读取材料全文")
+	st, body := get(ctx, fmt.Sprintf("/api/materials/%d", id), teacherAccess)
+	var d materialPayload
+	_ = json.Unmarshal(body, &d)
+	ok("教师读取本班材料 → 200 且正文含独有词",
+		st == 200 && d.Title != "" && strings.Contains(d.Content, unique),
+		fmt.Sprintf("status=%d title=%q content=%.80q", st, d.Title, d.Content))
+	ok("详情含索引状态与可解析的上传时间",
+		d.IndexStatus == "ready" && parseRFC3339(d.CreatedAt), fmt.Sprintf("status=%q created=%q", d.IndexStatus, d.CreatedAt))
+
+	st, body = get(ctx, fmt.Sprintf("/api/materials/%d", id), studentAccess)
+	ok("学生读取同一份本班材料 → 200 且正文一致",
+		st == 200 && strings.Contains(string(body), unique), fmt.Sprintf("status=%d body=%.120s", st, body))
+
+	sec("MR1.3 未认证与非法 id")
+	st, body = get(ctx, fmt.Sprintf("/api/materials/%d", id), "")
+	ok("未携带令牌读取详情 → 401", st == 401 && strings.Contains(string(body), "unauthorized"),
+		fmt.Sprintf("status=%d body=%s", st, body))
+	st, body = get(ctx, "/api/materials/abc", teacherAccess)
+	ok("非数字 id → 400 bad_request", st == 400 && strings.Contains(string(body), "bad_request"),
+		fmt.Sprintf("status=%d body=%s", st, body))
+	st, body = get(ctx, "/api/materials/0", teacherAccess)
+	ok("非正整数 id → 400 bad_request", st == 400 && strings.Contains(string(body), "bad_request"),
+		fmt.Sprintf("status=%d body=%s", st, body))
+
+	sec("MR1.4 索引失败仍可读原文")
+	conn, err := db.Open(dbDSN)
+	if err != nil {
+		ok("打开数据库连接", false, err.Error())
+		return
+	}
+	defer conn.Close()
+	var oldStatus, oldErr string
+	if err := conn.QueryRowContext(ctx,
+		`SELECT index_status, index_error FROM materials WHERE id=?`, id).Scan(&oldStatus, &oldErr); err != nil {
+		ok("读取原索引状态", false, err.Error())
+		return
+	}
+	restore := func() {
+		_, _ = conn.ExecContext(ctx,
+			`UPDATE materials SET index_status=?, index_error=? WHERE id=?`, oldStatus, oldErr, id)
+	}
+	defer restore()
+	if _, err := conn.ExecContext(ctx,
+		`UPDATE materials SET index_status='failed', index_error='模拟索引不可用' WHERE id=?`, id); err != nil {
+		ok("构造 failed 状态", false, err.Error())
+		return
+	}
+	st, body = get(ctx, fmt.Sprintf("/api/materials/%d", id), studentAccess)
+	_ = json.Unmarshal(body, &d)
+	ok("failed 材料仍返回 200 与完整正文",
+		st == 200 && strings.Contains(d.Content, unique) && d.IndexStatus == "failed" && d.IndexError != "",
+		fmt.Sprintf("status=%d index=%q err=%q content=%.60q", st, d.IndexStatus, d.IndexError, d.Content))
+	restore()
+}
+
+func parseRFC3339(s string) bool {
+	_, err := time.Parse(time.RFC3339, s)
+	return err == nil
 }
 
 func checkUploadEmpty(ctx context.Context, teacherAccess string) {
@@ -502,13 +567,19 @@ func uploadMaterial(ctx context.Context, access, title, unique string) int64 {
 	return mv.ID
 }
 
-func checkCrossClassReindex(ctx context.Context, teacher1Access string, class2MaterialID int64) {
+func checkCrossClassReindex(ctx context.Context, teacher1Access, student1Access string, class2MaterialID int64, uniqueB string) {
 	sec("R2.1 跨班读被拒")
 	st, body := post(ctx, fmt.Sprintf("/api/materials/%d/reindex", class2MaterialID), teacher1Access, nil)
-	ok("A 班教师请求 B 班材料 → 404/403 且不含 B 内容", (st == 404 || st == 403) && !strings.Contains(string(body), "跨班密语"), fmt.Sprintf("status=%d body=%s", st, body))
+	ok("A 班教师请求 B 班材料 → 404/403 且不含 B 内容", (st == 404 || st == 403) && !strings.Contains(string(body), uniqueB), fmt.Sprintf("status=%d body=%s", st, body))
+	st, body = get(ctx, fmt.Sprintf("/api/materials/%d", class2MaterialID), teacher1Access)
+	ok("A 班教师读取 B 班材料详情 → 404 且不含 B 内容", st == 404 && !strings.Contains(string(body), uniqueB),
+		fmt.Sprintf("status=%d body=%.160s", st, body))
+	st, body = get(ctx, fmt.Sprintf("/api/materials/%d", class2MaterialID), student1Access)
+	ok("A 班学生读取 B 班材料详情 → 404 且不泄漏存在性", st == 404 && !strings.Contains(string(body), uniqueB),
+		fmt.Sprintf("status=%d body=%.160s", st, body))
 	// 列表也应只含本班材料
 	_, listBody := get(ctx, "/api/materials", teacher1Access)
-	ok("材料列表不含他班材料", !strings.Contains(string(listBody), "跨班密语"), "")
+	ok("材料列表不含他班材料", !strings.Contains(string(listBody), uniqueB), "")
 }
 
 func checkCrossClassSearch(ctx context.Context, student1Access, uniqueB string) {
@@ -561,8 +632,10 @@ type tokenPayload struct {
 type materialPayload struct {
 	ID          int64  `json:"id"`
 	Title       string `json:"title"`
+	Content     string `json:"content"`
 	IndexStatus string `json:"index_status"`
 	IndexError  string `json:"index_error"`
+	CreatedAt   string `json:"created_at"`
 }
 
 type sseResult struct {
