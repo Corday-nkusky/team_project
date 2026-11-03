@@ -14,9 +14,11 @@ import { join } from 'node:path'
 
 const BASE = process.env.BASE || 'http://127.0.0.1:8080'
 const PORT = Number(process.env.CDP_PORT || 9333)
-const CHROME =
-  process.env.CHROME ||
-  'C:/Program Files/Google/Chrome/Application/chrome.exe'
+const CHROME = process.env.CHROME || (() => {
+  if (process.platform === 'win32') return 'C:/Program Files/Google/Chrome/Application/chrome.exe'
+  if (process.platform === 'darwin') return '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+  return 'google-chrome'
+})()
 
 let passed = 0
 let failed = 0
@@ -211,9 +213,12 @@ async function main() {
     ],
     { stdio: 'ignore' },
   )
+  const launchError = new Promise((_, reject) => {
+    chrome.once('error', (err) => reject(new Error(`无法启动 Chrome（${CHROME}）：${err.message}`)))
+  })
 
   try {
-    const wsUrl = await waitForTarget()
+    const wsUrl = await Promise.race([waitForTarget(), launchError])
     const { send, evaluate, on, close } = await connect(wsUrl)
 
     try {

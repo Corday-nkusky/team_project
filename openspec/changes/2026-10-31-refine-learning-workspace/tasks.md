@@ -49,3 +49,9 @@
 - [x] 5.3 回填实测并同步必要的项目状态说明，不代签评审、不归档未评审 change
   - verify: 本文件每项实测可追溯；状态文档不再把本轮已验证项写成待复验
   - 实测：本文件已逐项回填命令与结果；`docs/project-status-guide.html` 已区分 main 基线与当前未提交工作区，并更新门禁、gofmt 根因修复及 36 项浏览器实测。未代签评审、未归档 change、未创建 Git 提交。
+- [x] 5.4 修复浏览器 E2E 的跨平台 Chrome 路径与启动错误处理
+  - verify: macOS 执行 `BASE=http://127.0.0.1:18080 node scripts/e2e-ui.mjs` 退出码 0；`CHROME=/不存在的路径 node scripts/e2e-ui.mjs` 退出码 1 且输出可诊断错误
+  - 实测：2026-11-03 在 macOS 执行真实 Chrome E2E 全部通过；执行 `CHROME=/definitely/not/chrome node scripts/e2e-ui.mjs` 输出「无法启动 Chrome…ENOENT」、退出码 1，未再触发未处理的子进程错误。
+- [ ] 5.5 修复阅读面板焦点迁移时序并稳定真实键盘驱动
+  - verify: 真实 Chrome E2E 的 T3e、T3g、T5c、T5d 通过；完整脚本退出码 0
+  - 实测：2026-11-03 在 macOS headless Chrome + CDP 实测为 47 通过、4 失败；失败项为 T3e、T3g、T5c、T5d。真实上传、LLM 流、引用、拒答与学生阅读均通过；焦点/键盘断言尚未闭环，不得勾选。
