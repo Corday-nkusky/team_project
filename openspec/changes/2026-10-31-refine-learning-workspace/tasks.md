@@ -27,7 +27,7 @@
   - 实测：T4b、T4c、T5、T5b 通过；新增 T5c/T5d 使用 CDP 真实 Enter 与 Space 键输入，验证收起、展开、`:focus-visible` 和可见焦点样式，均通过。完整切片仍包含 300 字之后的独有尾注。
 - [x] 3.3 修正提问页范围文案，避免暗示可指定单份材料
   - verify: 提问页不再出现「这份讲义」「对应讲义」；`cd frontend && npm run build` 退出码 0
-  - 实测：`grep -rn "这份讲义\|对应讲义" frontend/src` 无匹配；`cd frontend && npm run build` 通过（36 modules），产物进入 `backend/internal/web/dist`。
+  - 实测：`grep -rn "这份讲义\|对应讲义" frontend/src` 无匹配；`cd frontend && npm run build` 通过（36 modules），产物进入 `backend/internal/web/dist`。示例问题在演示语料上逐条实测：三羧酸循环、酶、有丝分裂/减数分裂、孟德尔定律均返回 200 且无 `no_evidence` / `degraded` / `error`；光合作用示例因回答「资料中未找到相关内容」未采用。
 
 ## 4. 材料管理工作台
 
