@@ -107,11 +107,19 @@ func Load() (Config, error) {
 
 	apiKey := strings.TrimSpace(os.Getenv("LLM_API_KEY"))
 	apiBase := strings.TrimSpace(os.Getenv("LLM_API_BASE"))
+	chatModel := strings.TrimSpace(os.Getenv("LLM_CHAT_MODEL"))
+	embedModel := strings.TrimSpace(os.Getenv("LLM_EMBED_MODEL"))
 	if apiKey != "" {
 		if apiBase == "" {
 			problems = append(problems, "LLM_API_KEY 已设置时必须同时提供 LLM_API_BASE")
 		} else if !validHTTPURL(apiBase) {
 			problems = append(problems, "LLM_API_BASE 必须是 http(s) 绝对地址")
+		}
+		if chatModel == "" {
+			problems = append(problems, "LLM_API_KEY 已设置时必须同时提供 LLM_CHAT_MODEL")
+		}
+		if embedModel == "" {
+			problems = append(problems, "LLM_API_KEY 已设置时必须同时提供 LLM_EMBED_MODEL")
 		}
 	}
 
@@ -133,8 +141,8 @@ func Load() (Config, error) {
 
 		APIBase:    strings.TrimRight(apiBase, "/"),
 		APIKey:     apiKey,
-		ChatModel:  optString("LLM_CHAT_MODEL", "deepseek-chat"),
-		EmbedModel: optString("LLM_EMBED_MODEL", "text-embedding-3-small"),
+		ChatModel:  chatModel,
+		EmbedModel: embedModel,
 
 		ChunkSize:    optInt("CHUNK_SIZE", 500, 50, 4000, &problems),
 		ChunkOverlap: optInt("CHUNK_OVERLAP", 80, 0, 2000, &problems),
