@@ -42,10 +42,10 @@
 
 - [x] 3.3 更新状态文档并回填实测
   - verify: `docs/project-status-guide.html` 的 LLM 状态、验证计数与本 change 的实测一致；本文件所有 `[ ]` 已按实测勾选
-  - 实测：已更新 `docs/project-status-guide.html`：`llm.enabled=true` 与模型名、73 / 73 与 51 / 51、全链路与失败演练结论、历史材料待重索引的限制，以及「LLM change 尚未提交」的流程状态。本文件全部任务已按实测勾选。
+  - 实测：已更新 `docs/project-status-guide.html`：`llm.enabled=true` 与模型名、73 / 73 与 51 / 51、全链路与失败演练结论、历史材料待重索引的限制，以及 change 已提交为 PR #4 的流程状态。本文件全部任务已按实测勾选。
 
 ## 4. 提交与评审
 
-- [x] 4.1 提交 stacked PR 并同步状态
-  - verify: `gh pr view 4` 可读，base 为 `feat/workspace-material-reader`；状态文档不再写「LLM change 尚未提交」
-  - 实测：2026-11-01 将本 change 提交并推送 `feat/llm-gateway`，创建 PR #4，base 为 PR #3 分支；`docs/project-status-guide.html` 已改为「已提交为 stacked PR #4」。3.3 记录的是提交前状态，已被本节取代。PR 仍待真实评审与归档。
+- [x] 4.1 提交 PR 并同步状态
+  - verify: `gh pr view 4` 可读，base 为 `main`；状态文档写明 PR #3 已合并、PR #4 指向 main
+  - 实测：2026-11-01 将本 change 提交并推送 `feat/llm-gateway` 并创建 PR #4；PR #3 于 2026-11-03 合入 `main`（`a39846e`）后，2026-11-06 将 PR #4 的 base 改为 `main`，同步了 main 内容并更新 `docs/project-status-guide.html` 的基线表述。PR 仍待真实评审与归档。
