@@ -43,11 +43,70 @@ func (c *Client) Enabled() bool { return strings.TrimSpace(c.key) != "" }
 // ErrDisabled 表示未配置模型网关。
 var ErrDisabled = errors.New("未配置模型网关（LLM_API_KEY 为空）")
 
+// embedBatchSize 限制单次 /embeddings 请求的文本条数：超长材料一次性提交会被
+// 网关按体积或上下文拒收，分批后仍保持「全部成功才算成功」。
+const embedBatchSize = 32
+
 // Embed 批量生成嵌入向量。
+//
+// 相同文本只嵌入一次再按原顺序展开（长材料常有重复段落）；不同批次返回的
+// 维度必须一致，出现空向量或维度漂移即整体失败，避免把不一致的向量写入集合。
 func (c *Client) Embed(ctx context.Context, texts []string) ([][]float32, error) {
 	if !c.Enabled() {
 		return nil, ErrDisabled
 	}
+	if len(texts) == 0 {
+		return [][]float32{}, nil
+	}
+
+	unique := make([]string, 0, len(texts))
+	pos := make(map[string]int, len(texts))
+	order := make([]int, len(texts))
+	for i, text := range texts {
+		j, ok := pos[text]
+		if !ok {
+			j = len(unique)
+			pos[text] = j
+			unique = append(unique, text)
+		}
+		order[i] = j
+	}
+
+	vecs := make([][]float32, 0, len(unique))
+	dim := 0
+	for start := 0; start < len(unique); start += embedBatchSize {
+		end := start + embedBatchSize
+		if end > len(unique) {
+			end = len(unique)
+		}
+		batch, err := c.embedBatch(ctx, unique[start:end])
+		if err != nil {
+			return nil, fmt.Errorf("第 %d-%d 条: %w", start+1, end, err)
+		}
+		for _, v := range batch {
+			if len(v) == 0 {
+				return nil, fmt.Errorf("嵌入返回空向量")
+			}
+			if dim == 0 {
+				dim = len(v)
+				continue
+			}
+			if len(v) != dim {
+				return nil, fmt.Errorf("嵌入维度不一致：期望 %d，得到 %d", dim, len(v))
+			}
+		}
+		vecs = append(vecs, batch...)
+	}
+
+	out := make([][]float32, len(texts))
+	for i, j := range order {
+		out[i] = vecs[j]
+	}
+	return out, nil
+}
+
+// embedBatch 发送一批文本并校验响应条数；调用方保证 texts 非空。
+func (c *Client) embedBatch(ctx context.Context, texts []string) ([][]float32, error) {
 	body := map[string]any{"model": c.embedModel, "input": texts}
 	raw, err := c.post(ctx, "/embeddings", body)
 	if err != nil {

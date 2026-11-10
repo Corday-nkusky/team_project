@@ -48,18 +48,51 @@ type ScoredPoint struct {
 	Payload map[string]any `json:"payload"`
 }
 
-// EnsureCollection 确保集合存在（不存在则创建，余弦距离）。
+// EnsureCollection 确保集合存在且维度与当前嵌入一致（不存在则创建，余弦距离）。
+//
+// 集合已存在但维度不同时必须先失败：换嵌入模型后若直接删除旧向量再写入新维度，
+// 会同时丢掉可用的旧索引。调用方应提示运维删除集合并重索引（design D4）。
 func (c *Client) EnsureCollection(ctx context.Context, name string, dim int) error {
-	// 已存在？
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/collections/"+name, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/collections/"+name, nil)
+	if err != nil {
+		return err
+	}
 	c.auth(req)
 	resp, err := c.http.Do(req)
-	if err == nil {
-		resp.Body.Close()
-		if resp.StatusCode == http.StatusOK {
-			return nil
-		}
+	if err != nil {
+		return fmt.Errorf("查询集合 %s 失败: %w", name, err)
 	}
+	defer resp.Body.Close()
+	switch resp.StatusCode {
+	case http.StatusOK:
+		var got struct {
+			Result struct {
+				Config struct {
+					Params struct {
+						Vectors struct {
+							Size int `json:"size"`
+						} `json:"vectors"`
+					} `json:"params"`
+				} `json:"config"`
+			} `json:"result"`
+		}
+		raw := new(bytes.Buffer)
+		_, _ = raw.ReadFrom(resp.Body)
+		if err := json.Unmarshal(raw.Bytes(), &got); err != nil {
+			return fmt.Errorf("解析集合 %s 配置失败: %w", name, err)
+		}
+		if gotSize := got.Result.Config.Params.Vectors.Size; gotSize != dim {
+			return fmt.Errorf("集合 %s 的向量维度为 %d，与当前嵌入维度 %d 不一致；请删除该集合并重索引", name, gotSize, dim)
+		}
+		return nil
+	case http.StatusNotFound:
+		// 继续创建
+	default:
+		raw := new(bytes.Buffer)
+		_, _ = raw.ReadFrom(resp.Body)
+		return fmt.Errorf("查询集合 %s 返回 %d: %s", name, resp.StatusCode, truncate(raw.String(), 200))
+	}
+
 	body := map[string]any{
 		"vectors": map[string]any{"size": dim, "distance": "Cosine"},
 	}
@@ -70,11 +103,23 @@ func (c *Client) EnsureCollection(ctx context.Context, name string, dim int) err
 	return nil
 }
 
-// Upsert 写入/覆盖向量点。
+// upsertBatchSize 限制单次写入的点数：超长材料会产生上万条切片，
+// 一次性提交会把请求体推到百 MB 级并触发客户端或网关超时。
+const upsertBatchSize = 128
+
+// Upsert 写入/覆盖向量点（按批提交，任一批失败即整体失败）。
 func (c *Client) Upsert(ctx context.Context, collection string, points []Point) error {
-	_, err := c.do(ctx, http.MethodPut, "/collections/"+collection+"/points?wait=true",
-		map[string]any{"points": points})
-	return err
+	for start := 0; start < len(points); start += upsertBatchSize {
+		end := start + upsertBatchSize
+		if end > len(points) {
+			end = len(points)
+		}
+		if _, err := c.do(ctx, http.MethodPut, "/collections/"+collection+"/points?wait=true",
+			map[string]any{"points": points[start:end]}); err != nil {
+			return fmt.Errorf("写入第 %d-%d 个向量失败: %w", start+1, end, err)
+		}
+	}
+	return nil
 }
 
 // DeleteByMaterial 删除某材料的全部向量（重索引前清理）。
