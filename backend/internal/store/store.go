@@ -297,10 +297,17 @@ func (s *Store) GetMaterialTitle(ctx context.Context, materialID, classID int64)
 
 // --- 会话（R6.3：仅在完整生成后落库）---
 
-// SaveConversation 保存一次完整问答。
-func (s *Store) SaveConversation(ctx context.Context, userID, classID int64, question, answer string, citationsJSON []byte) error {
-	_, err := s.DB.ExecContext(ctx,
+// SaveConversation 保存一次完整问答，并返回记录 id 供 done 事件回执（H3）。
+func (s *Store) SaveConversation(ctx context.Context, userID, classID int64, question, answer string, citationsJSON []byte) (int64, error) {
+	res, err := s.DB.ExecContext(ctx,
 		`INSERT INTO conversations (user_id, class_id, question, answer, citations) VALUES (?,?,?,?,?)`,
 		userID, classID, question, answer, citationsJSON)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
 }

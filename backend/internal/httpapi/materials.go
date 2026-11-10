@@ -64,7 +64,8 @@ func materialDetailOf(m store.Material) materialDetailView {
 //   - multipart/form-data：字段 `file`（txt / md / markdown / pdf）与可选 `title`
 //   - application/json：{"title":..., "content":...}
 //
-// 所有输入边界都在落库前校验，失败不产生材料（spec R3.4）。
+// 所有输入边界都在落库前校验，失败不产生材料与任务（spec R3.4）。
+// 落库与任务入队在同一个事务里完成；建索引由独立 worker 执行，请求内不调用 qa.Index。
 func (s *Server) handleCreateMaterial(w http.ResponseWriter, r *http.Request) {
 	c, _ := claimsFrom(r.Context())
 	ctx := r.Context()
@@ -92,35 +93,20 @@ func (s *Server) handleCreateMaterial(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := s.st.CreateMaterial(ctx, c.ClassID, c.UserID, title, content)
+	// 事务性发件箱：材料与 pending 任务要么一起提交，要么一起回滚。
+	id, taskID, err := s.st.CreateMaterialWithTask(ctx, c.ClassID, c.UserID, title, content,
+		requestIDFrom(r.Context()))
 	if err != nil {
-		logServerError(r, "create_material", err)
-		writeErr(w, http.StatusInternalServerError, "internal", "落库失败")
+		logServerError(r, "create_material_with_task", err)
+		writeErr(w, http.StatusInternalServerError, "internal", "提交失败")
 		return
 	}
 
-	// 建索引；失败则标记 failed 而非静默成功（R3.3）。
-	status, indexErr := "ready", ""
-	if err := s.qa.Index(ctx, id, c.ClassID, content); err != nil {
-		status, indexErr = "failed", err.Error()
-	}
-	if err := s.st.SetMaterialStatus(ctx, id, status, indexErr); err != nil {
-		logServerError(r, "set_material_status", err)
-	}
-
-	if err := s.st.Audit(ctx, &c.UserID, c.Name, &c.ClassID, "upload", resultOf(status), "材料:"+title); err != nil {
+	detail := "材料:" + title + ";task:" + taskID
+	if err := s.st.Audit(ctx, &c.UserID, c.Name, &c.ClassID, "upload", "ok", detail); err != nil {
 		logServerError(r, "audit_upload", err)
 	}
-	writeJSON(w, http.StatusCreated, materialView{
-		ID: id, Title: title, IndexStatus: status, IndexError: indexErr, OwnerID: c.UserID, CreatedAt: time.Now(),
-	})
-}
-
-func resultOf(status string) string {
-	if status == "ready" {
-		return "ok"
-	}
-	return "fail"
+	writeJSON(w, http.StatusAccepted, s.acceptedView(r, c.ClassID, taskID, id))
 }
 
 // handleListMaterials 处理 GET /api/materials：只列本班材料（R2.1）。
@@ -162,34 +148,35 @@ func (s *Server) handleGetMaterial(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleReindex 处理 POST /api/materials/{id}/reindex（仅教师，R3.3）。
+// 与上传共用同一任务框架：入队或重放终态任务后返回 202，不在请求内建索引。
 func (s *Server) handleReindex(w http.ResponseWriter, r *http.Request) {
 	c, _ := claimsFrom(r.Context())
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
+	if err != nil || id <= 0 {
 		writeErr(w, http.StatusBadRequest, "bad_request", "材料 id 不合法")
 		return
 	}
-	m, err := s.st.GetMaterial(r.Context(), id, c.ClassID) // 跨班视为不存在（R2.1）
-	if errors.Is(err, store.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "not_found", "材料不存在")
-		return
-	}
-	if err != nil {
+	if _, err := s.st.GetMaterial(r.Context(), id, c.ClassID); err != nil { // 跨班视为不存在（R2.1）
+		if errors.Is(err, store.ErrNotFound) {
+			writeErr(w, http.StatusNotFound, "not_found", "材料不存在")
+			return
+		}
 		logServerError(r, "get_material", err)
 		writeErr(w, http.StatusInternalServerError, "internal", "查询失败")
 		return
 	}
 
-	status, indexErr := "ready", ""
-	if err := s.qa.Index(r.Context(), m.ID, m.ClassID, m.Content); err != nil {
-		status, indexErr = "failed", err.Error()
+	taskID, err := s.st.EnqueueReindex(r.Context(), id, c.ClassID, requestIDFrom(r.Context()))
+	if errors.Is(err, store.ErrNotFound) {
+		writeErr(w, http.StatusNotFound, "not_found", "材料不存在")
+		return
 	}
-	if err := s.st.SetMaterialStatus(r.Context(), m.ID, status, indexErr); err != nil {
-		logServerError(r, "set_material_status", err)
+	if err != nil {
+		logServerError(r, "enqueue_reindex", err)
+		writeErr(w, http.StatusInternalServerError, "internal", "提交失败")
+		return
 	}
-	writeJSON(w, http.StatusOK, materialView{
-		ID: m.ID, Title: m.Title, IndexStatus: status, IndexError: indexErr, OwnerID: m.OwnerID, CreatedAt: m.CreatedAt,
-	})
+	writeJSON(w, http.StatusAccepted, s.acceptedView(r, c.ClassID, taskID, id))
 }
 
 // readMaterialInput 从 multipart 或 JSON 请求中取出标题与正文，必要时抽取 PDF 文本。

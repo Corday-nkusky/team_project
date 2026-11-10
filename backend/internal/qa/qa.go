@@ -6,6 +6,7 @@ package qa
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -18,6 +19,10 @@ import (
 
 // Collection 是 Qdrant 集合名（带项目前缀，避免与同机上其他项目共用实例时撞名）。
 const Collection = "team_campusclaw_chunks"
+
+// ErrPermanent 表示「同样输入重试必然得到同一结果」的索引失败，
+// worker 判到它直接进终态，不消耗重试额度。
+var ErrPermanent = errors.New("不可重试的索引失败")
 
 // Citation 是回答所依据的一条材料片段；Snippet 为该切片的完整原文。
 type Citation struct {
@@ -47,6 +52,9 @@ type Service struct {
 	buildMu sync.Mutex
 	indexes map[int64]*retrieval.Index
 	dirty   map[int64]bool
+	// versions 记录每个缓存索引对应的最大切片 id。worker 在另一个进程写库后，
+	// Web 进程靠比对数据库里的版本发现变化，避免缓存永久不更新（A6.2）。
+	versions map[int64]int64
 }
 
 // New 构造 Service。
@@ -55,8 +63,9 @@ func New(st *store.Store, vec *qdrant.Client, model *llm.Client, topK, chunkSize
 	return &Service{
 		store: st, vec: vec, llm: model, topK: topK, chunkSize: chunkSize, overlap: overlap,
 		minCoverage: minCoverage, minVecScore: minVecScore,
-		indexes: make(map[int64]*retrieval.Index),
-		dirty:   make(map[int64]bool),
+		indexes:  make(map[int64]*retrieval.Index),
+		dirty:    make(map[int64]bool),
+		versions: make(map[int64]int64),
 	}
 }
 
@@ -76,12 +85,15 @@ func (s *Service) candidateLimit() int {
 // 退化为「仅词面索引」，不视为失败。
 func (s *Service) Index(ctx context.Context, materialID, classID int64, content string) error {
 	title, err := s.store.GetMaterialTitle(ctx, materialID, classID)
+	if errors.Is(err, store.ErrNotFound) {
+		return fmt.Errorf("%w: 材料已不存在", ErrPermanent)
+	}
 	if err != nil {
 		return fmt.Errorf("读取材料标题失败: %w", err)
 	}
 	parts := retrieval.SplitDocument(title, content, s.chunkSize, s.overlap)
 	if len(parts) == 0 {
-		return fmt.Errorf("切片为空")
+		return fmt.Errorf("%w: 切片为空", ErrPermanent)
 	}
 	seeds := make([]store.ChunkSeed, len(parts))
 	embedTexts := make([]string, len(parts))
@@ -116,7 +128,7 @@ func (s *Service) Index(ctx context.Context, materialID, classID int64, content 
 	points := make([]qdrant.Point, len(chunks))
 	for i, c := range chunks {
 		points[i] = qdrant.Point{
-			ID:     uint64(c.ID),
+			ID:     PointID(materialID, c.Seq, c.Text, c.HeadingPath),
 			Vector: vecs[i],
 			Payload: map[string]any{
 				"class_id":     classID,
@@ -140,24 +152,35 @@ func (s *Service) invalidate(classID int64) {
 	s.mu.Unlock()
 }
 
-// classIndex 取本班词面索引；首次或材料变更后重建一次。
-func (s *Service) classIndex(ctx context.Context, classID int64) (*retrieval.Index, error) {
+// cachedIndex 命中缓存前比对数据库里的切片版本。worker 是独立进程，
+// 写库后不会调用本进程的 invalidate；没有这一步，Web 缓存会永久停在旧切片上。
+// 版本探测本身失败时沿用缓存（可用性优先），下一次提问会再试。
+func (s *Service) cachedIndex(ctx context.Context, classID int64) (*retrieval.Index, bool) {
 	s.mu.RLock()
 	idx := s.indexes[classID]
 	stale := s.dirty[classID]
+	version := s.versions[classID]
 	s.mu.RUnlock()
-	if idx != nil && !stale {
+	if idx == nil || stale {
+		return nil, false
+	}
+	current, err := s.store.ChunkVersion(ctx, classID)
+	if err != nil {
+		return idx, true
+	}
+	return idx, current == version
+}
+
+// classIndex 取本班词面索引；首次、本进程标脏或跨进程版本变化时重建一次。
+func (s *Service) classIndex(ctx context.Context, classID int64) (*retrieval.Index, error) {
+	if idx, ok := s.cachedIndex(ctx, classID); ok {
 		return idx, nil
 	}
 
 	// 串行化重建，并在锁内二次检查：并发首次提问只有一个请求会真正回表。
 	s.buildMu.Lock()
 	defer s.buildMu.Unlock()
-	s.mu.RLock()
-	idx = s.indexes[classID]
-	stale = s.dirty[classID]
-	s.mu.RUnlock()
-	if idx != nil && !stale {
+	if idx, ok := s.cachedIndex(ctx, classID); ok {
 		return idx, nil
 	}
 
@@ -166,7 +189,11 @@ func (s *Service) classIndex(ctx context.Context, classID int64) (*retrieval.Ind
 		return nil, err
 	}
 	docs := make([]retrieval.Doc, len(chunks))
+	version := int64(0)
 	for i, c := range chunks {
+		if c.ID > version {
+			version = c.ID
+		}
 		docs[i] = retrieval.Doc{
 			ID: c.ID, MaterialID: c.MaterialID, Seq: c.Seq,
 			Text: c.Text, HeadingPath: c.HeadingPath, MaterialTitle: c.MaterialTitle,
@@ -177,6 +204,7 @@ func (s *Service) classIndex(ctx context.Context, classID int64) (*retrieval.Ind
 
 	s.mu.Lock()
 	s.indexes[classID] = built
+	s.versions[classID] = version
 	s.dirty[classID] = false
 	s.mu.Unlock()
 	return built, nil

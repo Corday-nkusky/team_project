@@ -82,7 +82,7 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 
 	var answer strings.Builder
 	if !s.qa.LLMEnabled() {
-		text, aborted := sw.streamText(filt, qa.FallbackAnswer(req.Question, cites), 20*time.Millisecond)
+		text, aborted := sw.streamText(ctx, filt, qa.FallbackAnswer(req.Question, cites), 20*time.Millisecond)
 		answer.WriteString(text)
 		if aborted {
 			s.auditAbort(c)
@@ -146,7 +146,9 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 	if degraded {
 		// 模型首字前不可用：告知已降级，再以本班材料片段作答（R6.5）。
 		sw.event("degraded", map[string]any{"reason": "upstream_error"})
-		text, aborted := sw.streamText(filt, qa.FallbackAnswer(req.Question, cites), 0)
+		// 与零密钥降级保持同一节奏：按片输出并逐片检查连接状态，
+		// 否则本地文本会瞬间写完，客户端断开时服务端已经落库（R6.3）。
+		text, aborted := sw.streamText(ctx, filt, qa.FallbackAnswer(req.Question, cites), 20*time.Millisecond)
 		answer.WriteString(text)
 		if aborted {
 			s.auditAbort(c)
@@ -159,9 +161,14 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 
 // streamText 把固定文本按小片经引用过滤器增量写出，返回过滤后的完整文本。
 // aborted 为 true 表示客户端连接已断开。
-func (sw *sseWriter) streamText(filt *citationFilter, text string, pace time.Duration) (string, bool) {
+func (sw *sseWriter) streamText(ctx context.Context, filt *citationFilter, text string, pace time.Duration) (string, bool) {
 	var out strings.Builder
 	for _, piece := range chunkRunes(text, 24) {
+		// 请求 ctx 取消即客户端断开；TCP 缓冲可能让下一次写仍「成功」，
+		// 所以主动检查而不只依赖 event 的返回值。
+		if ctx.Err() != nil {
+			return out.String(), true
+		}
 		if safe := filt.Write(piece); safe != "" {
 			out.WriteString(safe)
 			if !sw.event("delta", map[string]any{"text": safe}) {
@@ -179,6 +186,12 @@ func (sw *sseWriter) streamText(filt *citationFilter, text string, pace time.Dur
 func (s *Server) finishWithFlush(r *http.Request, sw *sseWriter, filt *citationFilter,
 	c auth.Claims, question string, answer *strings.Builder, cites []qa.Citation) {
 
+	// 降级路径的文本由本地一次性写出，TCP 缓冲可能让 sw.event 仍返回 true；
+	// 落库前必须复查连接状态，否则客户端已断开却留下半条会话（R6.3）。
+	if r.Context().Err() != nil {
+		s.auditAbort(c)
+		return
+	}
 	if tail := filt.Flush(); tail != "" {
 		answer.WriteString(tail)
 		if !sw.event("delta", map[string]any{"text": tail}) {
@@ -207,14 +220,19 @@ func (s *Server) finishAsk(r *http.Request, sw *sseWriter, c auth.Claims,
 		logServerError(r, "marshal_citations", err)
 		payload = []byte("[]")
 	}
-	if err := s.rec.SaveConversation(ctx, c.UserID, c.ClassID, question, answer, payload); err != nil {
+	// 落库成功才回执真实 id；失败仍发 done（回答已经给到客户端，不因归档失败回滚），
+	// 但 conversation_id 为 null 并记录 ERROR 日志（H3.2）。
+	var convID any
+	if id, err := s.rec.SaveConversation(ctx, c.UserID, c.ClassID, question, answer, payload); err != nil {
 		logServerError(r, "save_conversation", err)
+	} else {
+		convID = id
 	}
 	if err := s.rec.Audit(ctx, &c.UserID, c.Name, &c.ClassID, "ask", "ok",
 		fmt.Sprintf("引用%d条", len(cites))); err != nil {
 		logServerError(r, "audit_ask", err)
 	}
-	sw.event("done", map[string]any{"conversation_id": nil})
+	sw.event("done", map[string]any{"conversation_id": convID})
 }
 
 // auditAsk 写一条问答审计；审计失败不回滚已完成的回答，但必须留下 ERROR 日志。

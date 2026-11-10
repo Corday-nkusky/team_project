@@ -68,6 +68,16 @@ type Config struct {
 	// （实测「教师应该在哪里上传讲义」为 4/7≈0.57）。
 	MinKeywordCoverage float64
 	MinVectorScore     float64
+
+	// --- 异步索引 worker（spec async-indexing A3/A5）---
+	// 调优项允许默认值，但显式设置就必须能解析，失败同样在启动前报错。
+	WorkerPoll        time.Duration
+	WorkerLease       time.Duration
+	WorkerTaskTimeout time.Duration
+	WorkerMaxAttempts int
+	WorkerBackoff     time.Duration
+	WorkerBackoffMax  time.Duration
+	WorkerBatch       int
 }
 
 // ValidationError 汇总全部配置问题；Problems 只含键名与原因。
@@ -150,6 +160,14 @@ func Load() (Config, error) {
 
 		MinKeywordCoverage: optFloat("MIN_KEYWORD_COVERAGE", 0.30, 0, 1, &problems),
 		MinVectorScore:     optFloat("MIN_VECTOR_SCORE", 0.55, 0, 1, &problems),
+
+		WorkerPoll:        time.Duration(optInt("WORKER_POLL_MS", 500, 50, 60000, &problems)) * time.Millisecond,
+		WorkerLease:       time.Duration(optInt("WORKER_LEASE_SECONDS", 300, 30, 3600, &problems)) * time.Second,
+		WorkerTaskTimeout: time.Duration(optInt("WORKER_TASK_TIMEOUT_SECONDS", 600, 30, 7200, &problems)) * time.Second,
+		WorkerMaxAttempts: optInt("WORKER_MAX_ATTEMPTS", 5, 1, 20, &problems),
+		WorkerBackoff:     time.Duration(optInt("WORKER_BACKOFF_MS", 1000, 100, 60000, &problems)) * time.Millisecond,
+		WorkerBackoffMax:  time.Duration(optInt("WORKER_BACKOFF_MAX_MS", 60000, 1000, 3600000, &problems)) * time.Millisecond,
+		WorkerBatch:       optInt("WORKER_BATCH", 4, 1, 32, &problems),
 	}
 	if cfg.ChunkOverlap >= cfg.ChunkSize {
 		problems = append(problems, "CHUNK_OVERLAP 必须小于 CHUNK_SIZE")

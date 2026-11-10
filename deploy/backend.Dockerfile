@@ -29,12 +29,15 @@ COPY backend/ ./
 RUN rm -rf ./internal/web/dist && mkdir -p ./internal/web/dist
 COPY --from=frontend /fe/dist/ ./internal/web/dist/
 ENV CGO_ENABLED=0
-RUN go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /out/server ./cmd/server
+# 两个入口共用一份编译产物：server 处理 HTTP，worker 消费索引任务。
+RUN go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /out/server ./cmd/server && \
+    go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /out/worker ./cmd/worker
 
 FROM alpine:3.21
 # ca-certificates：调用模型网关（HTTPS）必需；tzdata：让日志时间可读。
 RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 app
 USER app
 COPY --from=build /out/server /usr/local/bin/server
+COPY --from=build /out/worker /usr/local/bin/worker
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/server"]

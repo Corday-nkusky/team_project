@@ -43,6 +43,11 @@ func (c *Client) Enabled() bool { return strings.TrimSpace(c.key) != "" }
 // ErrDisabled 表示未配置模型网关。
 var ErrDisabled = errors.New("未配置模型网关（LLM_API_KEY 为空）")
 
+// ErrRateLimited / ErrAuth 供异步索引 worker 做失败分类：前者按天额度耗尽，
+// 短退避重试只会继续消耗额度；后者同样输入重试必然得到同一结果。
+var ErrRateLimited = errors.New("模型网关限流或额度耗尽")
+var ErrAuth = errors.New("模型网关凭证无效")
+
 // embedBatchSize 限制单次 /embeddings 请求的文本条数：超长材料一次性提交会被
 // 网关按体积或上下文拒收，分批后仍保持「全部成功才算成功」。
 const embedBatchSize = 32
@@ -159,7 +164,11 @@ func (c *Client) ChatStream(ctx context.Context, system, user string) (<-chan Ev
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.key)
+	auth, err := c.authHeader()
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", auth)
 
 	resp, err := c.http.Do(req)
 	if err != nil {
@@ -243,7 +252,11 @@ func (c *Client) post(ctx context.Context, path string, body any) ([]byte, error
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.key)
+	auth, err := c.authHeader()
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", auth)
 
 	resp, err := c.http.Do(req)
 	if err != nil {
@@ -252,6 +265,12 @@ func (c *Client) post(ctx context.Context, path string, body any) ([]byte, error
 	defer resp.Body.Close()
 	out := new(bytes.Buffer)
 	_, _ = out.ReadFrom(resp.Body)
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return nil, fmt.Errorf("%w: 模型返回 429: %s", ErrRateLimited, truncate(out.String(), 160))
+	}
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, fmt.Errorf("%w: 模型返回 %d", ErrAuth, resp.StatusCode)
+	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("模型返回 %d: %s", resp.StatusCode, truncate(out.String(), 200))
 	}
