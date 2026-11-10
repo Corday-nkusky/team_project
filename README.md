@@ -36,7 +36,7 @@
 
 ## 技术方案
 
-**系统架构**：React + TypeScript 前端 / Go REST 与 SSE API / MySQL 8.4 业务数据 / Qdrant 向量检索 / OpenAI 兼容模型网关 / Docker Compose。前端产物由 Go `embed` 内嵌，与接口**同源单端口**，因此没有独立反向代理。认证、教师与学生 RBAC 及班级隔离机制**由本仓自行实现**。
+**系统架构**：React + TypeScript 前端 / Go REST 与 SSE API / MySQL 8.4 业务数据 / Qdrant 向量检索 / OpenAI 兼容模型网关 / Docker Compose。Web 与索引 worker 是两个可独立启停的进程，共用同一镜像与外置配置。前端产物由 Go `embed` 内嵌，与接口**同源单端口**，因此没有独立反向代理。认证、教师与学生 RBAC 及班级隔离机制**由本仓自行实现**。
 
 | 模块 | 技术栈 | 实现方案 | 验收目标 |
 |------|--------|----------|----------|
@@ -68,7 +68,7 @@
 | 测试 | 第 1 轮：端到端验收脚本（含权限负向用例）；此后持续补用例 |
 | 审计 | 第 1 轮：登录 / 上传 / 问答留痕；后续补完整审计（防篡改、查询界面） |
 | 部署 | 第 1 轮：Compose 一键启动 + 探活 |
-| 异步任务 | **不单列为功能**，而是「上传材料」的实现方式（上传后异步建索引）。**第 1 轮是否采用：待定** |
+| 异步任务 | **不单列为功能**，而是「上传材料」的实现方式：上传返回 202 + 任务标识，MySQL 任务表作持久化队列，独立 worker 异步建索引（第 8 课要求，已落地） |
 | 公网可访问 | **待定**：本版上线，还是留到下一轮 |
 | 规约驱动 | 第 1 轮起：`openspec/` 四件套，每轮持续 |
 
@@ -90,6 +90,18 @@
 
 前置：一键起全套需 Docker Desktop（含 Compose v2）与 Node.js ≥ 20；只跑后端需 Go 1.27+。
 
+**刚拿到仓库的人怎么跑（三步）**
+
+1. 装齐前置：Docker Desktop（Windows 需 WSL2 后端，首次要能拉镜像）+ Node.js ≥ 20。
+2. 启动：Windows 双击根目录 `启动项目.cmd`；macOS / Linux 在终端跑 `node scripts/up.mjs`。
+3. 灌数据：仓库不带 MySQL 数据卷，空库只有演示账号、没有课程材料；按下文「演示语料」跑一次 `seed.mjs`。
+
+`启动项目.cmd` / `停止项目.cmd` 只是 Windows 的便利外壳，内部就是 `node scripts/launch.mjs` 与
+`node scripts/stop.mjs`，**不自带运行时**：没有 Node.js 时第一屏就报错退出（提示里给了 `winget` 一行命令），
+没有 Docker Desktop 会卡在「等待 Docker 引擎」最多 180 秒。macOS / Linux 上双击无效（`.cmd` 是 Windows
+批处理），但这两条 `node scripts/...` 是跨平台可用的，`launch.mjs` 会按平台调 `open` / `xdg-open` 打开浏览器。
+停止脚本在缺少 `deploy/.env` 时会自动退回 `.env.example` 的占位值，不会因为干净 clone 没有配置而报错。
+
 **一条命令启动整套（推荐）**
 
 ```bash
@@ -98,6 +110,8 @@ node scripts/up.mjs
 
 脚本会生成 `deploy/.env`（首次自动填入随机密钥）、构建镜像、启动容器，并轮询
 `http://127.0.0.1:8080/health`；就绪后打印 `version`、`time` 与依赖状态。
+Compose 起四个服务：`mysql` / `qdrant` / `backend`（Web）/ `worker`（索引消费者），
+后两者共用同一镜像与配置，只是入口不同。
 浏览器打开 `http://127.0.0.1:8080` 即为应用（前端由 Go 内嵌，同源单端口）。
 
 手动方式（等价）：
@@ -135,9 +149,41 @@ curl -s --noproxy '*' http://127.0.0.1:8080/health   # 期望 200
 - `LLM_EMBED_MODEL`：`POST {base}/embeddings`，返回向量维度需固定。
 
 模型名没有默认值，缺失时服务在监听前退出。网关必须同时支持对话与嵌入；只支持对话的网关
-（例如 DeepSeek 官方接口）不能直接作为这里的单一网关。启用后上传会写入向量；已有材料需要
-调用重索引接口补向量。更换嵌入模型或维度时，先删除 Qdrant 集合 `team_campusclaw_chunks`，
-再重索引全部材料，避免新旧维度混用。
+（例如 DeepSeek 官方接口）不能直接作为这里的单一网关。
+
+**智谱 v4 的认证**：`https://open.bigmodel.cn/api/paas/v4` 不接受把 Key 直接当 Bearer 令牌，
+Key 必须是 `id.secret` 形式；客户端会用 secret 签发一枚 1 小时有效的 HS256 JWT
+（见 `backend/internal/llm/auth.go`）。其他 OpenAI 兼容网关仍走静态 Bearer，行为不变。
+`glm-5.3-flash` 是推理模型，流式响应前段只有 `reasoning_content`，客户端只取 `content`，
+因此回答出现前会有一段静默，属正常现象。
+
+**更换嵌入模型后必须全量重索引**：即使维度相同（`course-embedding` 与 `embedding-3` 同为
+2048 维），向量空间不同也不能新旧混用。先删除 Qdrant 集合 `team_campusclaw_chunks`
+（清掉旧向量与已删材料的孤儿点），再执行 `node scripts/reindex-all.mjs --reset`；
+脚本按 202 + 轮询逐篇重建，遇到 429 / 额度耗尽立即停并保存进度。
+
+**上传与重索引是异步的**（spec `async-indexing` / 第 8 课）
+
+- `POST /api/materials` 与 `POST /api/materials/{id}/reindex` 都返回 **202**，
+  响应体只有 `task_id` / `material_id` / `status` / `status_url`，不含索引结果。
+- 材料与 `pending` 任务在同一个 MySQL 事务里写入（事务性发件箱）；同一班同一份内容
+  重复提交由唯一约束复用同一任务，不产生第二份结果。
+- `GET /api/tasks/{task_id}` 只读且按班隔离，返回 `pending → running → succeeded / failed / dead`
+  以及 `attempts`、`error`。连续查询不会触发执行，跨班返回 404。
+- 建索引由独立的 `worker` 服务执行：`SKIP LOCKED` 领取、租约到期回收、失败分类
+  （凭证无效 / 额度耗尽直接终态，其余指数退避加抖动）、次数上限进死信；
+  切片唯一约束与确定性 Qdrant 点 ID 保证重复投递不产生重复数据。
+- 前端上传后轮询任务到终态再刷新列表；列表里还有 `pending` 材料时每 1.5 秒静默刷新。
+- 判据复现：`docker compose stop worker` 后上传，任务停在 `pending`；
+  `docker compose start worker` 后自动跑完。命令与输出见 `scripts/async-criteria.mjs` 与 `reports/`。
+
+**历史问答与引用全文**（spec `ask-history` / `knowledge-retrieval` R7）
+
+- 完整回答落库到 `conversations`（问题、回答、引用清单、时间）；客户端中断、空回答与未命中材料不落库。
+- `GET /api/conversations?limit=20` 只读**本人 + 本班**记录，按 `id` 倒序，上限 50；未认证返回 401，`limit` 非法返回 400。
+- SSE 的 `done` 事件带 `conversation_id`（落库失败为 `null`）；提问页「历史问答」面板可展开完整回答与当时的引用。
+- 引用条目的「阅读全文」调用 `GET /api/materials/{id}` 打开**整篇材料原文**，并在正文中高亮定位命中切片；材料页与提问页共用同一套阅读面板（`Esc` 关闭、焦点归还）。
+- 定向验收：`node scripts/verify-history-ui.mjs`，用真实存量数据验证，**不上传材料、不产生测试文本**。
 
 **上传与输入边界**（spec R3.4 / R11）
 
@@ -147,16 +193,28 @@ curl -s --noproxy '*' http://127.0.0.1:8080/health   # 期望 200
 - 文本正文必须是合法 UTF-8，否则 400 `invalid_encoding`；PDF 抽不出文本时 400 `empty_content`。
 - 普通 JSON 接口只接受 `application/json`（否则 415），请求体上限 1 MiB（否则 413），
   且只允许单个顶层 JSON 值（尾随内容返回 400）。
-- 材料正文列已迁移为 `LONGTEXT`；17 MiB 文本可正常落库并建立索引。
+- 材料正文列已迁移为 `LONGTEXT`；17 MiB 文本可正常落库并返回 202（建索引由 worker 异步完成）。
 
 **演示语料（可选）**
 
-`seed-data/biology/` 提供一批生物学材料（9 个领域，约 100 条），用于填充知识库做演示与检索测试：
+`seed-data/biology/` 提供一批生物学材料（9 个领域，98 条），用于填充知识库做演示与检索测试。
+仓库不保存 MySQL 数据卷，材料由下面的脚本从 `corpus.json` 重建（正文共约 20 万字、0.5 MB）：
 
 ```bash
 cd seed-data/biology
-node seed.mjs            # 以 teacher1 身份灌入 1 班；幂等，可重复执行
+node seed.mjs              # 以 teacher1 身份灌入 1 班，并等索引跑完
+node seed.mjs --no-wait    # 只提交，不等索引完成
 ```
+
+脚本按上传接口的异步契约工作：`POST /api/materials` 返回 **202 + task_id**，随后轮询
+`status_url` 到 `succeeded`（`succeeded / failed / dead` 为终态）。因此**必须让 worker 在跑**
+（`docker compose ps worker`），否则任务会停在 `pending`，脚本会超时并提示。
+
+幂等且可自愈：标题已存在且可检索的跳过；已存在但未 ready 的提交重索引；不存在的才新建。
+所以额度用尽（429）中断后直接重跑即可，不会重复建材料、也不会把切片翻倍。
+
+未配置模型网关时，脚本仍然成功：材料会落库、切片会由 worker 建好（`qa.Index` 在
+`llm.Enabled()` 为假时只做词面索引并返回），此时检索走 BM25 词面路、问答降级为抽取式回答。
 
 材料由 `fetch-from-wikipedia.mjs` 从中文维基百科抓取生成（内容遵循维基百科的 CC BY-SA 授权），
 已按约 2400 字切成大小适中的材料；重新抓取需能访问维基的网络（`PROXY=http://127.0.0.1:<端口> node fetch-from-wikipedia.mjs`）。
