@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"io/fs"
 	"net/http"
 	"strings"
@@ -26,13 +27,13 @@ type qaService interface {
 	Retrieve(ctx context.Context, classID int64, question string) ([]qa.Citation, error)
 	LLMEnabled() bool
 	ChatStream(ctx context.Context, system, user string) (<-chan qa.StreamEvent, error)
-	Index(ctx context.Context, materialID, classID int64, content string) error
 }
 
-// askRecorder 是问答落库与审计所需的最小存储能力（spec R6.4 / R6.3）。
+// askRecorder 是问答落库、审计与历史读取所需的最小存储能力（spec R6.4 / R6.3 / H1）。
 type askRecorder interface {
 	Audit(ctx context.Context, actorID *int64, actorName string, classID *int64, action, result, detail string) error
-	SaveConversation(ctx context.Context, userID, classID int64, question, answer string, citationsJSON []byte) error
+	SaveConversation(ctx context.Context, userID, classID int64, question, answer string, citationsJSON []byte) (int64, error)
+	ListConversationsJSON(ctx context.Context, userID, classID int64, limit int) (json.RawMessage, error)
 }
 
 // Server 汇总依赖并提供路由。
@@ -77,6 +78,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/materials/{id}", methodNotAllowed(http.MethodGet))
 	mux.Handle("POST /api/ask", s.requireAuth(http.HandlerFunc(s.handleAsk)))
 	mux.HandleFunc("/api/ask", methodNotAllowed(http.MethodPost))
+	// 历史问答：本人 + 本班只读（H1）。
+	mux.Handle("GET /api/conversations", s.requireAuth(http.HandlerFunc(s.handleListConversations)))
+	mux.HandleFunc("/api/conversations", methodNotAllowed(http.MethodGet))
 
 	// 仅教师：上传与重索引（R2.3）。
 	mux.Handle("POST /api/materials",
@@ -85,6 +89,10 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/materials/{id}/reindex",
 		s.requireAuth(requireRole("teacher", http.HandlerFunc(s.handleReindex))))
 	mux.HandleFunc("/api/materials/{id}/reindex", methodNotAllowed(http.MethodPost))
+
+	// 任务状态：本班只读查询，不触发执行（A2.2 / A2.3）。
+	mux.Handle("GET /api/tasks/{task_id}", s.requireAuth(http.HandlerFunc(s.handleGetTask)))
+	mux.HandleFunc("/api/tasks/{task_id}", methodNotAllowed(http.MethodGet))
 
 	// 未注册的 API 路径统一返回 JSON 404，绝不回落到 SPA（spec R11.2）。
 	mux.HandleFunc("/api/", notFoundAPI)

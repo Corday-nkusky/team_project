@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { streamAsk, type Citation } from '../api'
+import { listConversations, streamAsk, type Citation, type Conversation } from '../api'
 import Icon from '../components/Icon'
+import MaterialReader, { type MaterialReaderHandle } from '../components/MaterialReader'
 
 type Phase = 'idle' | 'streaming' | 'done' | 'error' | 'stopped'
 
@@ -9,6 +10,14 @@ const SUGGESTIONS = [
   '有丝分裂和减数分裂的主要区别是什么？',
   '孟德尔分离定律的核心内容是什么？',
 ]
+
+const formatTime = (value: string) => {
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return value
+  return d.toLocaleString('zh-CN', {
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+  })
+}
 
 export default function AskPage() {
   const [question, setQuestion] = useState('')
@@ -20,8 +29,31 @@ export default function AskPage() {
   const [error, setError] = useState('')
   const [openCite, setOpenCite] = useState<number | null>(null)
 
+  // 历史问答：只读本人本班记录，完整回答与引用原样回看。
+  const [history, setHistory] = useState<Conversation[]>([])
+  const [historyLoading, setHistoryLoading] = useState(true)
+  const [historyError, setHistoryError] = useState('')
+  const [expandedHistory, setExpandedHistory] = useState<number | null>(null)
+  const readerRef = useRef<MaterialReaderHandle>(null)
+
   // 用 ref 持有 AbortController：组件卸载 / 新一轮提问时中断上一条流（R6.3）。
   const controllerRef = useRef<AbortController | null>(null)
+
+  const refreshHistory = async () => {
+    setHistoryLoading(true)
+    try {
+      setHistory(await listConversations(20))
+      setHistoryError('')
+    } catch (e) {
+      setHistoryError((e as Error).message)
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void refreshHistory()
+  }, [])
 
   useEffect(() => {
     return () => controllerRef.current?.abort()
@@ -49,7 +81,10 @@ export default function AskPage() {
       },
       onDegraded: () => setDegraded(true),
       onDelta: (t) => setAnswer((prev) => prev + t),
-      onDone: () => setPhase('done'),
+      onDone: () => {
+        setPhase('done')
+        void refreshHistory()
+      },
       onError: (msg) => {
         setError(msg)
         setPhase('error')
@@ -64,6 +99,15 @@ export default function AskPage() {
 
   const toggleCitation = (index: number) => {
     setOpenCite((current) => current === index ? null : index)
+  }
+
+  /** 点击引用打开整篇材料原文，并把命中切片定位高亮（R7.6 / MR2.5）。 */
+  const openFullText = (cite: Citation, trigger: HTMLElement) => {
+    readerRef.current?.open(cite.material_id, {
+      title: cite.material_title,
+      snippet: cite.snippet,
+      trigger,
+    })
   }
 
   /** 把回答里的 [n] 渲染成可点击的引用标记（R7.1）。 */
@@ -173,7 +217,7 @@ export default function AskPage() {
             <div className="citations-panel">
               <div className="citations-heading">
                 <h3>引用来源 <span>{citations.length}</span></h3>
-                <p>{openCite === null ? '选择一条引用，聚焦核对完整原文切片。' : '再次选择当前引用，可返回全部来源。'}</p>
+                <p>{openCite === null ? '选择一条引用聚焦核对切片，或点「阅读全文」查看整篇材料。' : '再次选择当前引用，可返回全部来源。'}</p>
               </div>
               <div className="list">
                 {citations.map((c) => {
@@ -190,7 +234,21 @@ export default function AskPage() {
                         <strong>《{c.material_title}》</strong>
                         <Icon name="chevron" size={17} />
                       </button>
-                      {(openCite === null || focused) && <div className="cite-snippet">{c.snippet}</div>}
+                      {(openCite === null || focused) && (
+                        <>
+                          <div className="cite-snippet">{c.snippet}</div>
+                          <div className="cite-actions">
+                            <button
+                              type="button"
+                              className="ghost cite-fulltext"
+                              onClick={(e) => openFullText(c, e.currentTarget)}
+                              aria-label={`阅读《${c.material_title}》全文`}
+                            >
+                              <Icon name="book" size={14} />阅读全文
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </article>
                   )
                 })}
@@ -199,6 +257,82 @@ export default function AskPage() {
           )}
         </section>
       )}
+
+      <section className="history-card">
+        <div className="history-head">
+          <div className="history-title">
+            <span className="section-icon"><Icon name="clock" size={21} /></span>
+            <div><span className="eyebrow">HISTORY</span><h2>历史问答 <span>{history.length}</span></h2></div>
+          </div>
+          <button type="button" className="ghost" onClick={() => void refreshHistory()} disabled={historyLoading}>
+            <Icon name="refresh" size={15} />刷新
+          </button>
+        </div>
+
+        {historyLoading && <p className="history-state" role="status">正在读取历史问答…</p>}
+
+        {!historyLoading && historyError && (
+          <div className="history-error" role="alert">
+            <span><Icon name="alert" size={17} />历史问答读取失败：{historyError}</span>
+            <button className="ghost" onClick={() => void refreshHistory()}><Icon name="refresh" size={15} />重试</button>
+          </div>
+        )}
+
+        {!historyLoading && !historyError && history.length === 0 && (
+          <p className="history-state">还没有历史问答。完成一次提问后，完整回答与当时的引用会保存在这里。</p>
+        )}
+
+        {!historyLoading && !historyError && history.length > 0 && (
+          <div className="history-list">
+            {history.map((h) => {
+              const open = expandedHistory === h.id
+              const cites = Array.isArray(h.citations) ? h.citations : []
+              return (
+                <article key={h.id} className={`history-item ${open ? 'open' : ''}`}>
+                  <button
+                    type="button"
+                    className="history-item-head"
+                    onClick={() => setExpandedHistory(open ? null : h.id)}
+                    aria-expanded={open}
+                  >
+                    <span className="history-q">{h.question}</span>
+                    <span className="history-meta">{formatTime(h.created_at)} · {cites.length} 条引用</span>
+                    <Icon name="chevron" size={16} />
+                  </button>
+                  {open && (
+                    <div className="history-detail">
+                      <div className="history-answer">{h.answer || '（这次回答没有正文）'}</div>
+                      {cites.length > 0 && (
+                        <div className="history-cites">
+                          <h4>当时的引用来源</h4>
+                          {cites.map((c) => (
+                            <div key={`${h.id}-${c.index}-${c.chunk_id}`} className="history-cite">
+                              <div className="history-cite-head">
+                                <strong>[{c.index}] 《{c.material_title}》</strong>
+                                <button
+                                  type="button"
+                                  className="ghost cite-fulltext"
+                                  onClick={(e) => openFullText(c, e.currentTarget)}
+                                  aria-label={`阅读《${c.material_title}》全文`}
+                                >
+                                  <Icon name="book" size={14} />阅读全文
+                                </button>
+                              </div>
+                              <div className="cite-snippet">{c.snippet}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </article>
+              )
+            })}
+          </div>
+        )}
+      </section>
+
+      <MaterialReader ref={readerRef} />
     </div>
   )
 }

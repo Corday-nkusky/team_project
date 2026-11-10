@@ -278,8 +278,9 @@ async function main() {
         window.__t.setVal(document.querySelector('#c'), ${JSON.stringify(materialBody)});
       })()`)
       await evaluate(`window.__t.byText('button', '上传文本').click()`)
+      // 建索引已改为异步：前端会轮询任务到终态再刷新列表，等待预算相应放宽。
       const uploaded = await evaluate(
-        `window.__t.waitFor(() => window.__t.text().includes(${JSON.stringify(unique)}) && window.__t.text().includes('可检索'))
+        `window.__t.waitFor(() => window.__t.text().includes(${JSON.stringify(unique)}) && window.__t.text().includes('可检索'), 90000)
            .then(() => true).catch(() => false)`,
       )
       ok('T3 教师上传材料后列表出现且状态「可检索」', uploaded)
@@ -486,7 +487,7 @@ async function main() {
       const fileNode = await send('DOM.querySelector', { nodeId: doc.root.nodeId, selector: '#f' })
       await send('DOM.setFileInputFiles', { files: [uploadPath], nodeId: fileNode.nodeId })
       const fileUploaded = await evaluate(
-        `window.__t.waitFor(() => window.__t.text().includes(${JSON.stringify(uploadName)}) && window.__t.text().includes('可检索'))
+        `window.__t.waitFor(() => window.__t.text().includes(${JSON.stringify(uploadName)}) && window.__t.text().includes('可检索'), 90000)
            .then(() => true).catch(() => false)`,
       )
       ok('T9 通过真实文件选择框上传 .md 成功', fileUploaded)
@@ -577,7 +578,7 @@ async function main() {
       })()`)
       await evaluate(`window.__t.byText('button', '上传文本').click()`)
       const longUploaded = await evaluate(
-        `window.__t.waitFor(() => [...document.querySelectorAll('.mat-title')].some(e => e.getAttribute('title') === ${JSON.stringify(longTitle)}))
+        `window.__t.waitFor(() => [...document.querySelectorAll('.mat-title')].some(e => e.getAttribute('title') === ${JSON.stringify(longTitle)}), 90000)
            .then(() => true).catch(() => false)`,
       )
       ok('T12a 255 字标题可上传并出现在列表', longUploaded)

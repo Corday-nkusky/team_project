@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
-<title>CampusClaw · 规范不是建议｜课堂分享作战手册</title>
+<title>CampusClaw · 三层保护与它的边界｜课堂分享</title>
 <style>
   :root{
     --night:#101b2d;--night-2:#17263d;--paper:#f6f3ec;--card:#fffdf8;
@@ -34,7 +34,7 @@
   h3{font-size:20px;line-height:1.45;margin:32px 0 14px}p{margin:10px 0}.muted{color:var(--muted)}.small{font-size:13px}.lead{font-size:19px;line-height:1.85}.accent{color:var(--coral)}.mint{color:var(--mint)}
   .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:24px;box-shadow:0 6px 20px rgba(16,27,45,.035);margin:16px 0}.card h3:first-child{margin-top:0}.grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
   .callout{border-left:4px solid var(--coral);background:var(--coral-soft);padding:16px 20px;border-radius:0 12px 12px 0;margin:18px 0}.callout.green{border-color:var(--mint);background:var(--mint-soft)}.callout.gold{border-color:var(--gold);background:var(--gold-soft)}.callout b{font-weight:750}
-  .script{position:relative;background:var(--night);color:#eef2f6;border-radius:18px;padding:26px 28px;margin:18px 0;box-shadow:var(--shadow)}.script:before{content:"讲稿";display:block;color:#f4a48e;font:11px var(--mono);letter-spacing:.15em;margin-bottom:12px}.script p{margin:0;font-family:var(--serif);font-size:18px;line-height:1.95}.script em{color:#f4a48e;font-style:normal}
+  .script{position:relative;background:var(--night);color:#eef2f6;border-radius:18px;padding:26px 28px;margin:18px 0;box-shadow:var(--shadow)}.script:before{content:"讲稿";display:block;color:#f4a48e;font:11px var(--mono);letter-spacing:.15em;margin-bottom:12px}.script p{margin:0;font-family:var(--serif);font-size:18px;line-height:1.95}.script em{color:#f4a48e;font-style:normal}.script code{background:rgba(255,255,255,.13);border-color:rgba(255,255,255,.22);color:#ffd9cc}
   .file{display:flex;gap:12px;align-items:flex-start;background:#eef1f1;border:1px solid #dce2e2;border-radius:12px;padding:13px 16px;margin:10px 0;text-decoration:none}.file:hover{border-color:var(--mint)}.file .icon{color:var(--mint);font:18px var(--mono)}.file b{display:block;font:600 13px var(--mono);overflow-wrap:anywhere}.file span{display:block;color:var(--muted);font-size:12px;line-height:1.55;margin-top:3px}
   .timeline{border-top:1px solid var(--line)}.slot{display:grid;grid-template-columns:112px minmax(0,1fr);gap:22px;padding:25px 0;border-bottom:1px solid var(--line)}.slot-time{font:600 16px var(--mono);color:var(--coral)}.slot h3{margin:0 0 8px}.slot p{margin:6px 0}.slot ul{margin:10px 0;padding-left:20px}.slot li{margin:5px 0}
   pre{position:relative;background:#0c1524;color:#e7edf4;border-radius:14px;padding:20px;overflow:auto;font:13px/1.75 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0}pre code{background:none;border:0;padding:0;color:inherit;font:inherit}.copy{position:absolute;right:10px;top:10px;border:1px solid #405069;background:#17263d;color:#dce5ef;border-radius:7px;padding:4px 9px;font:11px var(--sans);cursor:pointer}.copy:hover{border-color:#f4a48e;color:#f4a48e}.code-wrap{position:relative}.code-label{font:11px var(--mono);letter-spacing:.08em;color:var(--muted);margin:18px 0 6px}
@@ -44,9 +44,20 @@
   .qa-tag{display:inline-block;background:var(--coral-soft);color:#9d432f;border-radius:999px;padding:2px 9px;font:11px var(--mono);margin-left:8px}.answer{font-family:var(--serif);font-size:17px}.answer b{color:var(--mint)}
   .checklist{list-style:none;padding:0}.checklist li{display:flex;gap:11px;align-items:flex-start;margin:10px 0}.checklist input{margin-top:7px;accent-color:var(--mint);width:16px;height:16px}.checklist label{cursor:pointer}
   .cue{border-top:2px solid var(--night);padding-top:14px;margin-top:16px}.cue b{font-family:var(--serif);font-size:18px}.footer{border-top:1px solid var(--line);padding:28px 32px 40px;text-align:center;color:var(--muted);font-size:12px;background:var(--card)}
+  .tbl-wrap{overflow-x:auto;margin:14px 0}
+  .tbl{width:100%;min-width:560px;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13.5px}
+  .tbl th,.tbl td{text-align:left;padding:11px 13px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.65}
+  .tbl th{background:#eef1f1;font-size:11.5px;letter-spacing:.05em;color:var(--muted);font-weight:750;white-space:nowrap}
+  .tbl tr:last-child td{border-bottom:0}
+  .tbl code{font-size:.86em}
+  .badge{display:inline-block;border-radius:999px;padding:1px 8px;font:11px var(--mono);white-space:nowrap;border:1px solid transparent}
+  .badge.no{background:var(--red-soft);color:#873a33;border-color:#ecc8c2}
+  .badge.part{background:var(--gold-soft);color:#7d5011;border-color:#e6d3ac}
+  .badge.yes{background:var(--mint-soft);color:#195f51;border-color:#c9e0d6}
   .only-print{display:none}
   @media(max-width:960px){.hero-inner{grid-template-columns:1fr;gap:34px}.timer{max-width:420px}.layout{grid-template-columns:1fr}.side{display:none}.grid-3{grid-template-columns:1fr}.hero:after{font-size:150px}}
   @media(max-width:640px){.topbar-inner{padding:9px 16px}.topbar b{display:none}.hero{padding:50px 0}.hero-inner{padding:0 20px}.hero h1{font-size:45px}.layout{padding:34px 18px 60px}.section-head{grid-template-columns:46px 1fr;gap:12px}.num{font-size:32px}.grid-2{grid-template-columns:1fr}.slot{grid-template-columns:1fr;gap:6px}.card,.script{padding:20px}.time{font-size:48px}.hero-meta span{font-size:11px}}
+  @media(max-width:640px){.tbl{font-size:12.5px;min-width:520px}.tbl th,.tbl td{padding:9px 10px}.tbl th{white-space:normal}}
   @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
   @media print{body{background:white;font-size:11pt}.topbar,.side,.progress,.timer,.copy,.no-print{display:none!important}.hero{background:white;color:var(--ink);padding:20px 0}.hero p,.hero-meta span{color:var(--ink)}.hero-inner{display:block}.hero h1{font-size:42px}.layout{display:block;padding:20px 0}.card,details,.script{box-shadow:none;break-inside:avoid}.script{background:#f1f3f4;color:var(--ink)}.script em{color:#8d3d2b}.only-print{display:block}section{margin-bottom:34px}.footer{background:white}}
 </style>
@@ -57,102 +68,233 @@
 <section class="hero">
   <div class="hero-inner">
     <div>
-      <div class="eyebrow">10 MINUTE TALK + 5 MINUTE Q&amp;A · 2026.10</div>
-      <h1>规范不是建议。<br><span>门禁也不是。</span></h1>
-      <p>用一次“故意违规”讲清 CampusClaw 如何把规则、自动检查和违规处理连成闭环。现场只开仓库，不放幻灯片。</p>
-      <div class="hero-meta"><span>主线：规则如何被证明有效</span><span>演示：分层反向依赖</span><span>无需 Docker / 模型密钥</span></div>
+      <div class="eyebrow">10 MINUTE TALK + 5 MINUTE Q&amp;A · 2026.11</div>
+      <h1>三层保护。<br><span>各自管一件事。</span></h1>
+      <p>注入管“知不知道”，流程管“做没做”，门禁管“合不合格”。规范写成可判定的条款，改动走完 proposal → specs → tasks → 门禁 → 归档，团队靠独立走查与评审留痕互相校验。前两层是概率，第三层是确定——这一页把话说准，包括缺口。</p>
+      <div class="hero-meta"><span>注入 / 流程 / 门禁</span><span>条款 · 流程 · 协作</span><span>全程只读文件</span><span>含证据边界与缺口</span></div>
     </div>
     <aside class="timer no-print" aria-label="演讲计时器">
       <div class="timer-label">PRESENTATION TIMER</div><div class="time" id="time">10:00</div>
       <div class="timer-controls"><button class="btn primary" id="startTimer">开始</button><button class="btn" id="resetTimer">重置</button><button class="btn" data-preset="10">10 分钟</button><button class="btn" data-preset="5">问答 5 分钟</button></div>
-      <p class="timer-note">到 04:00 应开始演示；到 07:00 必须收尾演示。时间一到，先还原，再总结。</p>
+      <p class="timer-note">00:40 讲规范条款，02:10 讲流程，04:00 讲门禁与演练，06:20 讲团队协作，08:20 讲缺口。不切终端、不跑命令。</p>
     </aside>
   </div>
 </section>
 <div class="layout">
-<nav class="side no-print" aria-label="页面目录"><div class="side-title">ON THIS PAGE</div><a href="#ready">上台前</a><a href="#route">10 分钟路线</a><a href="#demo">现场演示</a><a href="#fallback">救场方案</a><a href="#qa">5 分钟问答</a><a href="#cue">最后提词</a><div class="companion">配套文档<br><a href="project-status-guide.html" style="border:0;padding:6px 0;color:var(--mint)">打开《项目全景掌握指南》→</a></div></nav>
+<nav class="side no-print" aria-label="页面目录"><div class="side-title">ON THIS PAGE</div><a href="#core">三层，各管一件事</a><a href="#spec">规范写成了什么</a><a href="#flow">一个改动怎么走完</a><a href="#team">团队怎么协作</a><a href="#valid">有效性验证证明什么</a><a href="#gap">覆盖不全怎么补</a><a href="#script">十分钟分段</a><a href="#qa">会被追问的</a><div class="companion">配套文档<br><a href="project-status-guide.html" style="border:0;padding:6px 0;color:var(--mint)">打开《项目全景掌握指南》→</a></div></nav>
 <main id="main">
-<section id="ready">
-  <div class="section-head"><div class="num">00</div><div><h2>上台前，只准备一条主线</h2><p>目标不是展示“规则很多”，而是让全班亲眼看到：规则能拦住一次真实违规。</p></div></div>
-  <div class="callout"><b>一句话策略：</b>一个案例、一个门禁、一次失败、一次恢复。不要现场追加第二个故障，不要逐条朗读八份规范。</div>
+
+<section id="core">
+  <div class="section-head"><div class="num">01</div><div><h2>三层，各管一件事</h2><p>模型每次输出是概率采样。不改模型，改它周围的环境。三层不是并列的能力清单，是三种不同的约束方式。</p></div></div>
+
+  <div class="card">
+    <h3>第一层 · 注入：它知不知道规矩</h3>
+    <p><code>AGENTS.md</code> 常驻会话，<code>.qoder/rules/</code> 八份细则由 Qoder 直接注入，三个技能按需调用。</p>
+    <p><b>规则本身是控制手段。</b>对比一句空话和一句可执行的：<code>代码要规范</code> 对模型没有信息量；<code>JWT_SECRET 必须 ≥32 字符且非示例值</code> 可以直接照做。指令越具体，输出方差越小。</p>
+    <p><b>规则不是一段话，是四段式。</b>翻 <code>02-backend.md</code>：第 7–15 行九条规则，17–21 检查方式，23–26 违规怎么处置，28–30 怎么验证检查本身。</p>
+    <p class="muted"><b>上限：</b>注入依赖模型真的去读，读了也可能不照做；换个只认 AGENTS 的工具，细则就得自己按索引翻（降级，不是失效）。</p>
+  </div>
+
+  <div class="card">
+    <h3>第二层 · 流程：它做没做</h3>
+    <p>一次大输出越长越容易跑偏，所以拆步：proposal（为什么改）/ design（怎么改）/ specs（改完什么行为）/ tasks（分几步）。</p>
+    <p><b>场景必须可判定。</b><code>runtime-baseline</code> R8.2：GIVEN 除 <code>JWT_SECRET</code> 外齐全，WHEN 启动，THEN 非零码退出。写不出 THEN，说明需求没想清。R8 六条里五条是失败路径。</p>
+    <p><b>实测写回，比“已完成”有力。</b><code>add-rag-eval</code> tasks 5.2 的实测记着：“Git Bash 下会因 <code>GOCACHE</code> 未传递而报错，需显式给”。这种细节编不出来。</p>
+    <p><b>最能讲的一个案例：</b>tasks 3.3。初版自动生成的 B 类问句 R@4 = 1.00，看着满分；一查是<b>送分题</b>——问句和答案句词面几乎重合。于是改成留空，不再输出误导性满分。<b>满分反而暴露了问题</b>，这是门禁永远抓不到、只有实测才能抓住的东西。</p>
+    <p class="muted"><b>上限：</b>人能跳步，<code>verify</code> 写了不跑；流程只约束愿意照做的人。</p>
+  </div>
+
+  <div class="card">
+    <h3>第三层 · 门禁：它交的东西合不合格</h3>
+    <p>一条命令七项：配置样例、分层、密钥、gofmt、build、vet、test，退出码决定放不放行。</p>
+    <p><b>层级表是数据，不是文档。</b><code>check-layering.mjs</code> 第 19 行：<code>internal/qa</code> 是层 1、<code>httpapi</code> 是层 2。真实例子：新增 <code>cmd/rageval</code> 入口时没登记，脚本直接失败——<b>加一个包，必须显式做一次架构决策</b>。</p>
+    <p><b>判定是一个 if。</b>第 100–104 行：命中禁止集合就往违规列表推一条。规则在这不是口号，是代码。</p>
+    <p><b>白名单而不是一刀切。</b><code>httpapi</code> 可以用 <code>store</code>，但只许 4 个文件。规则没假装能禁绝一切，而是把豁免枚举出来——想加豁免，改脚本、过评审。</p>
+    <p class="muted"><b>上限：</b>只判结构。并发、事务、越权只在特定时序下暴露，静态检查一句话都说不出来。</p>
+  </div>
+
+  <div class="callout"><b>为什么必须叠：</b>只有注入，模型可能没读或不照做；只有流程，人能跳步；只有门禁，覆盖窄。叠起来的效果是<b>错误被发现时最便宜</b>——注入少犯错，流程让错在写代码前暴露，门禁让漏网的必然现形。</div>
+</section>
+
+<section id="spec">
+  <div class="section-head"><div class="num">02</div><div><h2>规范写成了什么：可判定的条款</h2><p>八份细则合计 255 行，比一份 README 还短。因为每条只写一件事：什么行为可判真假、谁来判、违反了什么后果。</p></div></div>
+
+  <div class="callout"><b>判据：一条规则如果写成形容词，它就不是规则。</b>“代码要规范”“注意安全”无法判定真假，模型无从服从，评审也没法说“你违反了第几条”。八份细则的共同写法是给<b>数字、集合、状态机</b>——不是文风偏好，是让规则具备可执行性。</div>
+
+  <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th style="width:13%">细则</th><th style="width:55%">明文条款（摘自原文，未改写）</th><th>谁来判</th></tr></thead>
+    <tbody>
+      <tr><td><b>02 后端</b></td><td>分层单向 <code>cmd → httpapi → qa → store/retrieval/llm/qdrant</code>；<code>httpapi</code> 禁直连 <code>llm</code>/<code>qdrant</code>/<code>retrieval</code>；用 <code>store</code> 仅限 4 个白名单文件；新增内部包必须在门禁登记层级。</td><td><code>check-layering.mjs</code><br><span class="small muted">机器，非零退出</span></td></tr>
+      <tr><td><b>03 安全</b></td><td>口令只存 bcrypt；refresh 只存 SHA-256 摘要且轮换即失效；登录失败不区分“账号不存在”与“口令错误”；跨班返回 403/404 且不泄漏存在性；请求体 1 MiB、上传 32 MiB；材料文本只作数据拼入提示词。</td><td><code>check-secrets.mjs</code><br><span class="small muted">机器 + e2e 负向</span></td></tr>
+      <tr><td><b>04 测试</b></td><td>每个 Scenario 至少一条断言；<b>负向用例不少于正向的一半</b>；退出码即判定，禁止人工读日志；随机独有词隔离数据；不断言私有函数。</td><td><code>quality-gate.mjs</code><br><span class="small muted">机器</span></td></tr>
+      <tr><td><b>05 部署</b></td><td>compose 用 <code>${VAR:?}</code> 而非 <code>${VAR:-默认值}</code>；<code>/health</code> 免认证、依赖全通 200、任一失败 503、含 <code>version/time/deps</code>；回滚 = 部署上一个 tag；对外只暴露 8080。</td><td><code>up.mjs</code><br><span class="small muted">半自动</span></td></tr>
+      <tr><td><b>06 AI 应用</b></td><td>未命中返回固定文案「资料中未找到相关内容」+ <code>no_evidence</code>；<code>[n]</code> 必须对应引用清单条目；检索在向量库与数据库两侧都带 <code>class_id</code>；无密钥时降级为抽取式回答，不返回 500。</td><td>e2e R5.2 / R7.x<br><span class="small muted">机器 + 人工抽查</span></td></tr>
+      <tr><td><b>07 数据</b></td><td>迁移只增不删；审计表只允许 INSERT；<code>class_id</code> 创建后不可改；切片状态只有 <code>pending→ready</code> 与 <code>pending→failed</code>，<code>failed</code> 必带 <code>index_error</code>。</td><td>迁移评审<br><span class="small muted">人 + 机器</span></td></tr>
+      <tr><td><b>01 产品</b></td><td>每个 change 答“价值三问”（谁的问题 / 不做会怎样 / 做完如何验证）并显式列<b>非目标</b>；功能一律写 Requirement + Scenario；每 Requirement 至少一条失败路径；页面四态齐全。</td><td><code>openspec validate --strict</code><br><span class="small muted">机器查格式，人查内容</span></td></tr>
+      <tr><td><b>08 评审</b></td><td>作者不得评审自己的变更；意见必须落到具体文件或行为，不接受“看起来没问题”；DoD 五项，最后一项是<b>另一位成员签字</b>。</td><td><code>peer-review.md</code><br><span class="small muted">人</span></td></tr>
+    </tbody>
+  </table></div>
+
   <div class="grid-2">
-    <div class="card"><h3>课前 3 分钟检查</h3><ul class="checklist">
-      <li><input type="checkbox" id="r1"><label for="r1">终端位于仓库根目录，编辑器已打开仓库。</label></li>
-      <li><input type="checkbox" id="r2"><label for="r2">运行 <code>node scripts/check-layering.mjs</code>，当前应先通过。</label></li>
-      <li><input type="checkbox" id="r3"><label for="r3">提前打开 AGENTS、02-backend、check-layering、verification 四个标签。</label></li>
-      <li><input type="checkbox" id="r4"><label for="r4">编辑器字体调大；关闭无关通知；浏览器缩放不影响终端输出。</label></li>
-      <li><input type="checkbox" id="r5"><label for="r5">知道探针文件名，演示后必须删除；不创建、展示或修改真实密钥。</label></li>
-    </ul></div>
-    <div class="card"><h3>提前打开的仓库位置</h3>
-      <a class="file" href="../AGENTS.md"><span class="icon">01</span><span><b>AGENTS.md</b><span>总入口：变更流程、分层、门禁与完成定义。</span></span></a>
-      <a class="file" href="../.qoder/rules/02-backend.md"><span class="icon">02</span><span><b>.qoder/rules/02-backend.md</b><span>本场主案例：规则 / 检查 / 违规处理 / 有效性验证。</span></span></a>
-      <a class="file" href="../scripts/check-layering.mjs"><span class="icon">03</span><span><b>scripts/check-layering.mjs</b><span>可执行载体：层级表、禁止规则、退出码。</span></span></a>
-      <a class="file" href="lesson-07/verification.md"><span class="icon">04</span><span><b>docs/lesson-07/verification.md</b><span>历史演练证据；网络或现场操作异常时的备份。</span></span></a>
+    <div class="card"><h3>数字不是口味，是约束</h3>
+      <p><b>32 MiB 上传（spec R3.4）：</b>请求体上限是它再 +1 MiB（<code>maxUploadBytes + 1&lt;&lt;20</code>），预留给 JSON 转义与 multipart 边界，避免正文刚好 32 MiB 时被误伤。</p>
+      <p><b>它必须和列容量成对：</b>早期 <code>content</code> 是 <code>MEDIUMTEXT</code>（16 MiB），17 MiB 的上传能过接口检查，却在写库时报 500。<b>修法不是调小上限，是把列扩到 <code>LONGTEXT</code> 与上限对齐</b>——见 <code>db.go</code> 的 <code>migrateMaterialContent</code>。</p>
+      <p><b>1 MiB 问答请求：</b>一个问题加检索上下文远小于此，超限基本等于攻击或前端 bug。</p>
+      <p><b>13306 端口：</b>避开宿主机 3306，别人本机的 MySQL 和本项目可以共存。</p>
+      <p class="small muted">写规范时先问“这个数字由什么决定”。答不出来，说明这个数字是拍的——而拍出来的数字和别处的约束一定会打架。</p>
+    </div>
+    <div class="card"><h3>违规处理分级别，不写“严肃处理”</h3>
+      <p><b>密钥泄漏：</b>立即轮换、吊销相关令牌、回滚提交、24 小时内补事故记录。</p>
+      <p><b>越权或数据泄漏：</b>按 P0，先止血再修复，并补对应负向 e2e。</p>
+      <p><b>无断言的“测试”：</b>视为未测试，评审直接打回。</p>
+      <p><b>破坏性迁移：</b>阻断合并；已执行则按备份恢复并补评审。</p>
+      <p class="small muted">共同点：每条都写明谁做、多久内、做完补什么，而不是“加强重视”。</p>
     </div>
   </div>
 </section>
-<section id="route">
-  <div class="section-head"><div class="num">01</div><div><h2>10 分钟现场路线</h2><p>每一段都有“打开哪里、说什么、做到什么程度”。讲稿可直接照读，熟悉后换成自己的表达。</p></div></div>
-  <div class="timeline">
-    <article class="slot"><div class="slot-time">00:00<br>— 01:00</div><div><h3>开场：我们如何解决“规范写了没人用”</h3><p class="muted">打开仓库根目录，不急着翻文件。</p><div class="script"><p>老师、同学们好。我们组这次想分享的，不是“写了八份规则”，而是我们怎么让这些规则<em>不只靠自觉</em>。AI 和人类一起写代码时，规范最容易变成文档摆设，所以我们给每份规则都补了检查方式、违规处理和一次有效性验证。接下来我会故意制造一次分层违规，让大家看看门禁是不是真的能拦住。</p></div></div></article>
-    <article class="slot"><div class="slot-time">01:00<br>— 02:30</div><div><h3>总入口：规范怎样进入开发过程</h3><a class="file" href="../AGENTS.md"><span class="icon">↗</span><span><b>AGENTS.md</b><span>指到第一、二、七、八、十节即可，不滚动朗读全文。</span></span></a><div class="script"><p>这个文件是所有成员和 AI 工具的共同入口。每次改动先写 OpenSpec，场景必须能判定；实现后跑统一门禁；最后还要同伴评审。也就是说，规范同时约束<em>需求、代码、测试和交付</em>，不是只管代码风格。</p></div><p><b>手势：</b>指向“规范不是建议”和“变更流程（不可跳过）”。</p></div></article>
-    <article class="slot"><div class="slot-time">02:30<br>— 04:00</div><div><h3>解剖一份规则：四层闭环</h3><a class="file" href="../.qoder/rules/02-backend.md"><span class="icon">↗</span><span><b>.qoder/rules/02-backend.md</b><span>重点看第 7–15、17–21、23–26、28–30 行。</span></span></a><div class="script"><p>以后端规范为例。第一层是可执行的规则，比如传输层不能直接接触向量库；第二层是检查方式，对应分层脚本和 Go 工具链；第三层是违规处理，失败就阻断合并；第四层最重要——<em>有效性验证</em>，主动放一个反向依赖，确认检查不是永远说“通过”。</p></div></div></article>
-    <article class="slot"><div class="slot-time">04:00<br>— 07:00</div><div><h3>高潮：故意违规 → 门禁失败 → 删除恢复</h3><p>按下一节的五个步骤操作。看到失败后只解释一条报错，不展开源码。</p><div class="script"><p>现在我不改任何业务逻辑，只临时增加一个探针文件，让 <code>httpapi</code> 直接引用 <code>qdrant</code>。按照规范，这应该被拦截。大家看，检查退出失败，而且准确指出了文件和原因。<em>这次失败，恰恰证明门禁成功。</em>现在删除探针，再跑一次，恢复通过。</p></div></div></article>
-    <article class="slot"><div class="slot-time">07:00<br>— 08:30</div><div><h3>从一个脚本到完整证据链</h3><div class="grid-2"><a class="file" href="../scripts/quality-gate.mjs"><span class="icon">↗</span><span><b>scripts/quality-gate.mjs</b><span>配置样例、分层、密钥、gofmt、build、vet、test。</span></span></a><a class="file" href="lesson-07/verification.md"><span class="icon">↗</span><span><b>verification.md 第四节</b><span>历史实测：分层与密钥演练、恢复结果。</span></span></a></div><div class="script"><p>单点脚本还会被收进统一质量门禁。更重要的是，演练结果会写进验收记录：做了什么、预期什么、实际是什么、最后有没有恢复。这样别人不需要相信我们的口头保证，可以<em>复现证据</em>。</p></div></div></article>
-    <article class="slot"><div class="slot-time">08:30<br>— 10:00</div><div><h3>收尾：门禁有效，但门禁不是全部</h3><div class="script"><p>我们的收获有三点。第一，规则要写成能检查的契约；第二，检查本身也要被测试；第三，失败之后必须有明确处置和恢复。我们也承认门禁不是万能的：产品价值、检索是否真正可信、真实依赖下的端到端行为，还需要场景测试和同伴评审。对我们来说，<em>工程规范不是让开发变慢，而是让信任变得可验证。</em>谢谢大家。</p></div><p class="muted"><b>最后一句说完就停。</b>不要再补充新例子，把剩余时间交给提问。</p></div></article>
-  </div>
-</section>
-<section id="demo">
-  <div class="section-head"><div class="num">02</div><div><h2>现场演示操作卡</h2><p>安全边界：只新增并删除一个以下划线开头的 Go 探针；不改业务文件，不需要 Docker，不接触模型密钥。</p></div></div>
-  <div class="callout green"><b>为什么用 <code>_probe_layering.go</code>？</b> Go 构建工具会忽略下划线开头的文件，而分层脚本会扫描所有 <code>.go</code> 文件。因此它能隔离地验证分层门禁，不影响业务二进制。</div>
+
+<section id="flow">
+  <div class="section-head"><div class="num">03</div><div><h2>一个改动怎么走完全程</h2><p>以 <code>2026-11-03-add-rag-eval</code> 为例，八步，每步都有可核对的产物。流程的价值不是仪式，是让“想清楚”发生在“写代码”之前。</p></div></div>
+
   <ol class="steps">
-    <li><b>先证明当前通过。</b>在仓库根目录运行：<div class="code-wrap"><button class="btn copy" data-copy="node scripts/check-layering.mjs">复制</button><pre><code>node scripts/check-layering.mjs</code></pre></div><p class="small muted">预期：输出“分层依赖检查通过”，退出码 0。若课前已是失败状态，不现场造第二个问题，直接改用历史证据方案。</p></li>
-    <li><b>新建探针文件。</b>路径必须是：<div class="code-wrap"><button class="btn copy" data-copy="backend/internal/httpapi/_probe_layering.go">复制</button><pre><code>backend/internal/httpapi/_probe_layering.go</code></pre></div><p>内容只有两行：</p><div class="code-wrap"><button class="btn copy" data-copy='package httpapi
-
-import _ "github.com/Corday-nkusky/team_project/backend/internal/qdrant"'>复制</button><pre><code>package httpapi
-
-import _ "github.com/Corday-nkusky/team_project/backend/internal/qdrant"</code></pre></div></li>
-    <li><b>再次运行同一命令。</b><div class="code-wrap"><button class="btn copy" data-copy="node scripts/check-layering.mjs">复制</button><pre><code>node scripts/check-layering.mjs</code></pre></div><div class="expected"><b>预期失败，且这就是演示成功：</b><br><code>httpapi 不得直接引用 internal/qdrant，应经 qa 间接调用</code><br>进程退出码为 1，并指名 <code>_probe_layering.go</code>。</div></li>
-    <li><b>解释“为什么拦”，只说一句。</b>传输层负责解析、鉴权与响应；向量和模型访问必须经过应用层 <code>qa</code>，这样业务编排不会散落到 handler。</li>
-    <li><b>立即删除探针并复跑。</b>确认文件已不存在，再运行：<div class="code-wrap"><button class="btn copy" data-copy="node scripts/check-layering.mjs">复制</button><pre><code>node scripts/check-layering.mjs</code></pre></div><p>预期恢复通过。可用 <code>git status --short</code> 确认列表中没有 <code>_probe_layering.go</code>；仓库里其他已有文档不属于本次探针。</p></li>
+    <li><b>proposal：先回答为什么。</b>价值三问 + 非目标。原文写着“没有分项指标，任何一次调整都是盲调”——这句话既是立项理由，也是后来验收的口径。</li>
+    <li><b>design：把取舍写下来。</b>切片粒度 × 关键词/向量/融合/RRF 的横评方案，以及降级路径：无模型网关时不产生假的融合分数。</li>
+    <li><b>specs：把行为写成可判定的场景。</b>Requirement + GIVEN/WHEN/THEN，每个 Requirement 至少一条失败路径。<code>openspec validate --all --strict</code> 实测输出 <code>8 passed, 0 failed</code>。</li>
+    <li><b>tasks：拆到能判定。</b>每条带 <code>verify:</code>。2.2 的验收是“<code>check-layering.mjs</code> 通过且不报未登记”——把一个架构决策变成一条任务，跑不过就不许勾。</li>
+    <li><b>实现：小步改，先证明没改坏。</b>同源改造把 <code>EvidenceOK</code> 提到 <code>internal/retrieval</code>，验收条件写的是 <code>qa_test.go</code> 一行不改仍全绿——证明重构没有改变在线判定行为。</li>
+    <li><b>实测写回：把命令和输出贴进 tasks。</b>3.1 记着“材料 98 条、题目 207 条（可评测 89）”；5.2 记着 Git Bash 下 <code>GOCACHE</code> 未传递会报错。这些数字只可能来自真跑。</li>
+    <li><b>e2e：退出码即判定。</b><code>quality-gate.mjs --with-e2e</code>，任一失败退出 1；接口断言与浏览器走查都在同一条命令里。</li>
+    <li><b>归档：让主规约追上实现。</b><code>openspec archive</code> → 变更目录移入 <code>changes/archive/</code>，主规约同步；提交信息引用编号（<code>feat(R8)</code>、<code>docs(R12)</code>）。</li>
   </ol>
-  <div class="danger no-print"><b>绝对不要：</b>为了让报错“更明显”而修改多个文件；不要演示真实密钥泄漏；不要在失败后跳过还原；不要把当前总门禁是否全绿与这次单点分层演示混为一谈。</div>
+
+  <div class="grid-2">
+    <div class="card"><h3>流程真正拦住的两件事</h3>
+      <p><b>一、想不清就写不出来。</b>THEN 写不出来，说明需求本身含糊，这时候改代码是浪费。失败路径那一栏空着，等于承认只想了顺利情况。</p>
+      <p><b>二、声称完成但没做。</b>tasks 要求贴命令与真实输出。模型可以编造描述，编不出一个真跑过的输出；贴错了复核时会被发现。</p>
+    </div>
+    <div class="card"><h3>分支模型与它当前的代价</h3>
+      <p><code>main</code> 受保护（PR + 1 人评审），功能走 <code>feat/*</code>。<b>PR #2</b>（独立走查缺陷修复）已合并；<b>PR #3</b>（工作台与材料阅读）open；<b>PR #4</b>（LLM 网关）叠在 #3 之上。</p>
+      <p class="small muted">叠 PR 的真实代价：<code>scripts/verify-llm.mjs</code> 只存在于 <code>feat/llm-gateway</code>，<code>main</code> 和 <code>feat/workspace-material-reader</code> 上都没有。分支一旦漂移，文档和脚本就对不上——这是协作成本，不是技术债。</p>
+    </div>
+  </div>
+
+  <div class="callout green"><b>流程里最容易被低估的一步是第 6 步。</b>前五步都能由工具检查格式，只有“实测写回”要求人把外部世界的结果搬进文档。B 类问句 R@4 = 1.00 那个案例就是在这里被发现的：满分不是成绩，是题目太容易的信号。</div>
 </section>
-<section id="fallback">
-  <div class="section-head"><div class="num">03</div><div><h2>现场不顺，也有 30 秒救场方案</h2><p>救场的目标不是证明你操作熟练，而是保住论证完整性。</p></div></div>
+
+<section id="team">
+  <div class="section-head"><div class="num">04</div><div><h2>团队怎么协作：留痕、独立、可复现</h2><p>三人加各自的编码 Agent。协作要解决的不是“谁负责哪块”，而是“凭什么信对方说做完了”。</p></div></div>
+
   <div class="grid-3">
-    <div class="card"><h3>命令本身失败</h3><p class="small">先读第一行错误。若是环境或既有工作区问题，不现场排查；打开 <code>verification.md</code> 第四节。</p><p class="small"><b>说：</b>“现场环境占用了时间，我们直接看已记录的同一演练；关键仍是它同时保存了失败和恢复证据。”</p></div>
-    <div class="card"><h3>时间已超过 07:00</h3><p class="small">立即删除探针并复跑。省略质量门禁源码，只打开验证记录。</p><p class="small"><b>说：</b>“脚本细节大家可以课后看，我只保留结论：失败可定位、恢复可复验、过程有记录。”</p></div>
-    <div class="card"><h3>探针没有触发失败</h3><p class="small">检查路径是否在 <code>backend/internal/httpapi</code>、扩展名是否为 <code>.go</code>、import 是否完整。最多纠正一次。</p><p class="small"><b>还不触发：</b>坦诚说这本身暴露了门禁盲区，停止演示，记录为待修问题；不要假装成功。</p></div>
+    <div class="card"><h3>分工按 change，不按文件</h3><p>切文件会产生大量并行冲突（同一个 <code>main.go</code> 被三个人改）；按 change 切，每个改动自带规约、任务和验收，边界由 spec 划而不是由目录划。</p></div>
+    <div class="card"><h3>Agent 有硬边界</h3><p><code>team-deployment.md</code> 给队友的编码 Agent 定了 7 条：按章执行不跳步、只改本机 <code>deploy/.env</code>、不执行 commit/push、不回显密钥、首次构建可能超 10 分钟不要中断、失败先停不要随机重试、结果回传。</p></div>
+    <div class="card"><h3>判定必须留痕</h3><p><code>peer-review.md</code> 规定评审对象（tag）、复现命令、15 项清单、P0/P1/P2 分级、结论与签字栏。“通过”不是一句话，是一张能复查的表。</p></div>
   </div>
-  <div class="callout gold"><b>表达纪律：</b>不把历史通过说成“今天刚刚通过”；不把“代码合并”说成“所有完成定义已闭环”。这两句话反而会让你们对证据的理解更可信。</div>
+
+  <h3>独立走查：作者自测替代不了的那一步</h3>
+  <p>2026-10-30 那次走查<b>不跑仓库自带的 e2e</b>，而是用三条独立路径重验：Node <code>fetch</code> 手工按空行解 SSE 帧；起一个假的 OpenAI 兼容网关，支持 <code>[CUT]</code> / <code>[EOF]</code> / <code>[EMPTY]</code> / <code>[500]</code> / <code>[CITE9]</code> / <code>[SLOW]</code> 六种故障模式；浏览器走真实文件选择、真实登录、真实“停止”按钮。</p>
+  <div class="expected"><b>结果抓到一个 P0，而且是自己那套测试抓不到的。</b>“如何 / 都是 / 什么”这类常见双字词就能越过相关性门槛：问“如何在家做红烧肉”，系统返回《动物行为学》并标记 <code>no_evidence=false</code>。根因在 <code>retrieval.go:164</code> 的 <code>tokenize</code>——相邻汉字组合全部标 <code>strong</code>，没有停用词表。对照组“紫罗兰色的大象在跳舞”反而正确拒答，说明这不是模型幻觉，是检索判定错误。</div>
+  <p>同一份报告还修正了原计划的一处事实错误：17 MiB 上传不是“静默截断后 201”，而是 <b>500 落库失败</b>，因为 <code>content</code> 列当时是 <code>MEDIUMTEXT</code>（16 MiB 上限）。<b>这条只有走独立路径才会暴露——仓库自带的 e2e 断言的是它自己认为的边界。</b></p>
+  <p><b>修法值得单独讲：</b>不是把上传上限调小，也不是截断，而是把列扩成 <code>LONGTEXT</code> 与 32 MiB 对齐。迁移函数先查 <code>information_schema</code> 判断列类型，已是 <code>longtext</code> 就直接返回——<b>重复执行安全</b>，正好落地 07 数据规范那条“幂等迁移”。缺陷由 PR #2 修复并合入 <code>main</code>。</p>
+
+  <h3>协作证据与缺口，逐项列清</h3>
+  <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th style="width:24%">环节</th><th style="width:46%">证据</th><th>状态</th></tr></thead>
+    <tbody>
+      <tr><td>分支保护</td><td><code>main</code> 配置 PR + 1 人评审；评审清单第 1 项就是“协作者含三名成员、main 已配置保护”</td><td><span class="badge yes">有</span></td></tr>
+      <tr><td>独立走查</td><td>2026-10-30 报告 → N01（P0）→ PR #2 修复并合并</td><td><span class="badge yes">有</span></td></tr>
+      <tr><td>可复现环境</td><td>新机器 <code>node scripts/up.mjs</code> 一条命令起全套 + <code>/health</code> 200，步骤与期望结果都写死</td><td><span class="badge yes">有</span></td></tr>
+      <tr><td>同伴评审签字</td><td><code>peer-review.md</code> 首行：“状态：未签署。在评审人填写并签字前，本变更不满足完成定义”</td><td><span class="badge no">空缺</span></td></tr>
+      <tr><td>文档可达</td><td><code>team-deployment.md</code> 自述“尚未提交（untracked），队友 clone 后看不到”</td><td><span class="badge no">缺口</span></td></tr>
+      <tr><td>规范冲突优先级</td><td>八份细则之间只有互相引用（如 02 第 3 条指向 AGENTS 第三节），未定义两条规则冲突时谁优先</td><td><span class="badge no">未定义</span></td></tr>
+      <tr><td>规则与实例的边界</td><td>07 数据规范写“改类型必须拆成停用→迁移→清理三步”，而 <code>MEDIUMTEXT</code>→<code>LONGTEXT</code> 是直接 <code>MODIFY</code>：扩容量、不丢数据、可重复执行。规范没界定这类变更是否豁免</td><td><span class="badge part">待澄清</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="callout"><b>团队协作最贵的不是分工表，是两样东西：独立视角和可复现环境。</b>代码可以三个人并行写，验证不能并给同一个人——作者的自测、作者的用例、作者的判定，三件事同一个来源时，出错就是系统性出错。独立走查存在的唯一理由就是这个。</div>
 </section>
+
+<section id="valid">
+  <div class="section-head"><div class="num">05</div><div><h2>有效性验证证明什么，不证明什么</h2><p>这一节回答两个问题：凭什么信这个门禁不是摆设？以及，它凭什么不是同义反复？</p></div></div>
+
+  <h3>为什么需要演练：失败分支是死代码</h3>
+  <p>正常提交永远走“通过”那条路，<code>exit 1</code> 那几行从来没被执行过。安静的房间证明不了烟雾报警器有效——可能它没接线、没电池、或者根本没装。得划一根火柴。</p>
+  <p>所以每份规则最后一节都留了<b>故意违规演练</b>：造一个违规，确认门禁真的失败，再还原，过程记进 <code>verification.md</code>。目前有两条：分层（加 <code>_probe_layering.go</code> import qdrant，预期失败，实际 exit=1 并指名文件）、密钥（compose 里加 <code>:-</code> 回落，预期失败，实际报“不得提供回落默认值”），第三条是还原复查。</p>
+
+  <h3>它能排除的三种“哑门禁”</h3>
+  <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th style="width:26%">失效形态</th><th>具体长什么样</th></tr></thead>
+    <tbody>
+      <tr><td><b>根本不响</b></td><td>扫目录时排除了子目录、文件名大小写写错、正则只匹配单行 <code>import</code> 漏了括号块——对真实违规视而不见。</td></tr>
+      <tr><td><b>响错方向</b></td><td>条件写反（少一个 <code>!</code>）、白名单放太宽把所有文件都放进去——永远说通过，还显得很勤快。</td></tr>
+      <tr><td><b>响了没人听见</b></td><td>推入了违规列表、打印了红字，却没执行 <code>process.exit(1)</code>——终端一片红，退出码 0，CI 照样绿。</td></tr>
+    </tbody>
+  </table></div>
+  <p class="small muted">三种都在正常开发里活得很久，因为正常代码永远触发不到它们。所以“一直通过”这件事没有信息量。</p>
+
+  <h3>同义反复：成立，但分两种</h3>
+  <p><b>弱版本（真同义反复）：</b>样例是照着脚本的 <code>if</code> 分支反推的——“脚本禁 httpapi→qdrant，我就造 httpapi→qdrant”。这只是在验证代码和自己一致，信息量为零。</p>
+  <p><b>强版本（有信息量）：</b>样例从<b>规则文本</b>独立推演。02-backend 第 1 条写的是“禁止反向依赖”，由此能推出至少三种形态：httpapi 直连 qdrant、qa 反向 import httpapi、store import qa。脚本里没有为三种各写特判，而是用通用层级比较统一判定——两条独立路径撞上了，才说明有鉴别力。</p>
+  <div class="callout gold"><b>判据只有一条：样例是否独立于实现。</b>样例来自规则文本 → 有信息量；样例是脚本分支的镜像 → 同义反复。</div>
+
+  <h3>实际缺口（主动说，别等被问）</h3>
+  <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th style="width:24%">性质</th><th style="width:18%">证据</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>敏感度：已知违规被抓</td><td><span class="badge part">部分</span></td><td>只练了两类形态（分层、密钥），各一次。</td></tr>
+      <tr><td>特异度：合法代码不被误杀</td><td><span class="badge part">间接</span></td><td>门禁全绿、13 包 25 条引用通过；但“通过”也可能是检查太松。</td></tr>
+      <tr><td>完备性：形态全覆盖</td><td><span class="badge no">没有</span></td><td>别名导入、中间包间接引用、白名单文件塞业务逻辑，都没测过。</td></tr>
+      <tr><td>纯约定规则</td><td><span class="badge no">空白</span></td><td>02-backend 的“错误不吞”“context 贯穿”“幂等”没有机器检查，也就没有演练。</td></tr>
+      <tr><td>长期有效</td><td><span class="badge no">快照</span></td><td>两次演练都在 2026-10-28，之后没再跑；也不是回归测试。</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>另一类证据（更容易被忽略）：</b><code>verification.md</code> 第五节做过一次<b>无上下文只读代理</b>抽查——只给仓库路径和“新增一个接口按规范怎么做”，看它能不能自己找到规则并答对。它引用了 AGENTS + 4 份 rules + 2 个 skills，答案与规范一致。这条证明的不是门禁会响，而是<b>规范可发现、可执行</b>，而且不是作者自证。</p>
+</section>
+
+<section id="gap">
+  <div class="section-head"><div class="num">06</div><div><h2>覆盖不全怎么补</h2><p>四步，按性价比排序。第一步是纯文档，最后一步才需要动 CI。</p></div></div>
+
+  <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th style="width:22%">做法</th><th style="width:40%">具体动作</th><th>解决什么</th></tr></thead>
+    <tbody>
+      <tr><td><b>1. 覆盖矩阵</b><br><span class="small muted">半天</span></td><td>把“检查项 × 违规形态”列成表贴进 <code>verification.md</code>：分层至少 4 形态（直连禁止包 / 反向上行 / 未登记新包 / 白名单外用 store），密钥至少 4 形态（私钥块 / <code>sk-</code> / compose 回落 / 代码硬编码）。</td><td>把“覆盖不全”从感觉变成空格子，缺口可数。</td></tr>
+      <tr><td><b>2. 成对夹具</b><br><span class="small muted">1–2 小时</span></td><td>新建 <code>scripts/verify-gates.mjs</code>：每条用例 = 备份 → 制造 → 跑门禁 → 断言退出码与输出 → 还原 → 断言还原干净。每条违规配一条“该放行的”对照（白名单内引用必须过、随机 32 位密钥必须过）。</td><td>演练从一次性表演变成回归测试；同时防“检查过紧导致团队绕过门禁”。</td></tr>
+      <tr><td><b>3. 变异测试</b><br><span class="small muted">半小时</span></td><td>临时把门禁逻辑改坏：层号比较 <code>&gt;</code> 改 <code>&gt;=</code>、清空禁止集合、注释掉 <code>.env</code> 检查，然后跑夹具——夹具必须报错。</td><td>唯一能堵“样例和实现一起退化”的办法。夹具抓不住差异，它此前的通过就不算数。</td></tr>
+      <tr><td><b>4. 半自动 + 可见</b><br><span class="small muted">可选</span></td><td>纯约定规则做启发式扫描（handler 里出现 SQL 关键字 → 提示人工确认），并写进 <code>peer-review.md</code> 固定勾选项；在 <code>verification.md</code> 明写“无自动化覆盖”。</td><td>让“没有检查”这件事可见，而不是空白看起来像通过。</td></tr>
+      <tr><td><b>5. 拦截率</b><br><span class="small muted">持续</span></td><td>记录一段时间内门禁失败次数与原因分类。三个月零失败 → 要么团队完美，要么门禁哑了，强制重跑演练。</td><td>解决“快照”问题，让有效性随时间可复查。</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout"><b>做完第 2 步，体系的样子就变了：</b>不再是“某天演练过一次”，而是“任何人任何时候跑一条命令，都能确认门禁还活着、且只拦该拦的”。</div>
+</section>
+
+<section id="script">
+  <div class="section-head"><div class="num">07</div><div><h2>十分钟分段</h2><p>七段，每段一个目标 + 一个能翻出来的东西。时间按“讲完这一段”给，不是按字数给。</p></div></div>
+  <div class="timeline">
+    <article class="slot"><div class="slot-time">00:00<br>— 00:40</div><div><h3>开场：把问题定住</h3><p>模型每次输出是概率采样，不保证听话。不改模型，改环境。三层各管一件事：知不知道、做没做、合不合格。</p></div></article>
+    <article class="slot"><div class="slot-time">00:40<br>— 02:10</div><div><h3>规范：写成了可判定的条款</h3><p>翻 <code>.qoder/rules/02-backend.md</code> 第 7–15 行，再翻 <code>AGENTS.md</code> 第 30 行。</p><ul><li>空话 vs 可执行：<code>代码要规范</code> 与 <code>JWT_SECRET ≥32 字符且非示例值</code></li><li>八份合计 255 行：只写能判真假的部分</li><li>举一个数字的来源：32 MiB 对应 <code>MEDIUMTEXT</code> 16 MiB 的一倍余量</li></ul></div></article>
+    <article class="slot"><div class="slot-time">02:10<br>— 04:00</div><div><h3>流程：一个改动走完八步</h3><p>翻 <code>openspec/changes/2026-11-03-add-rag-eval/</code> 的 proposal 与 tasks。</p><ul><li>先答价值三问再动手：原文“任何一次调整都是盲调”</li><li>tasks 2.2：新增入口不登记层级就不许勾</li><li>tasks 5.2：<code>GOCACHE</code> 那种细节编不出来</li><li>最能讲的一件：B 类问句 R@4 = 1.00，满分反而暴露题目太容易</li></ul></div></article>
+    <article class="slot"><div class="slot-time">04:00<br>— 06:20</div><div><h3>门禁与有效性验证</h3><p>翻 <code>scripts/check-layering.mjs</code> 第 19 行、第 100–104 行；讲演练时翻 <code>docs/lesson-07/verification.md</code> 第四节。</p><ul><li>层级表是数据，未登记即失败（<code>cmd/rageval</code> 真事）</li><li>判定是一个 if；白名单枚举而非一刀切</li><li>失败分支是死代码 → 所以演练：烟雾报警器要划火柴</li><li>同义反复的判据：样例是否独立于实现</li></ul></div></article>
+    <article class="slot"><div class="slot-time">06:20<br>— 08:20</div><div><h3>团队：独立视角与留痕</h3><p>翻 <code>docs/independent-test-report.md</code> 的结论表，再翻 <code>docs/lesson-07/peer-review.md</code> 首行。</p><ul><li>独立走查不跑自带 e2e：三条独立路径，抓到 P0</li><li>“如何 / 都是 / 什么”击穿无依据判定，根因在 <code>tokenize</code></li><li>17 MiB 那条：期望 201 实际 500，修法是扩列不是截断</li><li>评审至今未签署 → DoD 第 5 项不成立，主动说</li></ul></div></article>
+    <article class="slot"><div class="slot-time">08:20<br>— 09:20</div><div><h3>叠加与缺口</h3><p>只有注入会被跳过，只有流程会被跳步，只有门禁覆盖窄。缺口四件：没有 CI、演练只覆盖两类形态、三条纯约定规则无机器检查、评审未签。</p></div></article>
+    <article class="slot"><div class="slot-time">09:20<br>— 10:00</div><div><h3>收尾：让错误变便宜</h3><p>前两层是概率，第三层是确定。门禁判得了结构，判不了并发、事务、越权——那是下一阶段要补的。</p></div></article>
+  </div>
+</section>
+
 <section id="qa">
-  <div class="section-head"><div class="num">04</div><div><h2>5 分钟问答应答库</h2><p>每题控制在 25–40 秒。先给结论，再举一个仓库证据，最后承认边界。</p></div></div>
-  <details><summary>规则这么多，会不会拖慢开发？<span class="qa-tag">成本</span></summary><div class="details-body"><p class="answer"><b>会有固定成本，但它替代的是返工和争论。</b>小团队不需要每次都重读全部规则；入口文件告诉你要走 change、门禁和评审，细则只在涉及对应领域时查阅。真正省时间的是错误在本地、合并前就被发现，而不是演示或联调时才暴露。</p></div></details>
-  <details><summary>AI 真的会遵守这些规范吗？<span class="qa-tag">AI 协作</span></summary><div class="details-body"><p class="answer"><b>不能把“写给它看”等同于“它一定遵守”。</b>所以 AGENTS 只是发现入口，脚本和退出码才是硬约束。规范负责让要求可发现，门禁负责让违规可观察，评审负责处理自动检查覆盖不到的判断。</p></div></details>
-  <details><summary>为什么要故意违规？正常测试通过不就够了？<span class="qa-tag">核心</span></summary><div class="details-body"><p class="answer"><b>因为“没有报错”可能只是“没有检查到”。</b>正常样本通过只能证明门禁不拦正确代码，不能证明它会拦错误代码。故意违规相当于给门禁本身补一个负向测试：既要会放行，也要会拒绝。</p></div></details>
-  <details><summary>故意违规会不会把仓库或数据弄坏？<span class="qa-tag">安全</span></summary><div class="details-body"><p class="answer"><b>关键是选择隔离、可逆、无外部副作用的探针。</b>这次只新增下划线开头的 Go 文件，不进入业务构建，不启动服务、不碰数据库；验证后删除并复跑。真实密钥泄漏、破坏性迁移不适合课堂现场演练，应只用历史受控记录说明。</p></div></details>
-  <details><summary>全部门禁通过，是否说明项目质量没问题？<span class="qa-tag">边界</span></summary><div class="details-body"><p class="answer"><b>不能。</b>离线门禁主要保证结构、配置卫生、格式、构建和单元测试；真实 MySQL、Qdrant、浏览器和 SSE 行为还要靠端到端测试。产品是否有价值、规则是否合理、回答是否真的可信，仍需要独立走查和人的评审。</p></div></details>
-  <details><summary>为什么不让 CI 直接做，而要保留本地脚本？<span class="qa-tag">工程</span></summary><div class="details-body"><p class="answer"><b>同一套脚本本地和 CI 都能跑，反馈才一致。</b>本地门禁把问题拦在提交前，CI 再做独立复验；脚本进仓库后，检查逻辑本身也能被评审和版本追踪，而不是藏在某个平台配置里。</p></div></details>
-  <details><summary>新成员怎样开始，不会被规范吓住？<span class="qa-tag">上手</span></summary><div class="details-body"><p class="answer"><b>从一条真实改动走一遍，而不是背规范。</b>先看 AGENTS 的项目一句话和变更流程，再复制一个相近 change 的四件套；实现后按 tasks 的 verify 执行，最后跑统一门禁。三个技能把新增接口、质量检查和从零启动做成了可复用流程。</p></div></details>
-  <details><summary>你们现在的流程是否已经全部做到位？<span class="qa-tag">坦诚</span></summary><div class="details-body"><p class="answer"><b>还不能这样概括。</b>核心功能和修复已经落地，但“代码合并”不等于完成定义全部满足；评审记录、任务勾选和 change 归档仍要持续闭环。规范的价值也包括让这些缺口可见，而不是把项目包装成永远全绿。</p></div></details>
-  <details><summary>下一步最该改进什么？<span class="qa-tag">演进</span></summary><div class="details-body"><p class="answer"><b>优先让规范持续有效，而不是继续增加条目。</b>定期抽查已归档场景是否仍对应 e2e，检查最近合并是否都有门禁与评审证据，并对跨平台换行等环境问题做稳定化处理。只有规则被反复使用、违规确实被发现，规范体系才算活着。</p></div></details>
+  <div class="section-head"><div class="num">08</div><div><h2>会被追问的</h2><p>只留真正会被问、且正文没答的。一句结论 + 一个证据。</p></div></div>
+  <details><summary>这套和“提示词工程”有什么区别？<span class="qa-tag">概念</span></summary><div class="details-body"><p class="answer"><b>提示词管一次对话怎么说，harness 管整个环境。</b>哪些规则常驻、改动走什么流程、产出由谁判定——三件事都不在提示词里。前者影响一次采样，后者让错误在流程里被强制暴露。</p></div></details>
+  <details><summary>规则注入是 Qoder 自动做的，换个工具不就废了？<span class="qa-tag">跨工具</span></summary><div class="details-body"><p class="answer"><b>会降级，不会失效。</b>别的工具只自动读 <code>AGENTS.md</code>，细则按索引自己翻。但流程写在 <code>openspec/</code>、门禁跑在 <code>scripts/</code>，这两层不依赖工具。</p></div></details>
+  <details><summary>门禁又不改模型，凭什么让输出稳定？<span class="qa-tag">核心</span></summary><div class="details-body"><p class="answer"><b>它让不稳定变得可见且便宜。</b>单次输出仍随机，但错误必然被拦，重做成本只是一次生成。稳定来自“生成—校验—重做”的循环，不来自模型。</p></div></details>
+  <details><summary>既然有门禁，为什么还要人工评审？<span class="qa-tag">分工</span></summary><div class="details-body"><p class="answer"><b>门禁只判它能扫的东西。</b>并发、事务、越权、错误吞没这四类，静态检查说不出来；而且 02-backend 里“错误不吞”“context 贯穿”“幂等”三条本来就没有机器检查。这些只能人看。</p></div></details>
+  <details><summary>没有 CI，门禁靠人跑，那不等于没有？<span class="qa-tag">诚实</span></summary><div class="details-body"><p class="answer"><b>目前是纪律强制，不是机器强制。</b>仓库里没有 CI 配置，执行点是提交前跑 <code>quality-gate.mjs</code> + 同伴评审核对。补 CI 是一行配置的事，但没做就是没做。</p></div></details>
+  <details><summary>三个人具体怎么分工的？<span class="qa-tag">协作</span></summary><div class="details-body"><p class="answer"><b>按 change 切，不按文件切。</b>每个改动自带 proposal、specs、tasks 和验收，边界由规约划，谁在改什么从 change 目录就能看出来。角色上分三种：作者、评审人、独立走查者。诚实补一句：从提交记录看主力集中在两个账号，第三名成员参与部署验证与协作者权限，<b>并行度其实不高</b>——机制齐了，实际利用率不够。</p></div></details>
+  <details><summary>评审没签字，是不是等于没完成？<span class="qa-tag">DoD</span></summary><div class="details-body"><p class="answer"><b>是，按你们自己的规定就是不成立。</b><code>peer-review.md</code> 第一行写着“未签署……不满足完成定义”，AGENTS.md 第八节也写“自审不能替代同伴评审”。所以对外只能说“机制已建立、这一环待闭环”，不能说“已完成”。</p></div></details>
+  <details><summary>独立走查不算重复劳动吗？<span class="qa-tag">验证</span></summary><div class="details-body"><p class="answer"><b>不算，因为它绕开的是同一套假设。</b>自带 e2e 断言的是作者认为的边界，边界本身错了它抓不到。那次走查不跑 e2e，改用假网关制造六种故障、手工解 SSE 帧、浏览器点真实按钮，才抓到 P0，并纠正了“17 MiB 静默截断”这个错误前提。代价是一天，收益是避免把错误前提写进后续所有修法。</p></div></details>
+  <details><summary>你们现在已经做到哪一步了？<span class="qa-tag">坦诚</span></summary><div class="details-body"><p class="answer"><b>三层都有雏形，三层都有缺口。</b>注入受限于工具；流程里 tasks 勾选未全部闭环；门禁没有 CI、只覆盖两类演练形态；同伴评审记录至今未签署。这些缺口在 <code>verification.md</code> 里都写着，不是现在才承认。</p></div></details>
 </section>
-<section id="cue">
-  <div class="section-head"><div class="num">05</div><div><h2>带上台的六句提词</h2><p>忘词时只看这里。每句对应一个动作，不影响主线。</p></div></div>
-  <div class="card">
-    <div class="cue"><b>1</b>　“我们分享的不是规则数量，而是规则如何被证明有效。”</div>
-    <div class="cue"><b>2</b>　打开 AGENTS：“需求、代码、测试和交付走同一条契约。”</div>
-    <div class="cue"><b>3</b>　打开后端规范：“规则、检查、处置、有效性验证，四层闭环。”</div>
-    <div class="cue"><b>4</b>　制造探针：“现在这条错误应该被拦住——失败就是门禁成功。”</div>
-    <div class="cue"><b>5</b>　删除复跑：“可定位、可恢复、可复验，才值得信任。”</div>
-    <div class="cue"><b>6</b>　收尾：“自动门禁不是全部；端到端和人的评审仍然必要。”</div>
-  </div>
-  <div class="callout green"><b>最后检查：</b>探针已删除 · 分层检查恢复通过 · 没有展示任何本机 <code>.env</code> 或真实令牌 · 没有承诺“项目所有方面都全绿”。</div>
-</section>
+
 </main></div>
-<footer class="footer">CampusClaw · 课堂分享作战手册　/　内容依据当前仓库规约与验证记录整理　/　2026-10-31</footer>
+
+<footer class="footer">CampusClaw · 课堂分享　/　内容依据仓库规约、<code>verification.md</code> 与 <code>openspec</code> 实测记录整理　/　2026-11-04</footer>
 <script>
 (function(){
   const progress=document.getElementById('progress');
@@ -167,7 +309,7 @@ import _ "github.com/Corday-nkusky/team_project/backend/internal/qdrant"</code><
   expand.addEventListener('click',()=>{const open=!details.every(d=>d.open);details.forEach(d=>d.open=open);expand.textContent=open?'收起问答':'展开问答'});
   window.addEventListener('beforeprint',()=>details.forEach(d=>d.open=true));
   let total=600,left=600,running=false,id=null;const time=document.getElementById('time'),start=document.getElementById('startTimer');
-  function render(){const m=Math.floor(left/60),s=left%60;time.textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');time.style.color=left<=60&&left>0?'var(--red)':'';document.title=(running?time.textContent+' · ':'')+'CampusClaw · 规范不是建议'}
+  function render(){const m=Math.floor(left/60),s=left%60;time.textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');time.style.color=left<=60&&left>0?'var(--red)':'';document.title=(running?time.textContent+' · ':'')+'CampusClaw · 三层保护'}
   function stop(){running=false;clearInterval(id);id=null;start.textContent=left<total&&left>0?'继续':'开始';render()}
   start.addEventListener('click',()=>{if(running){stop();return}if(left<=0)left=total;running=true;start.textContent='暂停';id=setInterval(()=>{left--;if(left<=0){left=0;stop();time.textContent='00:00';return}render()},1000);render()});
   document.getElementById('resetTimer').addEventListener('click',()=>{stop();left=total;start.textContent='开始';render()});

@@ -27,13 +27,15 @@ const LAYERS = {
   "internal/store": 0,
   "internal/web": 0,
   "internal/qa": 1,
+  "internal/indexer": 2,
   "internal/httpapi": 2,
   "cmd/server": 3,
   "cmd/e2e": 3,
+  "cmd/worker": 3,
 };
 
 // httpapi 直接使用 store 的文件：均为「单表读写 / 会话记录」，不含检索与生成逻辑。
-const HTTPAPI_STORE_ALLOWLIST = new Set(["auth.go", "materials.go", "ask.go", "router.go"]);
+const HTTPAPI_STORE_ALLOWLIST = new Set(["auth.go", "materials.go", "ask.go", "router.go", "tasks.go"]);
 const HTTPAPI_FORBIDDEN_DIRECT = new Set(["internal/llm", "internal/qdrant", "internal/retrieval"]);
 
 function walk(dir) {

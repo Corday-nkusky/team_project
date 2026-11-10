@@ -41,7 +41,8 @@ func main() {
 		os.Exit(1)
 	}
 	dbDSN = dsn
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	// 异步索引由独立 worker 执行，验收需要轮询任务终态，整体预算比同步版宽。
+	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
 	defer cancel()
 
 	conn, err := db.Open(dbDSN)
@@ -77,8 +78,9 @@ func main() {
 
 	checkStudentCannotUpload(ctx, student1.access)
 
-	// 上传与检索（R3.1 / R5.1 / R6 / R7）。
-	matID := checkUpload(ctx, teacher.access, unique)
+	// 上传与检索（R3.1 / A2 / A5 / R5.1 / R6 / R7）。
+	matID, uploadTask := checkUpload(ctx, teacher.access, unique)
+	checkTaskContract(ctx, teacher.access, teacher2.access, uploadTask, unique)
 	checkMaterialDetail(ctx, teacher.access, student1.access, matID, unique)
 	checkUploadEmpty(ctx, teacher.access)
 	checkUploadBoundaries(ctx, teacher.access)
@@ -217,15 +219,72 @@ func checkStudentCannotUpload(ctx context.Context, studentAccess string) {
 	ok("学生调用上传接口 → 403", st == 403, fmt.Sprintf("实际 %d", st))
 }
 
-func checkUpload(ctx context.Context, teacherAccess, unique string) int64 {
-	sec("R3.1 教师上传成功并可检索")
+func checkUpload(ctx context.Context, teacherAccess, unique string) (int64, acceptedPayload) {
+	sec("R3.1 / A2 上传返回 202 号码牌，索引异步完成")
 	content := fmt.Sprintf("本节讲义讨论 %s 的构造与验证方法。它是本材料的独有词，仅用于检索验证。", unique)
 	st, body := post(ctx, "/api/materials", teacherAccess, map[string]string{"title": "讲义甲", "content": content})
+	var a acceptedPayload
+	_ = json.Unmarshal(body, &a)
+	ok("教师上传非空材料 → 202 且含 task_id / status_url",
+		st == 202 && a.TaskID != "" && a.MaterialID > 0 && strings.HasPrefix(a.StatusURL, "/api/tasks/"),
+		fmt.Sprintf("实际 %d: %s", st, body))
+	ok("202 响应不含索引结果（不返回 ready / 切片数）",
+		!strings.Contains(string(body), "ready") && !strings.Contains(string(body), "chunk"),
+		string(body))
+
+	state, done := waitTask(ctx, teacherAccess, a, 120*time.Second)
+	ok("索引任务到达终态", done, fmt.Sprintf("last=%+v", state))
+	ok("索引任务成功（worker 已执行）", state.Status == "succeeded",
+		fmt.Sprintf("status=%s attempts=%d error=%s", state.Status, state.Attempts, state.Error))
+
+	st2, body2 := get(ctx, fmt.Sprintf("/api/materials/%d", a.MaterialID), teacherAccess)
 	var mv materialPayload
-	_ = json.Unmarshal(body, &mv)
-	ok("教师上传非空材料 → 201", st == 201, fmt.Sprintf("实际 %d: %s", st, body))
-	ok("索引状态为 ready", mv.IndexStatus == "ready", mv.IndexStatus+mv.IndexError)
-	return mv.ID
+	_ = json.Unmarshal(body2, &mv)
+	ok("任务完成后材料索引状态为 ready", st2 == 200 && mv.IndexStatus == "ready",
+		fmt.Sprintf("status=%d index=%s err=%s", st2, mv.IndexStatus, mv.IndexError))
+	return a.MaterialID, a
+}
+
+// checkTaskContract 覆盖 A2.3 / A5.1 / A5.3：状态接口只读、不触发执行，
+// 跨班视为不存在，同一份提交由幂等键复用任务而不是新建。
+func checkTaskContract(ctx context.Context, teacherAccess, otherClassAccess string, a acceptedPayload, unique string) {
+	sec("A2.3 / A5.1 / A5.3 任务状态只读、班级隔离与幂等")
+	st1, b1 := get(ctx, a.StatusURL, teacherAccess)
+	var s1, s2 taskStatePayload
+	_ = json.Unmarshal(b1, &s1)
+	st2, b2 := get(ctx, a.StatusURL, teacherAccess)
+	_ = json.Unmarshal(b2, &s2)
+	ok("状态接口连续两次 200 且 attempts 不变（只读、不触发执行）",
+		st1 == 200 && st2 == 200 && s1.Attempts == s2.Attempts && s1.Status == s2.Status,
+		fmt.Sprintf("st=%d/%d a=%d/%d status=%s/%s", st1, st2, s1.Attempts, s2.Attempts, s1.Status, s2.Status))
+
+	st, body := get(ctx, a.StatusURL, otherClassAccess)
+	ok("他班教师查询本班任务 → 404 且不泄漏任务信息",
+		st == 404 && !strings.Contains(string(body), a.TaskID), fmt.Sprintf("status=%d body=%s", st, body))
+
+	content := fmt.Sprintf("本节讲义讨论 %s 的构造与验证方法。它是本材料的独有词，仅用于检索验证。", unique)
+	st, body = post(ctx, "/api/materials", teacherAccess, map[string]string{"title": "讲义甲", "content": content})
+	var replay acceptedPayload
+	_ = json.Unmarshal(body, &replay)
+	ok("同班同一份内容重复提交 → 202 且复用同一 task_id / material_id",
+		st == 202 && replay.TaskID == a.TaskID && replay.MaterialID == a.MaterialID,
+		fmt.Sprintf("status=%d task=%s/%s material=%d/%d", st, a.TaskID, replay.TaskID, a.MaterialID, replay.MaterialID))
+
+	// A5.2 上传审计与任务行的关联字段可核对。
+	conn, err := db.Open(dbDSN)
+	if err != nil {
+		ok("打开数据库连接核对关联字段", false, err.Error())
+		return
+	}
+	defer conn.Close()
+	var auditHits int
+	_ = conn.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM audit_logs WHERE action='upload' AND detail LIKE ?`, "%"+a.TaskID+"%").Scan(&auditHits)
+	ok("上传审计 detail 含 task_id", auditHits > 0, fmt.Sprintf("命中 %d 条", auditHits))
+	var reqID string
+	_ = conn.QueryRowContext(ctx,
+		`SELECT request_id FROM index_tasks WHERE task_id=?`, a.TaskID).Scan(&reqID)
+	ok("任务行带 request_id", reqID != "", reqID)
 }
 
 // checkMaterialDetail 覆盖 MR1.1 / MR1.3 / MR1.4：本班师生可读全文，
@@ -353,32 +412,24 @@ func checkUploadBoundaries(ctx context.Context, teacherAccess string) {
 
 	large := strings.Repeat("材料", (17<<20)/6)
 	st, body = post(ctx, "/api/materials", teacherAccess, map[string]string{"title": "十七米测试", "content": large})
-	var mv materialPayload
-	_ = json.Unmarshal(body, &mv)
-	ok("17 MiB 文本 → 201 且索引 ready",
-		st == 201 && mv.IndexStatus == "ready", fmt.Sprintf("status=%d body=%.200s", st, body))
-	if mv.ID > 0 {
-		var chunks int
-		_ = conn.QueryRowContext(ctx, `SELECT COUNT(*) FROM chunks WHERE material_id=?`, mv.ID).Scan(&chunks)
-		ok("17 MiB 材料生成了切片", chunks > 0, fmt.Sprintf("%d 片", chunks))
-		// 清理本次的大材料与向量，避免每轮验收把切片表/向量库越堆越大（审计仍保留）。
-		//
-		// 未启用模型时 Index 在建完切片后即返回，不会写入向量；此时 Qdrant 可能连集合
-		// 都没有。启用模型时才需要直连核对残留，而 Qdrant 默认只在内网暴露，
-		// 从宿主机探测不到就如实报失败，不静默跳过。
+	var a acceptedPayload
+	_ = json.Unmarshal(body, &a)
+	ok("17 MiB 文本 → 202 且返回材料标识（不再在请求内建索引）",
+		st == 202 && a.MaterialID > 0 && a.TaskID != "", fmt.Sprintf("status=%d body=%.200s", st, body))
+	if a.MaterialID > 0 {
+		var storedBytes int64
+		_ = conn.QueryRowContext(ctx, `SELECT LENGTH(content) FROM materials WHERE id=?`, a.MaterialID).Scan(&storedBytes)
+		// strings.Repeat 按整数除法取整，实际字节数可能比 17<<20 少几个字节，
+		// 因此与提交的原文长度逐字节比对，而不是拿标称容量当精确值。
+		ok("17 MiB 正文完整落库（LONGTEXT 未被截断）", storedBytes >= int64(len(large)),
+			fmt.Sprintf("落库 %d 字节 / 提交 %d 字节", storedBytes, len(large)))
+		// 清理：index_tasks 与 chunks 都有 ON DELETE CASCADE，删材料即级联删任务与切片。
+		// 这里不等异步任务完成——17 MiB 若真去嵌入会产生数万切片，
+		// 验收只需要证明「能落库 + 返回 202」，不需要把网关额度烧在测试文本上。
+		_, _ = conn.ExecContext(ctx, `DELETE FROM materials WHERE id=?`, a.MaterialID)
 		if llmEnabled {
-			if err := qdrantDeleteMaterial(ctx, mv.ID); err != nil {
-				fmt.Printf("    (清理向量失败: %v)\n", err)
-			}
-			if n, err := qdrantCountMaterial(ctx, mv.ID); err != nil {
-				ok("Qdrant 无该材料残留", false, err.Error())
-			} else {
-				ok("Qdrant 无该材料残留", n == 0, fmt.Sprintf("%d 个点", n))
-			}
-		} else {
-			fmt.Println("    (LLM 未启用：本轮不写入向量；Qdrant 仅在内网，容器内 404=集合不存在)")
+			_ = qdrantDeleteMaterial(ctx, a.MaterialID) // best-effort：异步任务若刚写过向量也一并清掉
 		}
-		_, _ = conn.ExecContext(ctx, `DELETE FROM materials WHERE id=?`, mv.ID)
 		ok("清理后材料数回到上传前基线", countMaterials() == after,
 			fmt.Sprintf("%d → %d（基线 %d）", after, countMaterials(), after))
 	}
@@ -476,11 +527,15 @@ func checkHTTPContract(ctx context.Context, studentAccess, teacherAccess string)
 }
 
 func checkReindex(ctx context.Context, teacherAccess string, id int64) {
-	sec("R3.4 重索引")
+	sec("R3.4 / A2 重索引异步提交")
 	st, body := post(ctx, fmt.Sprintf("/api/materials/%d/reindex", id), teacherAccess, nil)
-	var mv materialPayload
-	_ = json.Unmarshal(body, &mv)
-	ok("对材料重索引 → 200 且状态 ready", st == 200 && mv.IndexStatus == "ready", fmt.Sprintf("status=%d body=%s", st, body))
+	var a acceptedPayload
+	_ = json.Unmarshal(body, &a)
+	ok("对材料重索引 → 202 且返回任务标识",
+		st == 202 && a.TaskID != "" && a.MaterialID == id, fmt.Sprintf("status=%d body=%s", st, body))
+	state, done := waitTask(ctx, teacherAccess, a, 120*time.Second)
+	ok("重索引任务成功", done && state.Status == "succeeded",
+		fmt.Sprintf("done=%v status=%s error=%s", done, state.Status, state.Error))
 }
 
 func askHits(ctx context.Context, access, unique string) {
@@ -559,12 +614,18 @@ func checkAskEmpty(ctx context.Context) {
 
 func uploadMaterial(ctx context.Context, access, title, unique string) int64 {
 	st, body := post(ctx, "/api/materials", access, map[string]string{"title": title, "content": "只属于另一个班的材料，独有词：" + unique})
-	var mv materialPayload
-	_ = json.Unmarshal(body, &mv)
-	if st != 201 {
+	var a acceptedPayload
+	_ = json.Unmarshal(body, &a)
+	if st != 202 || a.TaskID == "" {
 		fmt.Printf("    (准备 B 班材料失败: %d %s)\n", st, body)
+		return 0
 	}
-	return mv.ID
+	// 跨班隔离用例要验证「B 班材料不会被 A 班检索到」，需等索引真正建完。
+	state, done := waitTask(ctx, access, a, 120*time.Second)
+	if !done || state.Status != "succeeded" {
+		fmt.Printf("    (B 班材料索引未完成: done=%v status=%s error=%s)\n", done, state.Status, state.Error)
+	}
+	return a.MaterialID
 }
 
 func checkCrossClassReindex(ctx context.Context, teacher1Access, student1Access string, class2MaterialID int64, uniqueB string) {
@@ -636,6 +697,44 @@ type materialPayload struct {
 	IndexStatus string `json:"index_status"`
 	IndexError  string `json:"index_error"`
 	CreatedAt   string `json:"created_at"`
+}
+
+// acceptedPayload 是上传 / 重索引的 202「号码牌」：不含任何索引结果。
+type acceptedPayload struct {
+	TaskID     string `json:"task_id"`
+	MaterialID int64  `json:"material_id"`
+	Status     string `json:"status"`
+	StatusURL  string `json:"status_url"`
+}
+
+type taskStatePayload struct {
+	TaskID   string `json:"task_id"`
+	Status   string `json:"status"`
+	Attempts int    `json:"attempts"`
+	Error    string `json:"error"`
+}
+
+// waitTask 轮询只读状态接口直到终态。超时返回 false，由调用方如实判失败，
+// 不把长时间 pending 伪装成成功。
+func waitTask(ctx context.Context, token string, a acceptedPayload, timeout time.Duration) (taskStatePayload, bool) {
+	path := a.StatusURL
+	if path == "" {
+		path = "/api/tasks/" + a.TaskID
+	}
+	deadline := time.Now().Add(timeout)
+	var last taskStatePayload
+	for time.Now().Before(deadline) {
+		st, body := get(ctx, path, token)
+		if st == 200 {
+			_ = json.Unmarshal(body, &last)
+			switch last.Status {
+			case "succeeded", "failed", "dead":
+				return last, true
+			}
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
+	return last, false
 }
 
 type sseResult struct {

@@ -71,26 +71,58 @@ var schema = []string{
 		owner_id     BIGINT       NOT NULL,
 		title        VARCHAR(255) NOT NULL,
 		content      LONGTEXT     NOT NULL,
+		content_hash CHAR(64)     NULL DEFAULT NULL,
+		revision     INT          NOT NULL DEFAULT 0,
 		index_status ENUM('pending','ready','failed') NOT NULL DEFAULT 'pending',
 		index_error  VARCHAR(500) NOT NULL DEFAULT '',
 		created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		PRIMARY KEY (id),
 		KEY idx_mat_class_status (class_id, index_status),
+		UNIQUE KEY uk_material_hash (class_id, content_hash),
 		CONSTRAINT fk_mat_class FOREIGN KEY (class_id) REFERENCES classes (id)
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
 	// class_id 冗余在切片上，使检索的班级过滤只走一张表（R2.2 隔离）。
+	// uk_chunk_seq 是重复投递的兜底：同一材料的同一序号只能有一行切片。
 	`CREATE TABLE IF NOT EXISTS chunks (
-		id          BIGINT   NOT NULL AUTO_INCREMENT,
-		material_id BIGINT   NOT NULL,
-		class_id    BIGINT   NOT NULL,
-		seq         INT      NOT NULL,
-		text        TEXT     NOT NULL,
-		created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		id           BIGINT      NOT NULL AUTO_INCREMENT,
+		material_id  BIGINT      NOT NULL,
+		class_id     BIGINT      NOT NULL,
+		seq          INT         NOT NULL,
+		text         TEXT        NOT NULL,
+		heading_path VARCHAR(500) NOT NULL DEFAULT '',
+		created_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		PRIMARY KEY (id),
+		UNIQUE KEY uk_chunk_seq (material_id, seq),
 		KEY idx_chunk_class (class_id),
 		KEY idx_chunk_material (material_id),
 		CONSTRAINT fk_chunk_material FOREIGN KEY (material_id) REFERENCES materials (id) ON DELETE CASCADE
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+	// index_tasks 既是任务记录也是持久化队列：业务写入与任务记录同事务，
+	// worker 用 FOR UPDATE SKIP LOCKED 抢占，lease_until 负责超时回收。
+	`CREATE TABLE IF NOT EXISTS index_tasks (
+		id               BIGINT       NOT NULL AUTO_INCREMENT,
+		task_id          CHAR(32)     NOT NULL,
+		class_id         BIGINT       NOT NULL,
+		material_id      BIGINT       NOT NULL,
+		kind             ENUM('upload','reindex') NOT NULL,
+		status           ENUM('pending','running','succeeded','failed','dead') NOT NULL DEFAULT 'pending',
+		attempts         INT          NOT NULL DEFAULT 0,
+		idempotency_key  VARCHAR(191) NOT NULL,
+		error            VARCHAR(500) NOT NULL DEFAULT '',
+		request_id       VARCHAR(128) NOT NULL DEFAULT '',
+		run_at           DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+		lease_until      DATETIME(3)  NULL,
+		started_at       DATETIME(3)  NULL,
+		finished_at      DATETIME(3)  NULL,
+		created_at       DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+		PRIMARY KEY (id),
+		UNIQUE KEY uk_task_id (task_id),
+		UNIQUE KEY uk_idem (idempotency_key),
+		KEY idx_task_claim (status, run_at),
+		KEY idx_task_class (class_id, task_id),
+		CONSTRAINT fk_task_material FOREIGN KEY (material_id) REFERENCES materials (id) ON DELETE CASCADE
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
 	`CREATE TABLE IF NOT EXISTS audit_logs (
@@ -127,7 +159,120 @@ func Migrate(ctx context.Context, conn *sql.DB) error {
 			return fmt.Errorf("建表失败(第 %d 条): %w", i+1, err)
 		}
 	}
-	return migrateMaterialContent(ctx, conn)
+	if err := migrateMaterialContent(ctx, conn); err != nil {
+		return err
+	}
+	if err := migrateChunkHeadingPath(ctx, conn); err != nil {
+		return err
+	}
+	if err := migrateMaterialAsyncColumns(ctx, conn); err != nil {
+		return err
+	}
+	return migrateChunkSeqUnique(ctx, conn)
+}
+
+// columnExists / indexExists 供幂等迁移使用：information_schema 判定，重复执行安全。
+func columnExists(ctx context.Context, conn *sql.DB, table, column string) (bool, error) {
+	var n int
+	err := conn.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM information_schema.COLUMNS
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`, table, column).Scan(&n)
+	if err != nil {
+		return false, fmt.Errorf("检查 %s.%s 列失败: %w", table, column, err)
+	}
+	return n > 0, nil
+}
+
+func indexExists(ctx context.Context, conn *sql.DB, table, index string) (bool, error) {
+	var n int
+	err := conn.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM information_schema.STATISTICS
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?`, table, index).Scan(&n)
+	if err != nil {
+		return false, fmt.Errorf("检查 %s.%s 索引失败: %w", table, index, err)
+	}
+	return n > 0, nil
+}
+
+// migrateMaterialAsyncColumns 为旧库补上入口幂等与版本列（先加列，再加唯一约束）。
+// content_hash 允许 NULL：MySQL 唯一索引允许多个 NULL，旧材料因此不受影响。
+func migrateMaterialAsyncColumns(ctx context.Context, conn *sql.DB) error {
+	hasHash, err := columnExists(ctx, conn, "materials", "content_hash")
+	if err != nil {
+		return err
+	}
+	if !hasHash {
+		if _, err := conn.ExecContext(ctx,
+			`ALTER TABLE materials ADD COLUMN content_hash CHAR(64) NULL DEFAULT NULL`); err != nil {
+			return fmt.Errorf("新增 materials.content_hash 列失败: %w", err)
+		}
+	}
+	hasRevision, err := columnExists(ctx, conn, "materials", "revision")
+	if err != nil {
+		return err
+	}
+	if !hasRevision {
+		if _, err := conn.ExecContext(ctx,
+			`ALTER TABLE materials ADD COLUMN revision INT NOT NULL DEFAULT 0`); err != nil {
+			return fmt.Errorf("新增 materials.revision 列失败: %w", err)
+		}
+	}
+	hasIndex, err := indexExists(ctx, conn, "materials", "uk_material_hash")
+	if err != nil {
+		return err
+	}
+	if !hasIndex {
+		if _, err := conn.ExecContext(ctx,
+			`ALTER TABLE materials ADD UNIQUE KEY uk_material_hash (class_id, content_hash)`); err != nil {
+			return fmt.Errorf("新增 materials 幂等唯一约束失败: %w", err)
+		}
+	}
+	return nil
+}
+
+// migrateChunkSeqUnique 在加唯一约束前清掉历史重复切片（保留最小 id）。
+// 这是「先加约束再切读写」的向前兼容步骤：旧行不丢内容，只丢重复行。
+func migrateChunkSeqUnique(ctx context.Context, conn *sql.DB) error {
+	has, err := indexExists(ctx, conn, "chunks", "uk_chunk_seq")
+	if err != nil {
+		return err
+	}
+	if has {
+		return nil
+	}
+	if _, err := conn.ExecContext(ctx, `
+		DELETE c FROM chunks c
+		JOIN (SELECT material_id, seq, MIN(id) AS keep_id
+		        FROM chunks GROUP BY material_id, seq HAVING COUNT(*) > 1) d
+		  ON c.material_id = d.material_id AND c.seq = d.seq
+		WHERE c.id > d.keep_id`); err != nil {
+		return fmt.Errorf("清理重复切片失败: %w", err)
+	}
+	if _, err := conn.ExecContext(ctx,
+		`ALTER TABLE chunks ADD UNIQUE KEY uk_chunk_seq (material_id, seq)`); err != nil {
+		return fmt.Errorf("新增 chunks 唯一约束失败: %w", err)
+	}
+	return nil
+}
+
+// migrateChunkHeadingPath 为旧库的 chunks 表补上结构路径列。
+// 与 migrateMaterialContent 同样采用 information_schema 查列的幂等模式（向前兼容，先加列再切读写）。
+func migrateChunkHeadingPath(ctx context.Context, conn *sql.DB) error {
+	var n int
+	err := conn.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM information_schema.COLUMNS
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'chunks' AND COLUMN_NAME = 'heading_path'`).Scan(&n)
+	if err != nil {
+		return fmt.Errorf("检查 chunks.heading_path 列失败: %w", err)
+	}
+	if n > 0 {
+		return nil
+	}
+	if _, err := conn.ExecContext(ctx,
+		`ALTER TABLE chunks ADD COLUMN heading_path VARCHAR(500) NOT NULL DEFAULT ''`); err != nil {
+		return fmt.Errorf("新增 chunks.heading_path 列失败: %w", err)
+	}
+	return nil
 }
 
 // migrateMaterialContent 把早期 MEDIUMTEXT（16 MiB）的原文列扩为 LONGTEXT，

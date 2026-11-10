@@ -34,6 +34,37 @@ export interface Citation {
   snippet: string
 }
 
+/** 一条已归档的完整问答：回答与当时的引用清单都原样保存，不重新检索。 */
+export interface Conversation {
+  id: number
+  question: string
+  answer: string
+  citations: Citation[]
+  created_at: string
+}
+
+/** 提交接口返回的「号码牌」：202，只有任务标识与状态地址，不含索引结果。 */
+export interface AcceptedTask {
+  task_id: string
+  material_id: number
+  status: TaskState['status']
+  status_url: string
+}
+
+/** 只读任务状态；result 不在这里返回，索引结果看材料列表的 index_status。 */
+export interface TaskState {
+  task_id: string
+  material_id: number
+  kind: 'upload' | 'reindex'
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'dead'
+  attempts: number
+  error?: string
+  request_id?: string
+  started_at?: string
+  finished_at?: string
+  created_at: string
+}
+
 interface TokenResponse {
   access_token: string
   refresh_token: string
@@ -182,34 +213,75 @@ export async function getMaterial(id: number): Promise<MaterialDetail> {
   return (await resp.json()) as MaterialDetail
 }
 
-export async function uploadText(title: string, content: string): Promise<Material> {  const resp = await request('/api/materials', {
+/** 读取本人本班的历史问答（后端默认 20 条、上限 50 条，按 id 倒序）。 */
+export async function listConversations(limit = 20): Promise<Conversation[]> {
+  const resp = await request(`/api/conversations?limit=${limit}`)
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => null)
+    throw new Error(body?.error?.message ?? '读取历史问答失败')
+  }
+  const data = (await resp.json()) as { items?: Conversation[] }
+  return data.items ?? []
+}
+
+async function acceptedFrom(resp: Response, fallback: string): Promise<AcceptedTask> {
+  if (resp.status !== 202) {
+    const body = await resp.json().catch(() => null)
+    throw new Error(body?.error?.message ?? `${fallback}（期望 202，实际 ${resp.status}）`)
+  }
+  const task = (await resp.json()) as AcceptedTask
+  if (!task?.task_id || !task?.status_url) {
+    throw new Error(`${fallback}：响应缺少任务标识`)
+  }
+  return task
+}
+
+export async function uploadText(title: string, content: string): Promise<AcceptedTask> {
+  const resp = await request('/api/materials', {
     method: 'POST',
     body: JSON.stringify({ title, content }),
   })
-  if (!resp.ok) {
-    const body = await resp.json().catch(() => null)
-    throw new Error(body?.error?.message ?? '上传失败')
-  }
-  return (await resp.json()) as Material
+  return acceptedFrom(resp, '上传失败')
 }
 
-export async function uploadFile(title: string, file: File): Promise<Material> {
+export async function uploadFile(title: string, file: File): Promise<AcceptedTask> {
   const form = new FormData()
   form.append('title', title)
   form.append('file', file)
   // 上传走 multipart，不能带 Content-Type（由浏览器设置 boundary）。
   const resp = await request('/api/materials', { method: 'POST', body: form })
-  if (!resp.ok) {
-    const body = await resp.json().catch(() => null)
-    throw new Error(body?.error?.message ?? '上传失败')
-  }
-  return (await resp.json()) as Material
+  return acceptedFrom(resp, '上传失败')
 }
 
-export async function reindex(id: number): Promise<Material> {
+export async function reindex(id: number): Promise<AcceptedTask> {
   const resp = await request(`/api/materials/${id}/reindex`, { method: 'POST' })
-  if (!resp.ok) throw new Error('重索引失败')
-  return (await resp.json()) as Material
+  return acceptedFrom(resp, '重索引失败')
+}
+
+/** 只读查询任务状态；接口不触发执行，可以放心重复调用。 */
+export async function getTask(taskID: string): Promise<TaskState> {
+  const resp = await request(`/api/tasks/${taskID}`)
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => null)
+    throw new Error(body?.error?.message ?? '查询任务状态失败')
+  }
+  return (await resp.json()) as TaskState
+}
+
+const TERMINAL: TaskState['status'][] = ['succeeded', 'failed', 'dead']
+
+/** 轮询到任务终态；超时抛错而不是假装成功。 */
+export async function waitForTask(
+  taskID: string,
+  { timeoutMs = 180_000, intervalMs = 500 }: { timeoutMs?: number; intervalMs?: number } = {},
+): Promise<TaskState> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const state = await getTask(taskID)
+    if (TERMINAL.includes(state.status)) return state
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+  }
+  throw new Error('索引任务仍在进行中，请稍后刷新材料列表查看状态')
 }
 
 export interface AskHandlers {
@@ -217,7 +289,8 @@ export interface AskHandlers {
   /** 模型在首字前不可用，后端改用材料原文作答（design D3）。 */
   onDegraded?: (reason: string) => void
   onDelta?: (text: string) => void
-  onDone?: () => void
+  /** 完整回答归档后的记录 id；落库失败或未命中材料时为 null。 */
+  onDone?: (conversationId: number | null) => void
   onError?: (message: string) => void
 }
 
@@ -290,7 +363,8 @@ export function streamAsk(question: string, handlers: AskHandlers): AbortControl
         } else if (eventName === 'done') {
           if (!settled) {
             settled = true
-            handlers.onDone?.()
+            const d = JSON.parse(data) as { conversation_id?: number | null }
+            handlers.onDone?.(typeof d.conversation_id === 'number' ? d.conversation_id : null)
           }
         }
       } catch {

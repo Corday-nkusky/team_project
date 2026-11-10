@@ -153,8 +153,17 @@ type Chunk struct {
 	ClassID    int64
 	Seq        int
 	Text       string
+	// HeadingPath 是结构切片推导出的「材料标题 > 章节 > 小节」路径。
+	// 只用于嵌入文本与词面召回，不混入 Text（引用片段仍是纯原文，R7.5）。
+	HeadingPath string
 	// MaterialTitle 由联表带出，便于直接构造引用条目。
 	MaterialTitle string
+}
+
+// ChunkSeed 是写入一条切片所需的输入。
+type ChunkSeed struct {
+	Text        string
+	HeadingPath string
 }
 
 // CreateMaterial 落库材料原文，初始状态 pending。
@@ -218,7 +227,7 @@ func (s *Store) ListMaterials(ctx context.Context, classID int64) ([]Material, e
 }
 
 // ReplaceChunks 用新切片替换某材料的全部旧切片（重索引时调用）。
-func (s *Store) ReplaceChunks(ctx context.Context, materialID, classID int64, texts []string) ([]Chunk, error) {
+func (s *Store) ReplaceChunks(ctx context.Context, materialID, classID int64, seeds []ChunkSeed) ([]Chunk, error) {
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -229,24 +238,30 @@ func (s *Store) ReplaceChunks(ctx context.Context, materialID, classID int64, te
 		return nil, fmt.Errorf("清理旧切片失败: %w", err)
 	}
 
-	out := make([]Chunk, 0, len(texts))
-	for i, t := range texts {
+	out := make([]Chunk, 0, len(seeds))
+	for i, seed := range seeds {
 		res, err := tx.ExecContext(ctx,
-			`INSERT INTO chunks (material_id, class_id, seq, text) VALUES (?,?,?,?)`,
-			materialID, classID, i, t)
+			`INSERT INTO chunks (material_id, class_id, seq, text, heading_path) VALUES (?,?,?,?,?)`,
+			materialID, classID, i, seed.Text, seed.HeadingPath)
 		if err != nil {
 			return nil, fmt.Errorf("写入切片失败: %w", err)
 		}
 		id, _ := res.LastInsertId()
-		out = append(out, Chunk{ID: id, MaterialID: materialID, ClassID: classID, Seq: i, Text: t})
+		out = append(out, Chunk{
+			ID: id, MaterialID: materialID, ClassID: classID, Seq: i,
+			Text: seed.Text, HeadingPath: seed.HeadingPath,
+		})
 	}
 	return out, tx.Commit()
 }
 
-// ListChunksByClass 取本班全部切片（关键词检索在内存打分，见 retrieval 包）。
+// ListChunksByClass 取本班全部 ready 切片，用于构建进程内倒排索引。
+//
+// 这不是每次提问调用的查询：qa.Service 按班缓存索引，仅在该班首次提问
+// 或材料变更导致缓存失效时读取一次。
 func (s *Store) ListChunksByClass(ctx context.Context, classID int64) ([]Chunk, error) {
 	rows, err := s.DB.QueryContext(ctx,
-		`SELECT c.id,c.material_id,c.class_id,c.seq,c.text,m.title
+		`SELECT c.id,c.material_id,c.class_id,c.seq,c.text,c.heading_path,m.title
 		 FROM chunks c JOIN materials m ON m.id=c.material_id
 		 WHERE c.class_id=? AND m.index_status='ready'`, classID)
 	if err != nil {
@@ -257,7 +272,8 @@ func (s *Store) ListChunksByClass(ctx context.Context, classID int64) ([]Chunk, 
 	var out []Chunk
 	for rows.Next() {
 		var c Chunk
-		if err := rows.Scan(&c.ID, &c.MaterialID, &c.ClassID, &c.Seq, &c.Text, &c.MaterialTitle); err != nil {
+		if err := rows.Scan(&c.ID, &c.MaterialID, &c.ClassID, &c.Seq, &c.Text,
+			&c.HeadingPath, &c.MaterialTitle); err != nil {
 			return nil, err
 		}
 		out = append(out, c)
@@ -265,12 +281,33 @@ func (s *Store) ListChunksByClass(ctx context.Context, classID int64) ([]Chunk, 
 	return out, rows.Err()
 }
 
+// GetMaterialTitle 取本班材料的标题，用于生成结构切片的上下文前缀。
+func (s *Store) GetMaterialTitle(ctx context.Context, materialID, classID int64) (string, error) {
+	var title string
+	err := s.DB.QueryRowContext(ctx,
+		`SELECT title FROM materials WHERE id=? AND class_id=?`, materialID, classID).Scan(&title)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", fmt.Errorf("查询材料标题失败: %w", err)
+	}
+	return title, nil
+}
+
 // --- 会话（R6.3：仅在完整生成后落库）---
 
-// SaveConversation 保存一次完整问答。
-func (s *Store) SaveConversation(ctx context.Context, userID, classID int64, question, answer string, citationsJSON []byte) error {
-	_, err := s.DB.ExecContext(ctx,
+// SaveConversation 保存一次完整问答，并返回记录 id 供 done 事件回执（H3）。
+func (s *Store) SaveConversation(ctx context.Context, userID, classID int64, question, answer string, citationsJSON []byte) (int64, error) {
+	res, err := s.DB.ExecContext(ctx,
 		`INSERT INTO conversations (user_id, class_id, question, answer, citations) VALUES (?,?,?,?,?)`,
 		userID, classID, question, answer, citationsJSON)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
 }

@@ -48,12 +48,18 @@ func (s *stubQA) ChatStream(context.Context, string, string) (<-chan qa.StreamEv
 
 func (s *stubQA) Index(context.Context, int64, int64, string) error { return nil }
 
-// stubRec 记录问答落库与审计调用。
+// stubRec 记录问答落库、审计与历史查询调用。
 type stubRec struct {
-	saved      int
-	lastAnswer string
-	audits     []string
-	saveErr    error
+	saved         int
+	lastAnswer    string
+	audits        []string
+	saveErr       error
+	listJSON      json.RawMessage
+	listErr       error
+	listCalls     int
+	lastListUser  int64
+	lastListClass int64
+	lastListLimit int
 }
 
 func (r *stubRec) Audit(_ context.Context, _ *int64, _ string, _ *int64, _ string, result, detail string) error {
@@ -61,13 +67,22 @@ func (r *stubRec) Audit(_ context.Context, _ *int64, _ string, _ *int64, _ strin
 	return nil
 }
 
-func (r *stubRec) SaveConversation(_ context.Context, _, _ int64, _, answer string, _ []byte) error {
+func (r *stubRec) SaveConversation(_ context.Context, _, _ int64, _, answer string, _ []byte) (int64, error) {
 	if r.saveErr != nil {
-		return r.saveErr
+		return 0, r.saveErr
 	}
 	r.saved++
 	r.lastAnswer = answer
-	return nil
+	return int64(r.saved), nil
+}
+
+func (r *stubRec) ListConversationsJSON(_ context.Context, userID, classID int64, limit int) (json.RawMessage, error) {
+	r.listCalls++
+	r.lastListUser, r.lastListClass, r.lastListLimit = userID, classID, limit
+	if r.listErr != nil {
+		return nil, r.listErr
+	}
+	return r.listJSON, nil
 }
 
 type sseEvent struct {

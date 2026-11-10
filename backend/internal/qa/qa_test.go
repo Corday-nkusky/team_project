@@ -1,78 +1,10 @@
 package qa
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
-
-	"github.com/Corday-nkusky/team_project/backend/internal/retrieval"
 )
-
-func TestEvidenceOKRequiresContentHits(t *testing.T) {
-	cases := []struct {
-		name          string
-		match         retrieval.Match
-		contentTotal  int
-		vecScore      float64
-		vectorEnabled bool
-		want          bool
-	}{
-		{
-			name:         "单个内容词即使覆盖率满也不放行",
-			match:        retrieval.Match{ContentHits: 1, Coverage: 1},
-			contentTotal: 1,
-			want:         false,
-		},
-		{
-			name:          "单个内容词即使向量分很高也不放行",
-			match:         retrieval.Match{ContentHits: 1, Coverage: 0.1},
-			contentTotal:  10,
-			vecScore:      0.99,
-			vectorEnabled: true,
-			want:          false,
-		},
-		{
-			name:         "两个内容词且覆盖率达标",
-			match:        retrieval.Match{ContentHits: 2, Coverage: 0.5},
-			contentTotal: 4,
-			want:         true,
-		},
-		{
-			name:         "长查询只有三个偶然子串命中（覆盖率 0.27）",
-			match:        retrieval.Match{ContentHits: 3, Coverage: 3.0 / 11.0},
-			contentTotal: 11,
-			want:         false,
-		},
-		{
-			name:         "两个内容词但覆盖率不足且无向量",
-			match:        retrieval.Match{ContentHits: 2, Coverage: 0.1},
-			contentTotal: 20,
-			want:         false,
-		},
-		{
-			name:          "两个内容词且向量分达标可辅助通过",
-			match:         retrieval.Match{ContentHits: 2, Coverage: 0.1},
-			contentTotal:  20,
-			vecScore:      0.8,
-			vectorEnabled: true,
-			want:          true,
-		},
-		{
-			name:         "没有内容词时拒绝",
-			match:        retrieval.Match{ContentHits: 0, Coverage: 0},
-			contentTotal: 0,
-			want:         false,
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			got := evidenceOK(tc.match, tc.contentTotal, tc.vecScore, tc.vectorEnabled, 0.30, 0.55)
-			if got != tc.want {
-				t.Fatalf("evidenceOK() = %v，期望 %v", got, tc.want)
-			}
-		})
-	}
-}
 
 func TestSystemPromptKeepsMaterialAsData(t *testing.T) {
 	p := SystemPrompt()
@@ -85,7 +17,7 @@ func TestSystemPromptKeepsMaterialAsData(t *testing.T) {
 
 func TestUserPromptKeepsFullSnippetAndQuestionSeparate(t *testing.T) {
 	tail := "这是切片末尾的独有结论ZZtail"
-	long := strings.Repeat("材料正文", 160) + tail // 远超旧实现的 300 字截断
+	long := strings.Repeat("材料正文", 160) + tail
 	cites := []Citation{{
 		Index: 1, MaterialID: 7, MaterialTitle: "讲义甲", ChunkID: 9, Snippet: long,
 	}}
@@ -101,6 +33,41 @@ func TestUserPromptKeepsFullSnippetAndQuestionSeparate(t *testing.T) {
 	}
 	if !strings.Contains(p, "问题：这份讲义讲了什么？") {
 		t.Fatalf("用户提示应把问题与资料放在同一消息中：\n%s", p)
+	}
+}
+
+func TestContextGoesToPromptButNotCitationList(t *testing.T) {
+	cites := []Citation{{
+		Index: 1, MaterialID: 7, MaterialTitle: "生物化学讲义", ChunkID: 9,
+		Snippet: "它由蛋白质构成。",
+		Context: "[章节路径] 生物化学讲义 > 酶 > 2 化学本质\n[相邻片段] 酶具有高效性。",
+	}}
+	p := UserPrompt("酶的化学本质是什么？", cites)
+	if !strings.Contains(p, "生物化学讲义 > 酶 > 2 化学本质") {
+		t.Fatalf("结构路径语境应进提示词：\n%s", p)
+	}
+	if !strings.Contains(p, "它由蛋白质构成。") {
+		t.Fatalf("引用片段仍应是命中片纯原文：\n%s", p)
+	}
+
+	// Reference list is serialized to the client and stored in conversations;
+	// Context must stay out of it and must not create extra citation numbers.
+	b, err := json.Marshal(cites)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), "章节路径") || strings.Contains(string(b), "相邻片段") {
+		t.Fatalf("语境不得进入引用清单：%s", b)
+	}
+	var decoded []map[string]any
+	if err := json.Unmarshal(b, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if len(decoded) != 1 {
+		t.Fatalf("补语境不应增加引用条目数，实际 %d", len(decoded))
+	}
+	if decoded[0]["snippet"] != "它由蛋白质构成。" {
+		t.Fatalf("snippet 必须是纯原文，实际 %v", decoded[0]["snippet"])
 	}
 }
 

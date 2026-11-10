@@ -22,6 +22,12 @@ backend/internal/web/dist/*
 # 语料灌库的运行记录（由 seed-data/biology/seed.mjs 生成）
 seed-data/biology/manifest.json
 
+# WorkBuddy 本地缓存（项目记忆、脚本断点记录），与代码无关
+.workbuddy/
+
+# 内部交接单：含真实 API Key，只在成员之间私下传递，任何情况下都不入库
+内部-*.md
+
 # 编辑器 / 系统
 .DS_Store
 .idea/
