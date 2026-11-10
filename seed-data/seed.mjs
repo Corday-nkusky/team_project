@@ -1,14 +1,16 @@
-// 把生物学语料灌入知识库（POST /api/materials → 202 + 轮询索引任务）。
+// 把演示语料灌入知识库（POST /api/materials → 202 + 轮询索引任务）。
 //
-//   node seed.mjs                        # 默认 http://127.0.0.1:8080，teacher1/teacher123
+//   node seed.mjs                        # 默认语料 biology，http://127.0.0.1:8080，teacher1/teacher123
+//   node seed.mjs --corpus genshin       # 换成《原神》角色语料
 //   node seed.mjs --no-wait              # 只提交，不等索引完成就退出
 //   BASE=... USER=... PASS=... node seed.mjs
 //
-// 语料来自 corpus.json（由 fetch-from-wikipedia.mjs 从中文维基百科抓取生成）。
+// 每个语料目录约定：corpus.json（由该目录的 fetch-from-wikipedia.mjs 生成）、可选 display.json
+//（条目标题的繁简/改写表）、输出 manifest.json。
 //
 // 幂等且可自愈：标题已存在且已 ready 的跳过；已存在但未 ready 的提交重索引；
 // 不存在的新建。因此额度耗尽（429）导致的中断可以直接重跑，不会重复建材料。
-import { readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 
 const BASE = process.env.BASE || 'http://127.0.0.1:8080'
 const USER = process.env.USER || 'teacher1'
@@ -17,22 +19,24 @@ const NO_WAIT = process.argv.includes('--no-wait')
 const POLL_MS = Number(process.env.POLL_MS || 800)
 const TIMEOUT_MS = Number(process.env.SEED_TIMEOUT_MS || 30 * 60 * 1000)
 
+const argvCorpus = (() => {
+  const i = process.argv.indexOf('--corpus')
+  return i > -1 ? process.argv[i + 1] : null
+})()
+const CORPUS = argvCorpus || process.env.CORPUS || 'biology'
+const CORPUS_DIR = new URL(`./${CORPUS}/`, import.meta.url)
+if (!existsSync(CORPUS_DIR)) throw new Error(`语料目录不存在：seed-data/${CORPUS}/`)
+const OUT_MANIFEST = new URL('./manifest.json', CORPUS_DIR)
+
 const TERMINAL = new Set(['succeeded', 'failed', 'dead'])
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-const corpus = JSON.parse(readFileSync(new URL('./corpus.json', import.meta.url), 'utf8'))
+const corpus = JSON.parse(readFileSync(new URL('./corpus.json', CORPUS_DIR), 'utf8'))
 
-// 中文维基个别条目标题为繁体或地域变体，展示时用大陆通用词
-const DISPLAY = {
-  演化: '进化',
-  食物鏈: '食物链',
-  卡爾文循環: '卡尔文循环',
-  線粒體: '线粒体',
-  細胞週期: '细胞周期',
-  有絲分裂: '有丝分裂',
-  葉: '叶',
-  種子: '种子',
-}
+// 中文维基个别条目标题为繁体或地域变体，展示时用大陆通用词（按语料目录可选）
+const DISPLAY = existsSync(new URL('./display.json', CORPUS_DIR))
+  ? JSON.parse(readFileSync(new URL('./display.json', CORPUS_DIR), 'utf8'))
+  : {}
 
 const pieces = []
 for (const entry of corpus) {
@@ -194,7 +198,7 @@ for (const p of pieces) {
   if (!recorded.has(p.title)) manifest.push(row(p, { status: 'skipped' }))
 }
 
-writeFileSync(new URL('./manifest.json', import.meta.url), JSON.stringify(manifest, null, 1), 'utf8')
+writeFileSync(OUT_MANIFEST, JSON.stringify(manifest, null, 1), 'utf8')
 
 if (failures.length) {
   console.log('\n失败明细（前 5 条）：')

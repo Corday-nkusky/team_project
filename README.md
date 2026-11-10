@@ -197,14 +197,24 @@ Key 必须是 `id.secret` 形式；客户端会用 secret 签发一枚 1 小时�
 
 **演示语料（可选）**
 
-`seed-data/biology/` 提供一批生物学材料（9 个领域，98 条），用于填充知识库做演示与检索测试。
-仓库不保存 MySQL 数据卷，材料由下面的脚本从 `corpus.json` 重建（正文共约 20 万字、0.5 MB）：
+`seed-data/` 下有两批语料，均抓自中文维基百科条目正文（CC BY-SA），不是游戏或教材原文：
+
+| 目录 | 内容 | 规模 |
+| --- | --- | --- |
+| `biology/` | 生物学（9 个领域） | 98 条材料，约 20 万字 |
+| `genshin/` | 《原神》10 位角色条目 | 18 条材料，约 4 万字 |
+
+仓库不保存 MySQL 数据卷，材料由脚本从各目录的 `corpus.json` 重建：
 
 ```bash
-cd seed-data/biology
-node seed.mjs              # 以 teacher1 身份灌入 1 班，并等索引跑完
-node seed.mjs --no-wait    # 只提交，不等索引完成
+cd seed-data
+node seed.mjs                     # 默认 biology：以 teacher1 身份灌入 1 班，并等索引跑完
+node seed.mjs --corpus genshin    # 换成《原神》角色语料
+node seed.mjs --no-wait           # 只提交，不等索引完成
 ```
+
+标题形如 `生物化学｜酶（1/3）`、`角色设定｜钟离（1/2）`，前一段是领域，脚本按标题幂等，
+所以两批语料可以灌进同一个班做跨领域检索演示（问生物化学命中生物材料，问角色命中角色材料）。
 
 脚本按上传接口的异步契约工作：`POST /api/materials` 返回 **202 + task_id**，随后轮询
 `status_url` 到 `succeeded`（`succeeded / failed / dead` 为终态）。因此**必须让 worker 在跑**
