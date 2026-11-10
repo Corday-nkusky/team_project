@@ -32,6 +32,7 @@
 - 八个必填项：`HTTP_ADDR`、`MYSQL_HOST`、`MYSQL_PORT`、`MYSQL_USER`、`MYSQL_PASSWORD`、`MYSQL_DATABASE`、`QDRANT_URL`、`JWT_SECRET`。
 - 代码不保留可用默认值；缺失、为空或非法 → **监听端口前**非零退出，JSON 日志只报键名、不回显值。
 - 调优项可有默认值；一旦显式设置就必须能解析，解析失败同样报错。
+- 模型网关可选：`LLM_API_KEY` 为空即抽取式降级；一旦设置，`LLM_API_BASE`、`LLM_CHAT_MODEL`、`LLM_EMBED_MODEL` 必须同时提供，且网关须同时支持对话 SSE 与 `/embeddings`。模型名不设默认值（spec LG1）。
 - 密钥只进本机 `deploy/.env`（git 忽略）；`.env.example` 只放占位符。
 
 检查：`node scripts/check-secrets.mjs`、`go test ./internal/config`、新环境 `node scripts/up.mjs`。

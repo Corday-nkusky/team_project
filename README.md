@@ -127,7 +127,17 @@ curl -s --noproxy '*' http://127.0.0.1:8080/health   # 期望 200
 | `student2` | `student123` | 学生 | 软件工程2班 |
 
 **零密钥也能跑通**：`LLM_API_KEY` 留空时，问答退化为「抽取式」回答（直接引用本班材料片段），
-检索只走关键词路；填入任意 OpenAI 兼容网关的 key（同时要填 `LLM_API_BASE`）后，问答由模型生成，并额外启用向量检索。
+检索只走关键词路。启用模型网关时，四项配置必须齐全：
+
+- `LLM_API_BASE`：OpenAI 兼容网关根地址（含 `/v1` 等前缀）；
+- `LLM_API_KEY`：网关密钥，只放本机 `deploy/.env`；
+- `LLM_CHAT_MODEL`：`POST {base}/chat/completions`，必须支持 `stream=true` 的 SSE；
+- `LLM_EMBED_MODEL`：`POST {base}/embeddings`，返回向量维度需固定。
+
+模型名没有默认值，缺失时服务在监听前退出。网关必须同时支持对话与嵌入；只支持对话的网关
+（例如 DeepSeek 官方接口）不能直接作为这里的单一网关。启用后上传会写入向量；已有材料需要
+调用重索引接口补向量。更换嵌入模型或维度时，先删除 Qdrant 集合 `team_campusclaw_chunks`，
+再重索引全部材料，避免新旧维度混用。
 
 **上传与输入边界**（spec R3.4 / R11）
 

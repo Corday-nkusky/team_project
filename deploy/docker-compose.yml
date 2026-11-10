@@ -71,8 +71,8 @@ services:
       REFRESH_TTL_SECONDS: ${REFRESH_TTL_SECONDS:-2592000}
       LLM_API_BASE: ${LLM_API_BASE:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
-      LLM_CHAT_MODEL: ${LLM_CHAT_MODEL:-deepseek-chat}
-      LLM_EMBED_MODEL: ${LLM_EMBED_MODEL:-text-embedding-3-small}
+      LLM_CHAT_MODEL: ${LLM_CHAT_MODEL:-}
+      LLM_EMBED_MODEL: ${LLM_EMBED_MODEL:-}
     ports:
       - "8080:8080"
     depends_on:

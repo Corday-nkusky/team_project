@@ -18,6 +18,8 @@ func setBaseEnv(t *testing.T) {
 	t.Setenv("JWT_SECRET", strings.Repeat("k", 40))
 	t.Setenv("LLM_API_KEY", "")
 	t.Setenv("LLM_API_BASE", "")
+	t.Setenv("LLM_CHAT_MODEL", "")
+	t.Setenv("LLM_EMBED_MODEL", "")
 }
 
 func TestLoadValid(t *testing.T) {
@@ -103,6 +105,52 @@ func TestLoadLLMKeyRequiresBase(t *testing.T) {
 	_, err := Load()
 	if err == nil || !strings.Contains(err.Error(), "LLM_API_BASE") {
 		t.Fatalf("配置密钥但缺少 API 地址应报错，得到: %v", err)
+	}
+}
+
+func TestLoadLLMRequiresExplicitModels(t *testing.T) {
+	cases := []struct {
+		name  string
+		chat  string
+		embed string
+		want  string
+	}{
+		{name: "missing chat", chat: "", embed: "course-embedding", want: "LLM_CHAT_MODEL"},
+		{name: "missing embed", chat: "course-chat", embed: "", want: "LLM_EMBED_MODEL"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			setBaseEnv(t)
+			t.Setenv("LLM_API_KEY", "sk-test")
+			t.Setenv("LLM_API_BASE", "https://example.test/v1")
+			t.Setenv("LLM_CHAT_MODEL", tc.chat)
+			t.Setenv("LLM_EMBED_MODEL", tc.embed)
+			_, err := Load()
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("缺少 %s 应报错，得到: %v", tc.want, err)
+			}
+			if strings.Contains(err.Error(), "sk-test") {
+				t.Fatal("错误信息不得回显 LLM_API_KEY")
+			}
+		})
+	}
+}
+
+func TestLoadLLMUsesExplicitModels(t *testing.T) {
+	setBaseEnv(t)
+	t.Setenv("LLM_API_KEY", "sk-test")
+	t.Setenv("LLM_API_BASE", "https://example.test/v1/")
+	t.Setenv("LLM_CHAT_MODEL", "course-chat")
+	t.Setenv("LLM_EMBED_MODEL", "course-embedding")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("完整配置应成功，得到: %v", err)
+	}
+	if !cfg.LLMEnabled() || cfg.ChatModel != "course-chat" || cfg.EmbedModel != "course-embedding" {
+		t.Fatalf("模型配置未按环境变量解析: %+v", cfg)
+	}
+	if cfg.APIBase != "https://example.test/v1" {
+		t.Fatalf("APIBase 应去掉末尾斜杠: %q", cfg.APIBase)
 	}
 }
 
