@@ -83,10 +83,23 @@ if (up.error || up.status !== 0) {
   process.exit(up.status || 4);
 }
 
-spawn("cmd", ["/c", "start", "", url], {
+// 开浏览器这一步必须跨平台：macOS / Linux 上没有 cmd.exe，
+// 若直接 spawn("cmd") 且不监听 error，Node 会抛 unhandled 'error' 并以退出码 1 结束，
+// 让人误以为启动失败（其实容器已经起来了）。
+const [openerCmd, openerArgs] =
+  process.platform === "win32"
+    ? ["cmd", ["/c", "start", "", url]]
+    : process.platform === "darwin"
+      ? ["open", [url]]
+      : ["xdg-open", [url]];
+const opened = spawn(openerCmd, openerArgs, {
   detached: true,
   stdio: "ignore",
   windowsHide: true,
-}).unref();
+});
+opened.on("error", () => {
+  console.log(`没能自动打开浏览器，请手动访问 ${url}`);
+});
+opened.unref();
 console.log(`已就绪，浏览器打开 ${url}`);
 console.log("演示账号见 README「演示账号」一节。");

@@ -1,20 +1,25 @@
 // 把存量材料按当前 RAG 链路重新切片并重新嵌入。
 //
-// 背景：链路换了（结构切片 + heading_path + 路径前缀嵌入），但 MySQL 里已有的
-// chunks 和 Qdrant 里的点都是旧链路产物；服务端只在「上传材料」或「单篇 reindex」
-// 时建索引，启动时不会自动补齐存量数据。seed.mjs 按标题幂等跳过，也修不了。
+// 背景：链路换了（结构切片 + heading_path + 路径前缀嵌入），或嵌入模型换了
+// （course-embedding → embedding-3，同为 2048 维但向量空间不同，必须全量覆盖），
+// 但 MySQL 里的 chunks 与 Qdrant 里的点都是旧产物；服务端只在「上传材料」或
+// 「单篇 reindex」时建索引，启动时不会自动补齐存量数据。
+//
+// 异步契约：reindex 接口返回 202 + task_id + status_url，本脚本轮询只读状态接口
+// 到终态，succeeded 才算完成；请求内不再等待建索引，也不会拿到 ready。
 //
 // 用法：
 //   node scripts/reindex-all.mjs                     # 全量（默认只补未重建的）
 //   node scripts/reindex-all.mjs --limit 2          # 只跑 2 篇，用于验证
 //   node scripts/reindex-all.mjs --all              # 连已重建的也重跑
+//   node scripts/reindex-all.mjs --reset            # 清空本机进度后重跑（换模型后用）
 //   node scripts/reindex-all.mjs --delay-ms 500     # 控制对网关的压力
 //
 // 环境变量：BASE / USER / PASS（默认 http://127.0.0.1:8080、teacher1/teacher123）
 //
-// 幂等：已完成（index_status=ready 且本次检查已带结构路径）的材料默认跳过；
-// 进度写在同目录的 .reindex-progress.json，中断后重跑自动续。
-// 遇到 429 / 连续失败立即停止，避免把网关额度打爆后继续往库里写半截数据。
+// 幂等：已完成（任务 succeeded）的材料默认跳过；进度写在
+// .workbuddy/reindex-progress.json，中断后重跑自动续。
+// 遇到 429 / 额度耗尽 / 连续失败立即停止，避免把网关额度打爆后继续往库里写半截数据。
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 
 // 进度是本机运行状态，放项目数据目录（已在 .git/info/exclude 中忽略），不污染工作区。
@@ -32,13 +37,17 @@ const opt = (name, fallback) => {
 }
 const LIMIT = Number(opt('--limit', '0'))
 const DELAY = Number(opt('--delay-ms', '300'))
+const TIMEOUT = Number(opt('--timeout-ms', '180000'))
 const FORCE_ALL = args.includes('--all')
 const ONLY_FAILED = args.includes('--only-failed')
+const RESET = args.includes('--reset')
 
-if (!Number.isFinite(LIMIT) || LIMIT < 0 || !Number.isFinite(DELAY) || DELAY < 0) {
-  console.error('参数不合法：--limit / --delay-ms 必须是非负数字')
+if (!Number.isFinite(LIMIT) || LIMIT < 0 || !Number.isFinite(DELAY) || DELAY < 0 ||
+    !Number.isFinite(TIMEOUT) || TIMEOUT <= 0) {
+  console.error('参数不合法：--limit / --delay-ms / --timeout-ms 必须是正数')
   process.exit(2)
 }
+if (RESET && existsSync(PROGRESS)) writeFileSync(PROGRESS, '{}', 'utf8')
 
 const done = existsSync(PROGRESS) ? JSON.parse(readFileSync(PROGRESS, 'utf8')) : {}
 let token = ''
@@ -65,6 +74,19 @@ async function api(path, opts = {}) {
   return r
 }
 
+const TERMINAL = new Set(['succeeded', 'failed', 'dead'])
+async function waitForTask(task, statusURL) {
+  const deadline = Date.now() + TIMEOUT
+  while (Date.now() < deadline) {
+    const r = await api(statusURL || `/api/tasks/${task}`)
+    if (!r.ok) throw new Error(`查询任务状态失败 ${r.status}`)
+    const state = await r.json()
+    if (TERMINAL.has(state.status)) return state
+    await new Promise((resolve) => setTimeout(resolve, 500))
+  }
+  throw new Error(`任务 ${task} 在 ${TIMEOUT}ms 内未到终态（worker 可能未启动）`)
+}
+
 await login()
 const listRes = await api('/api/materials')
 if (!listRes.ok) throw new Error(`列出材料失败 ${listRes.status}`)
@@ -83,26 +105,28 @@ let ok = 0, failed = 0, consecutiveFailures = 0
 for (const m of todo) {
   try {
     const r = await api(`/api/materials/${m.id}/reindex`, { method: 'POST' })
-    const body = await r.json().catch(() => ({}))
-    if (r.ok && body.index_status === 'ready') {
+    const accepted = await r.json().catch(() => ({}))
+    if (r.status !== 202 || !accepted.task_id) {
+      throw new Error(`${r.status} ${JSON.stringify(accepted).slice(0, 160)}`)
+    }
+    const state = await waitForTask(accepted.task_id, accepted.status_url)
+    if (state.status === 'succeeded') {
       done[m.id] = 'ok'
       ok++
       consecutiveFailures = 0
-      console.log(`  ✓ id=${m.id} ${m.title}`)
+      console.log(`  ✓ id=${m.id} ${m.title}（任务 ${accepted.task_id.slice(0, 8)}，${state.attempts} 次尝试）`)
     } else {
-      failed++
-      consecutiveFailures++
-      const msg = `${r.status} ${JSON.stringify(body).slice(0, 160)}`
-      console.log(`  ✗ id=${m.id} ${m.title} → ${msg}`)
-      if (/429|额度|quota|rate limit/i.test(msg)) {
-        console.log('\n网关额度/限流，立即停止；已完成的进度已保存，额度恢复后重跑本脚本即可续。')
-        break
-      }
+      throw new Error(`任务 ${state.status}: ${(state.error || '').slice(0, 200)}`)
     }
   } catch (e) {
     failed++
     consecutiveFailures++
-    console.log(`  ✗ id=${m.id} ${m.title} → ${e.message}`)
+    const msg = e.message
+    console.log(`  ✗ id=${m.id} ${m.title} → ${msg}`)
+    if (/429|额度|quota|rate limit|limit/i.test(msg)) {
+      console.log('\n网关额度/限流，立即停止；已完成的进度已保存，额度恢复后重跑本脚本即可续。')
+      break
+    }
   }
   writeFileSync(PROGRESS, JSON.stringify(done, null, 1), 'utf8')
   if (consecutiveFailures >= 3) {

@@ -10,7 +10,13 @@ if not defined NODE_EXE (
   )
 )
 if not defined NODE_EXE (
-  echo [ERROR] Node.js not found. Install Node.js 20+ or add it to PATH.
+  echo [ERROR] Node.js 20+ not found.
+  echo.
+  echo Install it with one of these, then double-click this file again:
+  echo    1. winget install OpenJS.NodeJS.LTS
+  echo    2. https://nodejs.org  - LTS installer, keep "Add to PATH" checked
+  echo.
+  echo On macOS / Linux this .cmd does not apply. Run instead: node scripts/up.mjs
   echo.
   pause
   exit /b 1
