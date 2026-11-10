@@ -81,12 +81,13 @@ var schema = []string{
 
 	// class_id 冗余在切片上，使检索的班级过滤只走一张表（R2.2 隔离）。
 	`CREATE TABLE IF NOT EXISTS chunks (
-		id          BIGINT   NOT NULL AUTO_INCREMENT,
-		material_id BIGINT   NOT NULL,
-		class_id    BIGINT   NOT NULL,
-		seq         INT      NOT NULL,
-		text        TEXT     NOT NULL,
-		created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		id           BIGINT      NOT NULL AUTO_INCREMENT,
+		material_id  BIGINT      NOT NULL,
+		class_id     BIGINT      NOT NULL,
+		seq          INT         NOT NULL,
+		text         TEXT        NOT NULL,
+		heading_path VARCHAR(500) NOT NULL DEFAULT '',
+		created_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		PRIMARY KEY (id),
 		KEY idx_chunk_class (class_id),
 		KEY idx_chunk_material (material_id),
@@ -127,7 +128,30 @@ func Migrate(ctx context.Context, conn *sql.DB) error {
 			return fmt.Errorf("建表失败(第 %d 条): %w", i+1, err)
 		}
 	}
-	return migrateMaterialContent(ctx, conn)
+	if err := migrateMaterialContent(ctx, conn); err != nil {
+		return err
+	}
+	return migrateChunkHeadingPath(ctx, conn)
+}
+
+// migrateChunkHeadingPath 为旧库的 chunks 表补上结构路径列。
+// 与 migrateMaterialContent 同样采用 information_schema 查列的幂等模式（向前兼容，先加列再切读写）。
+func migrateChunkHeadingPath(ctx context.Context, conn *sql.DB) error {
+	var n int
+	err := conn.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM information_schema.COLUMNS
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'chunks' AND COLUMN_NAME = 'heading_path'`).Scan(&n)
+	if err != nil {
+		return fmt.Errorf("检查 chunks.heading_path 列失败: %w", err)
+	}
+	if n > 0 {
+		return nil
+	}
+	if _, err := conn.ExecContext(ctx,
+		`ALTER TABLE chunks ADD COLUMN heading_path VARCHAR(500) NOT NULL DEFAULT ''`); err != nil {
+		return fmt.Errorf("新增 chunks.heading_path 列失败: %w", err)
+	}
+	return nil
 }
 
 // migrateMaterialContent 把早期 MEDIUMTEXT（16 MiB）的原文列扩为 LONGTEXT，

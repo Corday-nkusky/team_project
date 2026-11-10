@@ -166,8 +166,7 @@ access token 过期后，客户端 SHALL 凭 refresh token 换取新的 access t
 | 能力 | 场景 |
 | --- | --- |
 | `auth-upload` | R1.1–R1.7、R2.1–R2.3、R3.1–R3.8、R4.1–R4.2 |
-| `knowledge-retrieval` | R5.1–R5.5、R6.1–R6.6、R7.1–R7.5 |
+| `knowledge-retrieval` | R5.1–R5.9、R6.1–R6.6、R7.1–R7.5 |
 | `runtime-baseline` | R8.1–R8.6、R9.1–R9.5、R10.1–R10.6、R11.1–R11.5、R12.1–R12.3 |
 | `learning-workspace` | LW1.1–LW1.2、LW2.1–LW2.2、LW3.1–LW3.2、LW4.1–LW4.2 |
 | `material-reading` | MR1.1–MR1.4、MR2.1–MR2.4 |
-| `retrieval-evaluation` | RE1–RE5（实施中，未归档） |
