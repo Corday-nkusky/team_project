@@ -1,7 +1,7 @@
 # runtime-baseline Specification
 
 ## Purpose
-让服务在启动时就能暴露配置错误，让编排能用一个免认证端点判断依赖是否就绪，让每条请求在日志里可被唯一串联且不泄漏敏感值。检索问答与班级隔离属于既有能力，见 `specs/auth-upload/spec.md` 与 `specs/knowledge-retrieval/spec.md`。
+让服务在启动时就能暴露配置错误，让编排能用一个免认证端点判断依赖是否就绪，让每条请求在日志里可被唯一串联且不泄漏敏感值，让请求与错误的边界固定为统一 JSON 契约，让 Go 源码换行与格式在不同操作系统和不同 Git 换行设置下可复现。检索问答与班级隔离属于既有能力，见 `specs/auth-upload/spec.md` 与 `specs/knowledge-retrieval/spec.md`。
 
 ## Requirements
 
@@ -93,6 +93,7 @@
 ### Requirement: R10 结构化日志与请求标识
 
 服务 SHALL 为每条 HTTP 请求输出一条单行 JSON 访问日志，字段至少含 `request_id`、`method`、`path`、`status`、`duration_ms`。响应头 SHALL 回写 `X-Request-ID`；客户端提供的 ID 仅在长度为 1–128 且全部为可打印 ASCII 时透传，否则重新生成。日志 SHALL NOT 包含口令、令牌、`Authorization` 头或请求体中的敏感值。
+返回 5xx 的请求 SHALL 额外产生一条 `level=ERROR` 的日志，含 `request_id`、`operation` 与底层错误，便于定位。
 
 #### Scenario: R10.1 每条请求产生一条 JSON 日志
 
@@ -128,3 +129,75 @@
 - **WHEN** 请求任意接口
 - **THEN** 服务重新生成一个合法 ID 并在响应头返回
 - **AND** 日志中的 `request_id` 与响应头一致
+
+#### Scenario: R10.6 服务端错误留 ERROR 日志
+
+- **GIVEN** 某接口因数据库、检索或模型保存等内部错误返回 500
+- **WHEN** 查看运行日志
+- **THEN** 至少有一条 `level=ERROR` 的日志，含非空 `request_id`、`operation` 与 `error`
+- **AND** 该日志不含请求体、`Authorization`、令牌、口令或完整 SQL 语句
+
+### Requirement: R11 请求与错误契约
+
+所有 `/api/` 路径 SHALL 使用统一 JSON 错误体。未注册的 API 路径 SHALL 返回 404；已注册路径的未支持方法 SHALL 返回 405 并给出正确的 `Allow`；请求体超限 SHALL 返回 413；内容类型不符 SHALL 返回 415；一个请求体中出现尾随 JSON 内容 SHALL 返回 400。以上错误 SHALL NOT 回落到 SPA 页面或纯文本。
+
+#### Scenario: R11.1 未支持的方法返回 405 JSON
+
+- **GIVEN** `/api/ask` 只接受 `POST`
+- **WHEN** 以 `GET` 或 `PUT` 请求 `/api/ask`
+- **THEN** 返回 405，`Content-Type` 为 `application/json`
+- **AND** 响应体为 `{"error":{"code":"method_not_allowed",...}}`
+- **AND** `Allow` 头只包含 `POST`
+
+#### Scenario: R11.2 未知 API 路径返回 404 JSON
+
+- **GIVEN** 服务已启动
+- **WHEN** 请求不存在的 `/api/not-a-route`
+- **THEN** 返回 404，`Content-Type` 为 `application/json`
+- **AND** 响应体为统一错误结构，不返回 SPA 的 `index.html`
+
+#### Scenario: R11.3 请求体超限返回 413
+
+- **GIVEN** 问答接口的 JSON 请求体上限为 1 MiB
+- **WHEN** 提交 1.1 MiB 的请求体
+- **THEN** 返回 413，错误码为 `payload_too_large`
+- **AND** 不调用检索或模型
+
+#### Scenario: R11.4 内容类型不符返回 415
+
+- **GIVEN** 接口期望 `application/json`
+- **WHEN** 以 `Content-Type: text/plain` 提交相同内容
+- **THEN** 返回 415，错误码为 `unsupported_media_type`
+- **AND** 不解析请求体
+
+#### Scenario: R11.5 尾随 JSON 内容被拒
+
+- **GIVEN** 问答接口只接受一个 JSON 对象
+- **WHEN** 提交 `{"question":"..."}{"x":1}`
+- **THEN** 返回 400，错误码为 `bad_request`
+- **AND** 不开始 SSE、不调用检索或模型
+
+### Requirement: R12 Go 源码换行与格式一致性
+
+仓库 SHALL 在版本控制的 `.gitattributes` 中将所有 `*.go` 文件声明为 `text eol=lf`，不得依赖开发者的全局或本地 `core.autocrlf`、`core.eol` 设置。工作区 Go 源码 SHALL 符合 gofmt 规范输出；质量门禁 SHALL 在存在格式差异时列出文件并以非零码结束。
+
+#### Scenario: R12.1 启用自动 CRLF 时仍检出 LF
+
+- **GIVEN** 临时仓库包含本变更的 `.gitattributes` 与 Go 源码，且检出命令设置 `core.autocrlf=true` 和 `core.eol=crlf`
+- **WHEN** 从索引重新检出 Go 文件并读取其原始字节
+- **THEN** 文件包含 LF 换行且不含 CRLF 换行
+- **AND** 对该文件运行 gofmt 检查无格式差异
+
+#### Scenario: R12.2 当前工作区通过格式与完整门禁
+
+- **GIVEN** 仓库已应用 Go 换行策略并完成现有源码格式化
+- **WHEN** 运行 `GO_BIN=/d/tools/go/bin/go.exe node scripts/quality-gate.mjs --with-spec`
+- **THEN** gofmt 步骤不列出任何文件
+- **AND** 配置、分层、密钥、build、vet、test 与 OpenSpec 严格校验全部通过，命令退出码为 0
+
+#### Scenario: R12.3 Go 格式差异仍被拒绝
+
+- **GIVEN** 任一工作区 Go 文件与 gofmt 规范输出存在换行或格式差异
+- **WHEN** 运行质量门禁
+- **THEN** gofmt 步骤列出该文件
+- **AND** 门禁最终退出码为 1，不因构建、vet 或单元测试通过而掩盖失败
