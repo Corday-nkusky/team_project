@@ -4,12 +4,14 @@ import Icon, { type IconName } from './components/Icon'
 import LoginPage from './pages/LoginPage'
 import MaterialsPage from './pages/MaterialsPage'
 import AskPage from './pages/AskPage'
+import SkillsPage from './pages/SkillsPage'
 
-type Tab = 'ask' | 'materials'
+type Tab = 'ask' | 'materials' | 'skills'
 
 const NAV: Array<{ id: Tab; label: string; icon: IconName }> = [
   { id: 'ask', label: '提问问答', icon: 'ask' },
   { id: 'materials', label: '教学材料', icon: 'materials' },
+  { id: 'skills', label: '技能与工具', icon: 'shield' },
 ]
 
 export default function App() {
@@ -40,7 +42,14 @@ export default function App() {
     }
   }
 
-  const asking = tab === 'ask'
+  // 技能与工具是教师配置项，学生不显示入口。
+  const nav = NAV.filter((item) => item.id !== 'skills' || user.role === 'teacher')
+  const activeTab: Tab = tab === 'skills' && user.role !== 'teacher' ? 'ask' : tab
+  const heading = {
+    ask: ['GROUNDED Q&A', '从班级资料里，找到答案', '每一个回答都有材料依据，每一处引用都能回看。'],
+    materials: ['CLASS LIBRARY', '班级材料，有序沉淀', '上传、索引与检索，都严格限定在当前班级。'],
+    skills: ['AI CAPABILITIES', '技能与 MCP 工具', '配置解题引导与工具服务，所有操作按班级隔离。'],
+  }[activeTab]
   const initial = [...user.display_name][0] ?? '用'
 
   return (
@@ -56,12 +65,12 @@ export default function App() {
 
         <div className="nav-caption">WORKSPACE</div>
         <nav className="main-nav" aria-label="主导航">
-          {NAV.map((item) => (
+          {nav.map((item) => (
             <button
               key={item.id}
-              className={`nav-item ${tab === item.id ? 'active' : ''}`}
+              className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
               onClick={() => setTab(item.id)}
-              aria-current={tab === item.id ? 'page' : undefined}
+              aria-current={activeTab === item.id ? 'page' : undefined}
             >
               <Icon name={item.icon} size={20} />
               <span>{item.label}</span>
@@ -96,9 +105,9 @@ export default function App() {
       <main className="workspace-main">
         <header className="workspace-header">
           <div className="page-heading">
-            <span className="eyebrow">{asking ? 'GROUNDED Q&A' : 'CLASS LIBRARY'}</span>
-            <h1>{asking ? '从班级资料里，找到答案' : '班级材料，有序沉淀'}</h1>
-            <p>{asking ? '每一个回答都有材料依据，每一处引用都能回看。' : '上传、索引与检索，都严格限定在当前班级。'}</p>
+            <span className="eyebrow">{heading[0]}</span>
+            <h1>{heading[1]}</h1>
+            <p>{heading[2]}</p>
           </div>
           <div className="header-context">
             <span className="class-pill"><Icon name="class" size={17} />{user.class_name}</span>
@@ -107,7 +116,9 @@ export default function App() {
         </header>
 
         <div className="page-content">
-          {asking ? <AskPage /> : <MaterialsPage user={user} />}
+          {activeTab === 'ask' && <AskPage />}
+          {activeTab === 'materials' && <MaterialsPage user={user} />}
+          {activeTab === 'skills' && <SkillsPage />}
         </div>
       </main>
     </div>

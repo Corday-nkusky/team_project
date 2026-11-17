@@ -114,6 +114,26 @@ services:
       backend:
         condition: service_healthy
 
+  # 自建 MCP 工具服务：与主应用同网，宿主通过 Base URL http://mcp-server:8090 连接。
+  # 令牌只经环境变量注入，不进镜像层、不进前端；无令牌时服务拒绝启动。
+  mcp-server:
+    image: campusclaw:${VERSION:-dev}
+    build:
+      context: ..
+      dockerfile: deploy/backend.Dockerfile
+      args:
+        VERSION: ${VERSION:-dev}
+    entrypoint: ["/usr/local/bin/mcp-server"]
+    restart: unless-stopped
+    environment:
+      MCP_ADDR: ":8090"
+      MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:?MCP_AUTH_TOKEN 未设置，请先运行 node scripts/up.mjs}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8090/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+
 volumes:
   mysql-data:
   qdrant-data:

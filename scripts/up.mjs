@@ -44,6 +44,12 @@ if (isPlaceholder(readValue(env, "JWT_SECRET"))) {
   rotated.push("JWT_SECRET");
 }
 
+// MCP 工具令牌不进任何数据卷，可随启动安全轮换（宿主侧登记时需同步更新）。
+if (isPlaceholder(readValue(env, "MCP_AUTH_TOKEN"))) {
+  env = setValue(env, "MCP_AUTH_TOKEN", randomBytes(32).toString("hex"));
+  rotated.push("MCP_AUTH_TOKEN");
+}
+
 // MySQL 口令只在首次生成 .env 时随机化：已有数据卷的口令在初始化时写死，
 // 事后改 .env 不会同步到库，反而会让后端连不上。
 if (fresh) {

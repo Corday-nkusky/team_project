@@ -81,6 +81,20 @@
 - **THEN** 返回带引用的抽取式回答，不出现 `no_evidence`，响应带 `degraded` 标记且客户端展示「已降级」
 - **AND** 判定过程不读取内容词命中数、停用词表或 bigram 规则
 
+#### Scenario: R5.10 有启用技能时生成链路加载技能与工具
+
+- **GIVEN** 班级 A 存在与问题相关的 `ready` 材料，且该班有 `enabled=true` 的解题引导技能与已连接的工具服务
+- **WHEN** 学生提交可命中的问题
+- **THEN** 生成提示词在 `qa.SystemPrompt()` 之上叠加该技能的引导要求，且本次可用工具随请求交给模型（`meta.tool_calls` 可见）
+- **AND** 检索范围、证据门槛、引用清单与未命中判定与无技能时逐字一致
+
+#### Scenario: R5.11 失败路径：技能加载失败不影响检索主路径
+
+- **GIVEN** 班级 A 材料检索正常，但技能配置查询失败
+- **WHEN** 学生提交可命中的问题
+- **THEN** 按「无技能」继续生成并返回 200，不向客户端暴露技能查询错误
+- **AND** 服务端写一条 ERROR 日志，`meta.skill.enabled=false`
+
 ### Requirement: R6 流式返回
 
 问答接口 SHALL 以 **SSE（`text/event-stream`）** 增量返回回答，使首字延迟远小于整体生成时间。
@@ -188,7 +202,9 @@
 | 能力 | 场景 |
 | --- | --- |
 | `auth-upload` | R1.1–R1.7、R2.1–R2.3、R3.1–R3.8、R4.1–R4.2 |
-| `knowledge-retrieval` | R5.1–R5.9、R6.1–R6.6、R7.1–R7.7 |
+| `knowledge-retrieval` | R5.1–R5.11、R6.1–R6.6、R7.1–R7.7 |
+| `skills` | SK1.1–SK1.2、SK2.1–SK2.3 |
+| `mcp-tools` | MC1.1–MC1.2、MC2.1–MC2.2、MC3.1–MC3.3、MC4.1–MC4.2、MC5.1–MC5.2 |
 | `runtime-baseline` | R8.1–R8.6、R9.1–R9.5、R10.1–R10.6、R11.1–R11.5、R12.1–R12.3 |
 | `learning-workspace` | LW1.1–LW1.2、LW2.1–LW2.2、LW3.1–LW3.2、LW4.1–LW4.2 |
 | `material-reading` | MR1.1–MR1.4、MR2.1–MR2.6 |

@@ -11,6 +11,7 @@ import (
 
 	"github.com/Corday-nkusky/team_project/backend/internal/auth"
 	"github.com/Corday-nkusky/team_project/backend/internal/qa"
+	"github.com/Corday-nkusky/team_project/backend/internal/skill"
 )
 
 type askReq struct {
@@ -57,16 +58,26 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 
 	sw := &sseWriter{w: w, f: flusher}
 
+	// 技能与工具：检索命中与未命中都加载，未命中分支仍展示技能状态（spec SK2 / MC3）。
+	askCtx := s.prepareAsk(ctx, c, req.Question)
+
 	if len(cites) == 0 {
 		// 未命中：固定文案 + no_evidence，不生成编造内容（R5.2 / R7.3）。
-		sw.event("meta", map[string]any{"citations": []qa.Citation{}, "no_evidence": true})
+		sw.event("meta", map[string]any{
+			"citations": []qa.Citation{}, "no_evidence": true,
+			"skill": askCtx.Active, "tool_calls": askCtx.ToolCalls,
+		})
 		sw.event("delta", map[string]any{"text": qa.NoEvidenceText})
 		sw.event("done", map[string]any{"conversation_id": nil})
 		s.auditAsk(ctx, c, "fail", "no_evidence")
 		return
 	}
 
-	sw.event("meta", map[string]any{"citations": cites, "no_evidence": false})
+	// 调用事件先于正文推送（spec MC3.1）。
+	sw.event("meta", map[string]any{
+		"citations": cites, "no_evidence": false,
+		"skill": askCtx.Active, "tool_calls": askCtx.ToolCalls,
+	})
 
 	filt := &citationFilter{max: len(cites)}
 	// 越界引用被丢弃时只记数量，不记录回答内容（R7.4）。
@@ -80,9 +91,20 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	// 把工具返回的数据附加到用户消息末尾（数据不是指令，位于用户一侧；spec MC3）。
+	userPrompt := qa.UserPrompt(req.Question, cites)
+	if len(askCtx.ToolNotes) > 0 {
+		userPrompt += "\n\n" + strings.Join(askCtx.ToolNotes, "\n")
+	}
+
 	var answer strings.Builder
 	if !s.qa.LLMEnabled() {
-		text, aborted := sw.streamText(ctx, filt, qa.FallbackAnswer(req.Question, cites), 20*time.Millisecond)
+		fallback := qa.FallbackAnswer(req.Question, cites)
+		if len(askCtx.ToolNotes) > 0 {
+			fallback += "\n\n" + strings.Join(askCtx.ToolNotes, "\n")
+		}
+		fallback = skill.DecorateFallback(fallback, askCtx.Active)
+		text, aborted := sw.streamText(ctx, filt, fallback, 20*time.Millisecond)
 		answer.WriteString(text)
 		if aborted {
 			s.auditAbort(c)
@@ -97,7 +119,7 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 	interrupted := false
 	degraded := false
 
-	ch, err := s.qa.ChatStream(ctx, qa.SystemPrompt(), qa.UserPrompt(req.Question, cites))
+	ch, err := s.qa.ChatStream(ctx, askCtx.System, userPrompt)
 	if err != nil {
 		degraded = true
 	} else {
@@ -148,7 +170,12 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 		sw.event("degraded", map[string]any{"reason": "upstream_error"})
 		// 与零密钥降级保持同一节奏：按片输出并逐片检查连接状态，
 		// 否则本地文本会瞬间写完，客户端断开时服务端已经落库（R6.3）。
-		text, aborted := sw.streamText(ctx, filt, qa.FallbackAnswer(req.Question, cites), 20*time.Millisecond)
+		fallback := qa.FallbackAnswer(req.Question, cites)
+		if len(askCtx.ToolNotes) > 0 {
+			fallback += "\n\n" + strings.Join(askCtx.ToolNotes, "\n")
+		}
+		fallback = skill.DecorateFallback(fallback, askCtx.Active)
+		text, aborted := sw.streamText(ctx, filt, fallback, 20*time.Millisecond)
 		answer.WriteString(text)
 		if aborted {
 			s.auditAbort(c)

@@ -34,6 +34,61 @@ export interface Citation {
   snippet: string
 }
 
+/** 本次问答加载到的技能（进 SSE meta）。 */
+export interface AskSkill {
+  name: string
+  enabled: boolean
+  mode?: string
+  tool_refs?: string[]
+}
+
+/** 本次工具调用状态（进 SSE meta，先于正文）。 */
+export interface ToolCallEvent {
+  tool_ref: string
+  result: 'ok' | 'denied' | 'error'
+  reason?: string
+}
+
+/** 教师配置的解题引导技能。 */
+export interface Skill {
+  id: number
+  name: string
+  kind: string
+  enabled: boolean
+  instruction: string
+  tool_refs: string[]
+  version: number
+  updated_at: string
+}
+
+/** MCP 工具服务登记（令牌只回布尔标记）。 */
+export interface MCPServer {
+  id: number
+  name: string
+  base_url: string
+  token_configured: boolean
+  connected: boolean
+  last_error?: string
+}
+
+export interface MCPTool {
+  name: string
+  description: string
+  inputSchema: Record<string, unknown>
+}
+
+/** 一条只增不改的工具调用记录。 */
+export interface MCPCall {
+  id: number
+  tool_ref: string
+  result: 'ok' | 'denied' | 'error'
+  actor_name: string
+  conversation_id?: string
+  round: number
+  detail?: string
+  created_at: string
+}
+
 /** 一条已归档的完整问答：回答与当时的引用清单都原样保存，不重新检索。 */
 export interface Conversation {
   id: number
@@ -285,7 +340,7 @@ export async function waitForTask(
 }
 
 export interface AskHandlers {
-  onMeta?: (citations: Citation[], noEvidence: boolean) => void
+  onMeta?: (citations: Citation[], noEvidence: boolean, skill?: AskSkill, toolCalls?: ToolCallEvent[]) => void
   /** 模型在首字前不可用，后端改用材料原文作答（design D3）。 */
   onDegraded?: (reason: string) => void
   onDelta?: (text: string) => void
@@ -349,8 +404,11 @@ export function streamAsk(question: string, handlers: AskHandlers): AbortControl
       const data = dataLines.join('\n')
       try {
         if (eventName === 'meta') {
-          const m = JSON.parse(data) as { citations: Citation[]; no_evidence: boolean }
-          handlers.onMeta?.(m.citations ?? [], m.no_evidence)
+          const m = JSON.parse(data) as {
+            citations: Citation[]; no_evidence: boolean
+            skill?: AskSkill; tool_calls?: ToolCallEvent[]
+          }
+          handlers.onMeta?.(m.citations ?? [], m.no_evidence, m.skill, m.tool_calls ?? [])
         } else if (eventName === 'degraded') {
           const d = JSON.parse(data) as { reason?: string }
           handlers.onDegraded?.(d.reason ?? 'upstream_error')
@@ -401,4 +459,104 @@ export function streamAsk(question: string, handlers: AskHandlers): AbortControl
   })()
 
   return controller
+}
+
+// --- 解题引导技能（教师配置，spec SK1）---
+
+export async function listSkills(): Promise<Skill[]> {
+  const resp = await request('/api/skills')
+  if (!resp.ok) throw new Error('获取技能列表失败')
+  const data = (await resp.json()) as { items?: Skill[] }
+  return data.items ?? []
+}
+
+export async function saveSkill(input: {
+  id?: number
+  name: string
+  kind?: string
+  enabled: boolean
+  instruction: string
+  tool_refs: string[]
+}): Promise<Skill> {
+  const resp = await request('/api/skills', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => null)
+    throw new Error(body?.error?.message ?? '保存技能失败')
+  }
+  return (await resp.json()) as Skill
+}
+
+export async function deleteSkill(id: number): Promise<void> {
+  const resp = await request(`/api/skills/${id}`, { method: 'DELETE' })
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => null)
+    throw new Error(body?.error?.message ?? '删除技能失败')
+  }
+}
+
+// --- MCP 工具服务（教师管理，spec MC2/MC4）---
+
+export async function listMCPServers(): Promise<MCPServer[]> {
+  const resp = await request('/api/mcp/servers')
+  if (!resp.ok) throw new Error('获取工具服务列表失败')
+  const data = (await resp.json()) as { items?: MCPServer[] }
+  return data.items ?? []
+}
+
+export async function saveMCPServer(input: {
+  name: string
+  base_url: string
+  auth_token?: string
+}): Promise<MCPServer> {
+  const resp = await request('/api/mcp/servers', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => null)
+    throw new Error(body?.error?.message ?? '登记工具服务失败')
+  }
+  return (await resp.json()) as MCPServer
+}
+
+export async function connectMCPServer(id: number): Promise<{ connected: boolean; tools: MCPTool[] }> {
+  const resp = await request(`/api/mcp/servers/${id}/connect`, { method: 'POST' })
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => null)
+    throw new Error(body?.error?.message ?? '连接失败')
+  }
+  return (await resp.json()) as { connected: boolean; tools: MCPTool[] }
+}
+
+export async function disconnectMCPServer(id: number): Promise<void> {
+  const resp = await request(`/api/mcp/servers/${id}/disconnect`, { method: 'POST' })
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => null)
+    throw new Error(body?.error?.message ?? '断开失败')
+  }
+}
+
+export async function deleteMCPServer(id: number): Promise<void> {
+  const resp = await request(`/api/mcp/servers/${id}`, { method: 'DELETE' })
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => null)
+    throw new Error(body?.error?.message ?? '删除工具服务失败')
+  }
+}
+
+export async function listMCPTools(id: number): Promise<MCPTool[]> {
+  const resp = await request(`/api/mcp/servers/${id}/tools`)
+  if (!resp.ok) throw new Error('获取工具清单失败')
+  const data = (await resp.json()) as { items?: MCPTool[] }
+  return data.items ?? []
+}
+
+export async function listMCPCalls(limit = 20): Promise<MCPCall[]> {
+  const resp = await request(`/api/mcp/calls?limit=${limit}`)
+  if (!resp.ok) throw new Error('获取调用记录失败')
+  const data = (await resp.json()) as { items?: MCPCall[] }
+  return data.items ?? []
 }

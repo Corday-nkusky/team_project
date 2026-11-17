@@ -150,6 +150,61 @@ var schema = []string{
 		PRIMARY KEY (id),
 		KEY idx_conv_user (user_id)
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+	// 解题引导技能：按班 + 名称唯一；每次更新递增 version，便于追踪谁在何时改了引导方式。
+	`CREATE TABLE IF NOT EXISTS skills (
+		id          BIGINT       NOT NULL AUTO_INCREMENT,
+		class_id    BIGINT       NOT NULL,
+		owner_id    BIGINT       NOT NULL,
+		name        VARCHAR(64)  NOT NULL,
+		kind        VARCHAR(32)  NOT NULL DEFAULT 'solve_hint',
+		enabled     TINYINT(1)   NOT NULL DEFAULT 1,
+		instruction TEXT         NOT NULL,
+		tool_refs   JSON         NULL,
+		version     INT          NOT NULL DEFAULT 1,
+		created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+		PRIMARY KEY (id),
+		UNIQUE KEY uk_skill_class_name (class_id, name),
+		KEY idx_skill_class (class_id, enabled),
+		CONSTRAINT fk_skill_class FOREIGN KEY (class_id) REFERENCES classes (id)
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+	// MCP 工具服务登记：令牌只存服务端，列表接口只回 token_configured 布尔，绝不回明文。
+	`CREATE TABLE IF NOT EXISTS mcp_servers (
+		id              BIGINT       NOT NULL AUTO_INCREMENT,
+		class_id        BIGINT       NOT NULL,
+		owner_id        BIGINT       NOT NULL,
+		name            VARCHAR(64)  NOT NULL,
+		base_url        VARCHAR(500) NOT NULL,
+		auth_token      VARCHAR(500) NOT NULL DEFAULT '',
+		token_configured TINYINT(1)  NOT NULL DEFAULT 0,
+		connected       TINYINT(1)   NOT NULL DEFAULT 0,
+		tools_json      JSON         NULL,
+		last_error      VARCHAR(500) NOT NULL DEFAULT '',
+		created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+		PRIMARY KEY (id),
+		UNIQUE KEY uk_mcp_class_name (class_id, name),
+		CONSTRAINT fk_mcp_class FOREIGN KEY (class_id) REFERENCES classes (id)
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+	// 工具调用记录：只增不改，字段覆盖「调了什么/成没成/谁触发/哪次会话/何时」五问。
+	`CREATE TABLE IF NOT EXISTS mcp_tool_calls (
+		id             BIGINT       NOT NULL AUTO_INCREMENT,
+		class_id       BIGINT       NOT NULL,
+		actor_id       BIGINT       NOT NULL,
+		actor_name     VARCHAR(64)  NOT NULL DEFAULT '',
+		tool_ref       VARCHAR(191) NOT NULL,
+		result         VARCHAR(16)  NOT NULL,
+		conversation_id VARCHAR(64) NOT NULL DEFAULT '',
+		round          INT          NOT NULL DEFAULT 1,
+		detail         VARCHAR(500) NOT NULL DEFAULT '',
+		created_at     DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+		PRIMARY KEY (id),
+		KEY idx_calls_class (class_id, id DESC),
+		CONSTRAINT fk_calls_class FOREIGN KEY (class_id) REFERENCES classes (id)
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 }
 
 // Migrate 执行全部建表语句，并做一次幂等的列扩容。

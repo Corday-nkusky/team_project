@@ -26,16 +26,24 @@ const LAYERS = {
   "internal/retrieval": 0,
   "internal/store": 0,
   "internal/web": 0,
+  "internal/mcpclient": 0,
   "internal/qa": 1,
+  "internal/skill": 1,
   "internal/indexer": 2,
   "internal/httpapi": 2,
   "cmd/server": 3,
   "cmd/e2e": 3,
   "cmd/worker": 3,
+  "cmd/mcp-server": 3,
 };
 
 // httpapi 直接使用 store 的文件：均为「单表读写 / 会话记录」，不含检索与生成逻辑。
-const HTTPAPI_STORE_ALLOWLIST = new Set(["auth.go", "materials.go", "ask.go", "router.go", "tasks.go"]);
+// skills.go / mcp.go 是技能与工具登记的单表读写；ask-tools.go 只写调用记录；
+// 对应 *_test.go 用桩类型实现同样的窄接口。
+const HTTPAPI_STORE_ALLOWLIST = new Set([
+  "auth.go", "materials.go", "ask.go", "router.go", "tasks.go",
+  "skills.go", "skills_test.go", "mcp.go", "mcp_test.go", "ask-tools.go",
+]);
 const HTTPAPI_FORBIDDEN_DIRECT = new Set(["internal/llm", "internal/qdrant", "internal/retrieval"]);
 
 function walk(dir) {

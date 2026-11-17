@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { listConversations, streamAsk, type Citation, type Conversation } from '../api'
+import { listConversations, streamAsk, type AskSkill, type Citation, type Conversation, type ToolCallEvent } from '../api'
 import Icon from '../components/Icon'
 import MaterialReader, { type MaterialReaderHandle } from '../components/MaterialReader'
 
@@ -28,6 +28,9 @@ export default function AskPage() {
   const [degraded, setDegraded] = useState(false)
   const [error, setError] = useState('')
   const [openCite, setOpenCite] = useState<number | null>(null)
+  // 技能与工具：来自 meta 事件，先于正文展示（spec SK2 / MC3）。
+  const [askSkill, setAskSkill] = useState<AskSkill | null>(null)
+  const [toolCalls, setToolCalls] = useState<ToolCallEvent[]>([])
 
   // 历史问答：只读本人本班记录，完整回答与引用原样回看。
   const [history, setHistory] = useState<Conversation[]>([])
@@ -72,12 +75,16 @@ export default function AskPage() {
     setDegraded(false)
     setError('')
     setOpenCite(null)
+    setAskSkill(null)
+    setToolCalls([])
     setPhase('streaming')
 
     controllerRef.current = streamAsk(q, {
-      onMeta: (cs, ne) => {
+      onMeta: (cs, ne, skill, tools) => {
         setCitations(cs)
         setNoEvidence(ne)
+        setAskSkill(skill ?? null)
+        setToolCalls(tools ?? [])
       },
       onDegraded: () => setDegraded(true),
       onDelta: (t) => setAnswer((prev) => prev + t),
@@ -204,6 +211,19 @@ export default function AskPage() {
             </div>
             <div className="answer-state">{stateLabel()}</div>
           </div>
+
+          {(toolCalls.length > 0 || (askSkill && askSkill.enabled)) && (
+            <div className="skill-ribbon" aria-live="polite">
+              {askSkill && askSkill.enabled && (
+                <span className="skill-chip">解题引导 · {askSkill.name}</span>
+              )}
+              {toolCalls.map((tc, i) => (
+                <span key={i} className={`tool-chip tool-${tc.result}`}>
+                  {tc.tool_ref} · {tc.result === 'ok' ? '成功' : tc.result === 'denied' ? '被拒' : '出错'}
+                </span>
+              ))}
+            </div>
+          )}
 
           {streaming && !answer && (
             <div className="answer-waiting" role="status">

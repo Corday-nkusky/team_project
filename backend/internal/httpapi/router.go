@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/Corday-nkusky/team_project/backend/internal/config"
+	"github.com/Corday-nkusky/team_project/backend/internal/mcpclient"
 	"github.com/Corday-nkusky/team_project/backend/internal/qa"
+	"github.com/Corday-nkusky/team_project/backend/internal/skill"
 	"github.com/Corday-nkusky/team_project/backend/internal/store"
 	"github.com/Corday-nkusky/team_project/backend/internal/web"
 )
@@ -36,14 +38,45 @@ type askRecorder interface {
 	ListConversationsJSON(ctx context.Context, userID, classID int64, limit int) (json.RawMessage, error)
 }
 
+// skillStore 是问答链路加载技能所需的最小能力（spec SK2）。
+type skillStore interface {
+	ListEnabledSkills(ctx context.Context, classID int64) ([]store.Skill, error)
+}
+
+// skillRW 是技能配置接口所需的读写能力（spec SK1）。
+type skillRW interface {
+	skillStore
+	ListSkills(ctx context.Context, classID int64) ([]store.Skill, error)
+	GetSkillByID(ctx context.Context, classID, id int64) (store.Skill, error)
+	UpsertSkill(ctx context.Context, in store.Skill) (store.Skill, error)
+	DeleteSkill(ctx context.Context, classID, id int64) error
+}
+
+// mcpStore 是宿主编排所需的读写能力（spec MC2/MC4）；窄接口便于用桩单测。
+type mcpStore interface {
+	ListMCPServers(ctx context.Context, classID int64) ([]store.MCPServer, error)
+	GetMCPServerByID(ctx context.Context, classID, id int64) (store.MCPServer, error)
+	GetMCPAuthToken(ctx context.Context, classID, id int64) (string, error)
+	UpsertMCPServer(ctx context.Context, in store.MCPServer) (store.MCPServer, error)
+	SetMCPConnected(ctx context.Context, classID, id int64, tools []store.MCPTool) error
+	SetMCPDisconnected(ctx context.Context, classID, id int64) error
+	SetMCPLastError(ctx context.Context, classID, id int64, msg string) error
+	DeleteMCPServer(ctx context.Context, classID, id int64) error
+	RecordMCPCall(ctx context.Context, in store.MCPCall) error
+	ListMCPCalls(ctx context.Context, classID int64, limit int) ([]store.MCPCall, error)
+}
+
 // Server 汇总依赖并提供路由。
 type Server struct {
-	cfg     config.Config
-	st      *store.Store
-	rec     askRecorder
-	qa      qaService
-	checker Checker
-	version string
+	cfg      config.Config
+	st       *store.Store
+	rec      askRecorder
+	qa       qaService
+	skills   *skill.Loader
+	skillsRW skillRW
+	mcp      mcpStore
+	checker  Checker
+	version  string
 }
 
 // New 构造 Server。version 由构建期注入（`-X main.version=...`），空值回退为 dev。
@@ -51,7 +84,19 @@ func New(cfg config.Config, st *store.Store, svc *qa.Service, checker Checker, v
 	if version == "" {
 		version = "dev"
 	}
-	return &Server{cfg: cfg, st: st, rec: st, qa: svc, checker: checker, version: version}
+	return &Server{
+		cfg: cfg, st: st, rec: st, qa: svc,
+		skills: skill.New(st), skillsRW: st, mcp: st, checker: checker, version: version,
+	}
+}
+
+// mcpClientFor 按登记构造客户端：令牌从库里读，URL 来自登记，绝不进日志。
+func (s *Server) mcpClientFor(ctx context.Context, sv store.MCPServer) (*mcpclient.Client, error) {
+	token, err := s.mcp.GetMCPAuthToken(ctx, sv.ClassID, sv.ID)
+	if err != nil {
+		return nil, err
+	}
+	return mcpclient.New(sv.BaseURL, token), nil
 }
 
 // Handler 返回装配完成的 http.Handler。
@@ -93,6 +138,31 @@ func (s *Server) Handler() http.Handler {
 	// 任务状态：本班只读查询，不触发执行（A2.2 / A2.3）。
 	mux.Handle("GET /api/tasks/{task_id}", s.requireAuth(http.HandlerFunc(s.handleGetTask)))
 	mux.HandleFunc("/api/tasks/{task_id}", methodNotAllowed(http.MethodGet))
+
+	// 解题引导技能：读=登录，写=教师（spec SK1）。
+	mux.Handle("GET /api/skills", s.requireAuth(http.HandlerFunc(s.handleListSkills)))
+	mux.HandleFunc("/api/skills", methodNotAllowed(http.MethodGet, http.MethodPost, http.MethodDelete))
+	mux.Handle("POST /api/skills", s.requireAuth(requireRole("teacher", http.HandlerFunc(s.handleUpsertSkill))))
+	mux.Handle("DELETE /api/skills/{id}", s.requireAuth(requireRole("teacher", http.HandlerFunc(s.handleDeleteSkill))))
+	mux.HandleFunc("/api/skills/{id}", methodNotAllowed(http.MethodDelete))
+
+	// MCP 宿主侧：管理角色（教师）专属（spec MC2/MC4）。
+	mux.Handle("GET /api/mcp/servers", s.requireAuth(requireRole("teacher", http.HandlerFunc(s.handleListMCPServers))))
+	mux.Handle("POST /api/mcp/servers", s.requireAuth(requireRole("teacher", http.HandlerFunc(s.handleUpsertMCPServer))))
+	mux.HandleFunc("/api/mcp/servers", methodNotAllowed(http.MethodGet, http.MethodPost))
+	mux.Handle("POST /api/mcp/servers/{id}/connect",
+		s.requireAuth(requireRole("teacher", http.HandlerFunc(s.handleMCPConnect))))
+	mux.HandleFunc("/api/mcp/servers/{id}/connect", methodNotAllowed(http.MethodPost))
+	mux.Handle("POST /api/mcp/servers/{id}/disconnect",
+		s.requireAuth(requireRole("teacher", http.HandlerFunc(s.handleMCPDisconnect))))
+	mux.HandleFunc("/api/mcp/servers/{id}/disconnect", methodNotAllowed(http.MethodPost))
+	mux.Handle("GET /api/mcp/servers/{id}/tools", s.requireAuth(requireRole("teacher", http.HandlerFunc(s.handleMCPTools))))
+	mux.HandleFunc("/api/mcp/servers/{id}/tools", methodNotAllowed(http.MethodGet))
+	mux.Handle("GET /api/mcp/calls", s.requireAuth(requireRole("teacher", http.HandlerFunc(s.handleListMCPCalls))))
+	mux.HandleFunc("/api/mcp/calls", methodNotAllowed(http.MethodGet))
+	mux.Handle("DELETE /api/mcp/servers/{id}",
+		s.requireAuth(requireRole("teacher", http.HandlerFunc(s.handleDeleteMCPServer))))
+	mux.HandleFunc("/api/mcp/servers/{id}", methodNotAllowed(http.MethodDelete))
 
 	// 未注册的 API 路径统一返回 JSON 404，绝不回落到 SPA（spec R11.2）。
 	mux.HandleFunc("/api/", notFoundAPI)
