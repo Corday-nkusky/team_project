@@ -1,7 +1,8 @@
 """apitest 公共工具：请求封装、断言收集与 HTML 报告生成。
 
-只依赖 Python 标准库。不读取、不打印任何密钥；令牌来自登录接口的返回值，
-仅存在于进程内存。所有用例通过 BASE_URL 指向被测服务（默认本机 8080）。
+只依赖 Python 标准库。登录令牌来自登录接口的返回值，仅存在于进程内存。
+MCP 工具令牌从环境变量或本机 deploy/.env 读取，只用于登记，不打印。
+所有用例通过 BASE_URL 指向被测服务（默认本机 8080）。
 """
 
 import json
@@ -50,6 +51,23 @@ def login(username, password):
     if code != 200 or not body or "access_token" not in body:
         raise RuntimeError(f"登录失败: HTTP {code}")
     return body["access_token"], body.get("user", {})
+
+
+def mcp_token():
+    """MCP 工具令牌：环境变量优先，其次本机 deploy/.env；不打印值。"""
+    value = os.environ.get("MCP_AUTH_TOKEN", "").strip()
+    if value:
+        return value
+    project = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    env_path = os.path.join(project, "deploy", ".env")
+    try:
+        with open(env_path, encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("MCP_AUTH_TOKEN="):
+                    return line.split("=", 1)[1].strip()
+    except OSError:
+        pass
+    return ""
 
 
 def check(name, cond, detail=""):

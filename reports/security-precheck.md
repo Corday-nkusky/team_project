@@ -68,7 +68,7 @@
 - **前置条件**：仓库全部已跟踪文件。
 - **操作**：`node scripts/check-secrets.mjs`（= `make check-security` 的密钥步骤）。
 - **可观测结果**：0 命中。
-- **当前实际**：【实测】`✓ 密钥/配置卫生检查通过（扫描 166 个已跟踪文件）`，退出码 0。先红后绿证据见 `reports/gate-red-green.md`（注入假 `sk-` 密钥→退出码 1，移除→0）。
+- **当前实际**：【实测】`✓ 密钥/配置卫生检查通过（扫描 225 个已跟踪文件）`，退出码 0。先红后绿证据见 `reports/gate-red-green.md`（注入假 `sk-` 密钥→退出码 1，移除→0）。
 - **当前判定**：绿。
 
 ## SEC-06 依赖漏洞基线
@@ -84,8 +84,8 @@
 - **前置条件**：一次技能/问答调用已发生。
 - **操作**：按技能标识回查日志，检查字段。
 - **可观测结果**：能查到操作人、技能标识、结果状态、耗时、用量。
-- **当前实际**：【代码】现有 `audit_logs(id, actor_id, actor_name, class_id, action, result, detail, created_at)` 与 `mcp_tool_calls(..., tool_ref, result, actor_name, conversation_id, round, created_at)`；`ask` / `skill_upsert` 写审计；`mcp_tool_calls` 覆盖五问。【未验证】一次技能调用后按技能标识回查的真实日志行未在本机复现（需五服务）。
-- **当前判定**：黄（字段齐备但未真机回查）。
+- **当前实际**：【实测】五服务已起；Go e2e 81/0 中「R4 操作留痕」断言登录成功/失败、材料上传、问答均落审计且失败登录不含明文口令（`reports/e2e-run.log`）；apitest 端到端断言 `GET /api/mcp/calls` 记录含 `tool@server`、结果、触发人、轮次（`reports/apitest-run.log`）。【代码】`audit_logs` 与 `mcp_tool_calls` 字段齐备。【未验证】按技能标识回查七列日志的真实 SQL 未单独复现。
+- **当前判定**：黄（留痕与五问已真机验证；七列日志按技能标识回查未单独复现）。
 
 ## SEC-08 恶意文档与提示词注入（素材准备，不试）
 

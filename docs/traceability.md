@@ -85,5 +85,5 @@
 
 - LW1–LW4：本轮未重跑学习工作台用例（无改动），沿用历史 change 的实测记录。
 - 浏览器端 XSS 判定（看页面源码）与 CSRF SameSite 确认：未做真机截图，见 `reports/security-fix-log.md` SEC-08 黄判。
-- apitest 端到端（连接→保存技能→提问→记录）与 H5 四步脚本：本机 Docker daemon 未运行，未真机执行；代码路径已由单测覆盖。
+- apitest 端到端（连接→保存技能→提问→记录）已真机跑通 42/42，H5 四步链路全绿；原始输出见 `reports/apitest-run.log`、`reports/verify-h5.log`。手机浏览器点按未做，用 Node `fetch` 复现同一请求序列。
 - 依赖审计（SEC-06）：已跑，高危未清零（Go 12 条可达 + npm 2 包含 1 high），逐条登记见 `reports/security-baseline.md`；升级 Go / Vite 后的回归未做。

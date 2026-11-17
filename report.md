@@ -69,6 +69,16 @@ npx @fission-ai/openspec@latest validate --all --strict
 
 **门禁**：`Makefile` 提供 `make check` / `make check-security`；本机无 `make`，等价入口 `scripts/make-check.mjs` 已实跑退出码 0。CI 在 `.github/workflows/quality-gate.yml`，与本地同一条命令。先红后绿证据 `reports/gate-red-green.md`：基线绿 0 → 注入假 `sk-` 密钥红 1 → 移除后绿 0。依赖审计已跑并逐条登记于 `reports/security-baseline.md`（Go 12 条可达来自工具链 `go1.27.1`，npm 2 包含 1 high，均保留红，不写"已修复"）。
 
+**2026-11-17 真机实测**（`node scripts/up.mjs` 从空 Compose 起五服务，`/health` 返回 `deps={"mysql":"ok","qdrant":"ok"}`）：
+
+| 验证 | 实测结果 | 原始输出 |
+| --- | --- | --- |
+| H5 四步链路 | 全绿；序列 `pending → running → succeeded`，跨班 404 且响应不含 B 班密语 | `reports/verify-h5.log` |
+| 接口测试 | **42/42 通过**，含端到端技能→工具→调用记录；报告 `apitest/report.html` | `reports/apitest-run.log` |
+| 完整 Go e2e | **81 通过 / 0 失败** | `reports/e2e-run.log` |
+| 真实模型网关 | 全部通过；SSE 74 个 delta、2 条引用、回答 133 字 | `reports/verify-llm.log` |
+| 启动与探活 | 五服务 healthy；`/swagger.html`、`/openapi.json`、`/h5.html` 均 HTTP 200，OpenAPI 16 路径 | `reports/run-up.log` |
+
 **演示命令**（演示机器按序跑）：
 
 ```bash
@@ -96,8 +106,10 @@ node scripts/make-check.mjs && node scripts/make-check.mjs security
 ## 本篇没能验证的部分
 
 - **录屏与网盘地址**：未录制，未上传。
-- **真机联动**：本机 Docker daemon 未运行，五服务未起，因此 `up.mjs` / `verify-h5.mjs` / `apitest/run_all.py` / 完整 e2e 都未在本机真机执行；代码路径由单测与 `docker compose config --quiet` 覆盖。
+- **手机浏览器实测**：H5 四步由 Node `fetch` 复现同一请求序列并全绿，未在真实手机浏览器点按；`h5.html` 页面已在容器内验证可访问且默认账号已改为有上传权限的教师。
+- **干净目录启动**：`up.mjs` 从空 Compose 起了五服务，但沿用了既有 MySQL / Qdrant 数据卷，不是全新目录；跨机器换目录未测。
 - **交叉评审签字**：`docs/lesson-07/peer-review.md` 15 项全空，属队友项。
 - **公网地址**：未确认部署方式，见 TODO 9.7。
 - **观测面板三张图与压测数字**：`reports/bench.md` 尚未产出，报告不写编造数字。
 - **依赖升级回归**：Go ≥ `go1.27.4` 与 `vite@8.3.8` 未升级，SEC-06 保持红。
+- **XSS / CSRF 浏览器侧判定**：服务端与 React 默认转义已由代码走查确认，未做浏览器源码截图；本系统用 Bearer 令牌、无会话 cookie，SameSite 不适用。

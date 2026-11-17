@@ -1,12 +1,12 @@
 """POST /api/mcp/servers：登记服务、令牌不回传、连接发现、断开后清单为空。"""
 import sys, os, uuid
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../..")))
-from common import check, request, login, section, TEACHER
+from common import check, request, login, section, mcp_token, TEACHER
 
 section("POST /api/mcp/servers（登记 / 连接 / 断开）")
 teacher, _ = login(*TEACHER)
 name = "tools-" + uuid.uuid4().hex[:8]
-token = "apitest-token-" + uuid.uuid4().hex[:12]
+token = mcp_token()
 
 code, body, raw = request("POST", "/api/mcp/servers", token=teacher, body={
     "name": name, "base_url": "http://mcp-server:8090", "auth_token": token,

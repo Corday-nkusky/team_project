@@ -9,8 +9,10 @@
 import { randomUUID } from "node:crypto";
 
 const BASE = (process.env.BASE_URL || "http://127.0.0.1:8080").replace(/\/+$/, "");
-const USER = process.env.STUDENT_USER || "student1";
-const PASS = process.env.STUDENT_PASS || "student123";
+// 上传材料是教师权限（POST /api/materials 挂 requireRole("teacher")），
+// 所以四步链路用教师账号；第 4 步跨班读取同样受班级隔离约束。
+const USER = process.env.DEMO_USER || "teacher1";
+const PASS = process.env.DEMO_PASS || "teacher123";
 
 let fail = 0;
 const ok = (name, cond, detail = "") => {
@@ -65,10 +67,29 @@ for (let i = 0; i < 120; i++) {
 ok("3 观察到 pending", seen.includes("pending"), seen.join(" → "));
 ok("3 到达终态 succeeded", final === "succeeded", `终态=${final}，序列=${seen.join(" → ")}`);
 
-// 第 4 步：换班查别班讲义。用班级 B 的材料 id（种子里班级 B 的材料）。
-const other = await req("/api/materials/2", { token });
+// 第 4 步：换班查别班讲义。种子没有预置材料，先给 B 班上传一份带独有密语的，
+// 再用 A 班令牌读它的 id —— 既验证 404，也验证响应不泄漏内容。
+const otherLogin = await req("/api/login", {
+  method: "POST", body: { username: "teacher2", password: "teacher123" },
+});
+ok("4 B 班教师登录", otherLogin.status === 200, `HTTP ${otherLogin.status}`);
+const otherToken = otherLogin.json?.access_token;
+if (!otherToken) process.exit(1);
+const secret = "跨班密语-" + randomUUID().slice(0, 8);
+const otherSubmit = await req("/api/materials", {
+  method: "POST", token: otherToken,
+  body: { title: "B班讲义-" + randomUUID().slice(0, 8), content: secret },
+});
+ok("4 B 班上传材料", otherSubmit.status === 202, `HTTP ${otherSubmit.status}`);
+await new Promise((r) => setTimeout(r, 1500));
+const otherList = await req("/api/materials", { token: otherToken });
+const otherId = otherList.json?.materials?.[0]?.id;
+ok("4 拿到 B 班材料 id", typeof otherId === "number", String(otherId));
+if (typeof otherId !== "number") process.exit(1);
+const other = await req("/api/materials/" + otherId, { token });
 ok("4 跨班读取返回 404", other.status === 404, `HTTP ${other.status}`);
 ok("4 404 使用统一错误体", other.json?.error?.code === "not_found", JSON.stringify(other.json?.error ?? {}));
+ok("4 响应不含 B 班密语", !JSON.stringify(other.json ?? {}).includes(secret));
 
 console.log(`\n结果：${fail === 0 ? "全绿" : fail + " 项失败"}`);
 process.exit(fail === 0 ? 0 : 1);

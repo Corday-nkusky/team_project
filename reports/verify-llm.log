@@ -1,0 +1,31 @@
+
+真实网关验证 · http://127.0.0.1:8080
+
+  ok GET /health 200 · status=200
+  ok llm.enabled=true · {"chat_model":"glm-5.3-flash","embed_model":"embedding-3","enabled":true}
+  ok 健康信息含 chat_model · glm-5.3-flash
+  ok 健康信息含 embed_model · embedding-3
+  ok 教师与学生均可登录
+  ok 上传返回 202 · status=202
+  ok 响应含 task_id · f3b1df4a866dacd886987b1b49c74561
+  ok 响应含 status_url
+  ok 索引任务到达 succeeded · 终态=succeeded，序列=pending → succeeded
+  ok 列表可见新材料且为 ready · id=333
+  ok 拿到材料 id · 333
+  ok POST /api/ask 200 · status=200
+  ok 响应为 text/event-stream · text/event-stream; charset=utf-8
+  ok 未走 no_evidence
+  ok 未出现 degraded
+  ok 未出现 error 事件
+  ok 收到流式增量 · deltas=74
+  ok 收到 done
+  ok 回答非空 · chars=133
+  ok 引用清单非空 · citations=2
+  ok 引用指向本次材料 · LLM 验证材料 CampusClaw-LLM-mwksh3v9 | LLM 验证材料 CampusClaw-LLM-mwksgpwb
+  ok 引用片段含验证词
+  ok 回答原样包含验证词
+
+材料 id：333（可用于核对 Qdrant 向量点）
+
+结果：全部通过
+

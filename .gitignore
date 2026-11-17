@@ -6,6 +6,8 @@ backend/bin/
 deploy/.env
 .env
 *.log
+# 真机验证原始输出属于课程证据，需要入库
+!reports/*.log
 
 # 依赖与前端构建产物
 node_modules/

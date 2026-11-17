@@ -1,0 +1,169 @@
+已生成 deploy\.env
+ Image campusclaw:dev Building 
+ Image campusclaw:dev Building 
+ Image campusclaw:dev Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.53kB done
+#1 DONE 0.0s
+
+#2 [backend internal] load build definition from backend.Dockerfile
+#2 transferring dockerfile: 2.14kB done
+#2 DONE 0.0s
+
+#3 [mcp-server internal] load metadata for docker.io/library/alpine:3.21
+#3 DONE 0.0s
+
+#4 [backend internal] load metadata for docker.io/library/node:22-alpine
+#4 DONE 0.0s
+
+#5 [worker internal] load metadata for docker.io/library/golang:1.27
+#5 DONE 0.0s
+
+#6 [worker internal] load .dockerignore
+#6 transferring context: 223B done
+#6 DONE 0.0s
+
+#7 [worker stage-2 1/5] FROM docker.io/library/alpine:3.21
+#7 DONE 0.0s
+
+#8 [worker build 1/8] FROM docker.io/library/golang:1.27
+#8 DONE 0.0s
+
+#9 [worker frontend 1/6] FROM docker.io/library/node:22-alpine
+#9 DONE 0.0s
+
+#10 [mcp-server internal] load build context
+#10 transferring context: 221.88kB 0.0s done
+#10 DONE 0.0s
+
+#11 [mcp-server frontend 3/6] COPY frontend/package.json frontend/package-lock.json ./
+#11 CACHED
+
+#12 [mcp-server frontend 2/6] WORKDIR /fe
+#12 CACHED
+
+#13 [mcp-server frontend 4/6] RUN npm ci --no-audit --no-fund
+#13 CACHED
+
+#14 [worker build 3/8] COPY backend/go.mod backend/go.sum ./
+#14 CACHED
+
+#15 [worker build 2/8] WORKDIR /src
+#15 CACHED
+
+#16 [worker build 4/8] RUN go mod download
+#16 CACHED
+
+#17 [mcp-server frontend 5/6] COPY frontend/ ./
+#17 DONE 0.0s
+
+#18 [worker build 5/8] COPY backend/ ./
+#18 DONE 0.0s
+
+#17 [backend frontend 5/6] COPY frontend/ ./
+#17 DONE 0.0s
+
+#19 [worker build 6/8] RUN rm -rf ./internal/web/dist && mkdir -p ./internal/web/dist
+#19 DONE 0.3s
+
+#20 [backend frontend 6/6] RUN VITE_OUT_DIR=dist npx vite build
+#20 ...
+
+#19 [worker build 6/8] RUN rm -rf ./internal/web/dist && mkdir -p ./internal/web/dist
+#19 DONE 0.3s
+
+#20 [backend frontend 6/6] RUN VITE_OUT_DIR=dist npx vite build
+#20 1.082 vite v5.4.21 building for production...
+#20 1.135 transforming...
+#20 1.804 ✓ 38 modules transformed.
+#20 1.902 rendering chunks...
+#20 1.908 computing gzip size...
+#20 1.915 dist/index.html                   0.40 kB │ gzip:  0.30 kB
+#20 1.915 dist/assets/index-BBUsRZHT.css   36.24 kB │ gzip:  8.25 kB
+#20 1.915 dist/assets/index-DMXAqHNd.js   184.81 kB │ gzip: 59.64 kB
+#20 1.915 ✓ built in 807ms
+#20 DONE 2.0s
+
+#21 [backend build 7/8] COPY --from=frontend /fe/dist/ ./internal/web/dist/
+#21 DONE 0.0s
+
+#22 [backend build 8/8] RUN go build -trimpath -ldflags="-s -w -X main.version=dev" -o /out/server ./cmd/server &&     go build -trimpath -ldflags="-s -w -X main.version=dev" -o /out/worker ./cmd/worker &&     go build -trimpath -ldflags="-s -w -X main.version=dev" -o /out/mcp-server ./cmd/mcp-server
+#22 DONE 7.6s
+
+#22 [mcp-server build 8/8] RUN go build -trimpath -ldflags="-s -w -X main.version=dev" -o /out/server ./cmd/server &&     go build -trimpath -ldflags="-s -w -X main.version=dev" -o /out/worker ./cmd/worker &&     go build -trimpath -ldflags="-s -w -X main.version=dev" -o /out/mcp-server ./cmd/mcp-server
+#22 DONE 7.6s
+
+#23 [backend stage-2 2/5] RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 app
+#23 CACHED
+
+#24 [backend stage-2 3/5] COPY --from=build /out/server /usr/local/bin/server
+#24 DONE 0.0s
+
+#25 [mcp-server stage-2 4/5] COPY --from=build /out/worker /usr/local/bin/worker
+#25 DONE 0.0s
+
+#26 [worker stage-2 5/5] COPY --from=build /out/mcp-server /usr/local/bin/mcp-server
+#26 DONE 0.0s
+
+#26 [mcp-server stage-2 5/5] COPY --from=build /out/mcp-server /usr/local/bin/mcp-server
+#26 DONE 0.0s
+
+#27 [mcp-server] exporting to image
+#27 exporting layers 0.0s done
+#27 writing image sha256:cf5e00c5b1a0eb1745bbaf6eeec4c831cb8cded62886704af0927145d3519762 done
+#27 naming to docker.io/library/campusclaw:dev done
+#27 DONE 0.1s
+
+#28 [worker] exporting to image
+#28 exporting layers 0.0s done
+#28 writing image sha256:509e8f25cf5d3c044a6b02536d5164f41bcc34bd07853fd90715d83d64137039 done
+#28 naming to docker.io/library/campusclaw:dev done
+#28 DONE 0.1s
+
+#29 [backend] exporting to image
+#29 exporting layers 0.0s done
+#29 writing image sha256:1396a19f135b8b7732da70be7cefdd33111462d9d5cf11e40a8d8457c9a2322b done
+#29 naming to docker.io/library/campusclaw:dev done
+#29 DONE 0.1s
+
+#30 [mcp-server] resolving provenance for metadata file
+#30 DONE 0.0s
+
+#31 [backend] resolving provenance for metadata file
+#31 DONE 0.0s
+
+#32 [worker] resolving provenance for metadata file
+#32 DONE 0.0s
+ Image campusclaw:dev Built 
+ Image campusclaw:dev Built 
+ Image campusclaw:dev Built 
+ Network deploy_default Creating 
+ Network deploy_default Creating 
+ Network deploy_default Created 
+ Network deploy_default Created 
+ Container deploy-mcp-server-1 Creating 
+ Container deploy-qdrant-1 Creating 
+ Container deploy-mysql-1 Creating 
+ Container deploy-mcp-server-1 Created 
+ Container deploy-qdrant-1 Created 
+ Container deploy-mysql-1 Created 
+ Container deploy-backend-1 Creating 
+ Container deploy-backend-1 Created 
+ Container deploy-worker-1 Creating 
+ Container deploy-worker-1 Created 
+ Container deploy-mcp-server-1 Starting 
+ Container deploy-mysql-1 Starting 
+ Container deploy-qdrant-1 Starting 
+ Container deploy-mcp-server-1 Started 
+ Container deploy-mysql-1 Started 
+ Container deploy-qdrant-1 Started 
+ Container deploy-mysql-1 Waiting 
+ Container deploy-mysql-1 Healthy 
+ Container deploy-backend-1 Starting 
+ Container deploy-backend-1 Started 
+ Container deploy-backend-1 Waiting 
+ Container deploy-backend-1 Healthy 
+ Container deploy-worker-1 Starting 
+ Container deploy-worker-1 Started 
+等待 /health 就绪
+就绪：version=dev time=2026-11-17T14:26:39Z deps={"mysql":"ok","qdrant":"ok"}

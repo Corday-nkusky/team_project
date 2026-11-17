@@ -5,7 +5,7 @@
 """
 import sys, os, uuid, json, time
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../..")))
-from common import check, request, login, section, TEACHER, STUDENT, BASE
+from common import check, request, login, section, mcp_token, TEACHER, STUDENT, BASE
 import urllib.request
 
 section("端到端：技能 → 工具调用 → 记录")
@@ -15,7 +15,7 @@ student, _ = login(*STUDENT)
 suffix = uuid.uuid4().hex[:8]
 server_name = "e2e-srv-" + suffix
 skill_name = "e2e-skill-" + suffix
-token = "e2e-token-" + suffix
+token = mcp_token()
 
 # 1) 登记并连接自建服务。
 code, srv, raw = request("POST", "/api/mcp/servers", token=teacher, body={

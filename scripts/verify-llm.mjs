@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 真实网关全链路验证：/health → 教师上传 → 索引 ready → 学生提问 → SSE 引用。
+// 真实网关全链路验证：/health → 教师上传（202 + 任务）→ 轮询索引 ready → 学生提问 → SSE 引用。
 //
 // 运行前需让本地后端启用模型网关（deploy/.env 中 LLM_* 四项齐全），并启动 8080：
 //   node scripts/verify-llm.mjs
@@ -111,18 +111,32 @@ try {
     method: 'POST',
     body: { title, content },
   });
-  ok('上传返回 201', upload.status === 201, `status=${upload.status}`);
-  ok(
-    '材料索引为 ready',
-    upload.json?.index_status === 'ready',
-    upload.json?.index_status === 'ready' ? '' : upload.json?.index_error || upload.text.slice(0, 300),
-  );
-  const materialId = upload.json?.id;
-  ok('响应含材料 id', Number.isInteger(materialId), String(materialId ?? ''));
+  // 上传在第 8 课改为异步：202 + task_id，索引由 worker 完成，不再在请求内返回 ready。
+  ok('上传返回 202', upload.status === 202, `status=${upload.status}`);
+  const taskId = upload.json?.task_id;
+  ok('响应含 task_id', typeof taskId === 'string' && taskId.length > 0, String(taskId ?? ''));
+  ok('响应含 status_url', typeof upload.json?.status_url === 'string');
+  if (!taskId) throw new Error('上传未返回 task_id，无法继续验证索引');
+
+  const seen = [];
+  let final = '';
+  for (let i = 0; i < 240; i++) {
+    const st = await request('/api/tasks/' + taskId, { token: teacherToken });
+    const s = st.json?.status ?? `HTTP ${st.status}`;
+    if (seen[seen.length - 1] !== s) seen.push(s);
+    if (['succeeded', 'failed', 'dead'].includes(s)) {
+      final = s;
+      break;
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  ok('索引任务到达 succeeded', final === 'succeeded', `终态=${final}，序列=${seen.join(' → ')}`);
 
   const list = await request('/api/materials', { token: teacherToken });
-  const item = list.json?.materials?.find((m) => m.id === materialId);
+  const item = list.json?.materials?.find((m) => m.title === title);
   ok('列表可见新材料且为 ready', item?.index_status === 'ready', item ? `id=${item.id}` : 'not found');
+  const materialId = item?.id;
+  ok('拿到材料 id', Number.isInteger(materialId), String(materialId ?? ''));
 
   const q = `材料中的验证词是什么？请原样回答并标注引用。${unique}`;
   const stream = await ask(studentToken, q);

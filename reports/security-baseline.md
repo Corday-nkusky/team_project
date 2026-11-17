@@ -29,7 +29,7 @@ node scripts/check-secrets.mjs
 ## 2. SEC-05 密钥 / 配置卫生【实测】
 
 ```text
-✓ 密钥/配置卫生检查通过（扫描 166 个已跟踪文件）
+✓ 密钥/配置卫生检查通过（扫描 225 个已跟踪文件）
 ```
 
 退出码 0，0 命中。先红后绿的注入与恢复输出见 `reports/gate-red-green.md`。
@@ -121,7 +121,7 @@ these vulnerabilities.
 
 | 编号 | 判定 | 依据 |
 | --- | --- | --- |
-| SEC-05 | 绿 | 166 文件 0 命中，退出码 0，红绿证据齐 |
+| SEC-05 | 绿 | 225 文件 0 命中，退出码 0，红绿证据齐 |
 | SEC-06 | **红** | Go 可达 12 条（工具链）、npm 2 包（1 high）；已逐条登记，未清零 |
 
 这是全表保留的那条红，与 `reports/security-precheck.md`、`reports/security-fix-log.md` 的判定一致。
