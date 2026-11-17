@@ -1,0 +1,17 @@
+== SEC-08 三条注入反例真机复测 2026-11-17 ==
+
+[1 SQL 注入]
+ 登录 payload -> HTTP 401 {"error":{"code":"invalid_credentials","message":"账号或口令不正确"}}
+
+ 材料 id payload -> HTTP 400 {"error":{"code":"bad_request","message":"材料 id 不合法"}}
+
+
+[2 XSS]
+ 上传 -> HTTP 202 {"task_id":"0c0254bdb7f345406a484c11e060059c","material_id":386,"status":"pending","status_url":"/api/tasks/0c0254bdb7f345406a484c11e060059c"}
+
+ 详情 -> HTTP 200 material_id= 386 源码含可执行 script 标签: False
+ 响应片段: {"id":386,"title":"XSS-\u003cscript\u003ealert(1)\u003c/script\u003e","content":"\u003cscript\u003ealert(1)\u003c/script\u003e正文","index_status":"ready","owner_id":1,"created_at":"2026-11-17T14:41:57Z
+
+[3 CSRF 伪造（不带 Authorization）]
+ POST /api/skills -> HTTP 401 {"error":{"code":"unauthorized","message":"缺少或格式不正确的 Authorization 头"}}
+

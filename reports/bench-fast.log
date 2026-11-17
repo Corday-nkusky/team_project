@@ -1,0 +1,11 @@
+== 压测 base=http://127.0.0.1:8080 levels=1,4,8 requests/level=8 mark=bench-335d548a ==
+
+submit  C= 1   8 次   133.29 req/s  p50=    7ms  p95=    8ms  errors=0
+submit  C= 4   8 次   418.73 req/s  p50=    7ms  p95=   11ms  errors=0
+submit  C= 8   8 次   432.63 req/s  p50=   14ms  p95=   16ms  errors=0
+list    C= 1   8 次   603.84 req/s  p50=    2ms  p95=    2ms  errors=0
+list    C= 4   8 次  1969.13 req/s  p50=    1ms  p95=    2ms  errors=0
+list    C= 8   8 次  1865.54 req/s  p50=    3ms  p95=    3ms  errors=0
+
+原始结果：reports/bench-fast.json
+结果：全绿

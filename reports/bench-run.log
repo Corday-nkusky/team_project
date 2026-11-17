@@ -1,0 +1,14 @@
+== 压测 base=http://127.0.0.1:8080 levels=1,4,8 requests/level=8 mark=bench-abd7ae8d ==
+
+submit  C= 1   8 次   130.02 req/s  p50=    7ms  p95=    9ms  errors=0
+submit  C= 4   8 次   116.49 req/s  p50=    7ms  p95=   12ms  errors=0
+submit  C= 8   8 次    77.44 req/s  p50=   13ms  p95=   15ms  errors=0
+list    C= 1   8 次   616.03 req/s  p50=    2ms  p95=    2ms  errors=0
+list    C= 4   8 次    557.9 req/s  p50=    2ms  p95=    2ms  errors=0
+list    C= 8   8 次   364.56 req/s  p50=    3ms  p95=    3ms  errors=0
+ask     C= 1   8 次     0.03 req/s  p50=24014ms  p95=46792ms  errors=0
+ask     C= 4   8 次     0.02 req/s  p50=27823ms  p95=64310ms  errors=0
+ask     C= 8   8 次     0.06 req/s  p50=16003ms  p95=27394ms  errors=0
+
+原始结果：reports/bench-raw.json
+结果：全绿

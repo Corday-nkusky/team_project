@@ -48,4 +48,4 @@ GET /api/mcp/calls          → 403（单测 TestStudentCannotListMCPCalls）
 ## 结论
 
 **判据满足（绿）**：e2e 与单测均实测 401/403/404 负向用例；班级隔离由 SQL 条件保证，不泄漏资源存在性。
-**复跑**：五服务启动后 `cd backend && go run ./cmd/e2e`（覆盖 R1/R2 权限负向）；本轮 Docker daemon 未运行，引用既有 e2e 单测通过结果，未重新跑全量 e2e。
+**复跑**：五服务已启动，`cd backend && go run ./cmd/e2e` 真机跑出 **81 通过 / 0 失败**（覆盖 R1/R2 权限负向断言），原始输出见 `reports/e2e-run.log`。

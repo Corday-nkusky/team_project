@@ -43,4 +43,4 @@ status=succeeded  attempts=1
 ## 结论
 
 **判据满足（绿）**：停消费者期间 `pending` / `attempts=0`，恢复后 `succeeded` / `attempts=1`，无"改了一半"现象；事务性发件箱实现见 `store/tasks.go`。
-**复跑**：五服务启动后执行 `node scripts/async-criteria.mjs --criterion 2`；本轮 Docker daemon 未运行，引用 2026-11-10 原始记录。
+**复跑**：五服务已启动，执行 `node scripts/async-criteria.mjs --criterion 2` 真机 **PASS**（2026-11-17 晚）：停 worker 后提交返回 `202` + `task_id`，2 秒后查询仍为 `pending`、`attempts=0`；恢复 worker 后终态 `succeeded`、`attempts=1`，无"改了一半"。原始输出 `reports/criterion-2.log`。

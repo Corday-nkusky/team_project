@@ -1,0 +1,110 @@
+{
+  "base": "http://127.0.0.1:8080",
+  "levels": [
+    1,
+    4,
+    8
+  ],
+  "requests_per_level": 8,
+  "mark": "bench-abd7ae8d",
+  "generated_at": "2026-11-17T14:33:56.709Z",
+  "results": {
+    "submit": [
+      {
+        "requests": 8,
+        "errors": 0,
+        "throughput_rps": 133.29,
+        "p50_ms": 7,
+        "p95_ms": 8,
+        "max_ms": 9,
+        "concurrency": 1,
+        "wall_seconds": 0.06
+      },
+      {
+        "requests": 8,
+        "errors": 0,
+        "throughput_rps": 418.73,
+        "p50_ms": 7,
+        "p95_ms": 11,
+        "max_ms": 12,
+        "concurrency": 4,
+        "wall_seconds": 0.02
+      },
+      {
+        "requests": 8,
+        "errors": 0,
+        "throughput_rps": 432.63,
+        "p50_ms": 14,
+        "p95_ms": 16,
+        "max_ms": 17,
+        "concurrency": 8,
+        "wall_seconds": 0.02
+      }
+    ],
+    "list": [
+      {
+        "requests": 8,
+        "errors": 0,
+        "throughput_rps": 603.84,
+        "p50_ms": 2,
+        "p95_ms": 2,
+        "max_ms": 2,
+        "concurrency": 1,
+        "wall_seconds": 0.01
+      },
+      {
+        "requests": 8,
+        "errors": 0,
+        "throughput_rps": 1969.13,
+        "p50_ms": 1,
+        "p95_ms": 2,
+        "max_ms": 2,
+        "concurrency": 4,
+        "wall_seconds": 0
+      },
+      {
+        "requests": 8,
+        "errors": 0,
+        "throughput_rps": 1865.54,
+        "p50_ms": 3,
+        "p95_ms": 3,
+        "max_ms": 4,
+        "concurrency": 8,
+        "wall_seconds": 0
+      }
+    ],
+    "ask": [
+      {
+        "requests": 8,
+        "errors": 0,
+        "throughput_rps": 0.03,
+        "p50_ms": 24014,
+        "p95_ms": 46792,
+        "max_ms": 56516,
+        "concurrency": 1,
+        "wall_seconds": 244.91
+      },
+      {
+        "requests": 8,
+        "errors": 0,
+        "throughput_rps": 0.07,
+        "p50_ms": 27823,
+        "p95_ms": 64310,
+        "max_ms": 64841,
+        "concurrency": 4,
+        "wall_seconds": 121.95
+      },
+      {
+        "requests": 8,
+        "errors": 0,
+        "throughput_rps": 0.23,
+        "p50_ms": 16003,
+        "p95_ms": 27394,
+        "max_ms": 34049,
+        "concurrency": 8,
+        "wall_seconds": 34.05
+      }
+    ]
+  },
+  "note": "submit/list 用修正后的墙钟吞吐重测（reports/bench-fast.json）；ask 沿用同参数原始测量，按 wall_seconds 重算吞吐。wall_seconds 在 JSON 中保留两位小数，极快接口以脚本输出的 throughput_rps 为准。"
+}
