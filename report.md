@@ -78,6 +78,10 @@ npx @fission-ai/openspec@latest validate --all --strict
 | 完整 Go e2e | **81 通过 / 0 失败** | `reports/e2e-run.log` |
 | 真实模型网关 | 全部通过；SSE 74 个 delta、2 条引用、回答 133 字 | `reports/verify-llm.log` |
 | 启动与探活 | 五服务 healthy；`/swagger.html`、`/openapi.json`、`/h5.html` 均 HTTP 200，OpenAPI 16 路径 | `reports/run-up.log` |
+| 并发 / 事务判据 | 两条均 PASS：重复提交复用同一任务、切片与向量点不翻倍；停 worker 时 pending、恢复后 succeeded | `reports/criterion-3.log`、`reports/criterion-2.log` |
+| 技能开关 | 关闭给定义、开启只给引导，`meta.skill` 同步变化 | `reports/skill-toggle.md` |
+| 注入反例 | SQL 注入 401/400、XSS 详情转义、CSRF 401，三条全绿 | `reports/sec08-run.log` |
+| 压测基线 | 提交 C=4 达 419 req/s、查询 C=4 达 1969 req/s；检索 P95 24～64 秒，瓶颈在模型网关 | `reports/bench.md` |
 
 **演示命令**（演示机器按序跑）：
 
@@ -110,6 +114,6 @@ node scripts/make-check.mjs && node scripts/make-check.mjs security
 - **干净目录启动**：`up.mjs` 从空 Compose 起了五服务，但沿用了既有 MySQL / Qdrant 数据卷，不是全新目录；跨机器换目录未测。
 - **交叉评审签字**：`docs/lesson-07/peer-review.md` 15 项全空，属队友项。
 - **公网地址**：未确认部署方式，见 TODO 9.7。
-- **观测面板三张图与压测数字**：`reports/bench.md` 尚未产出，报告不写编造数字。
+- **观测面板三张图与告警真触发**：未做。压测基线已产出（`reports/bench.md`），但课程要求的"至少一项改进后用同脚本同参数复测"未做，压测项不算全绿。
 - **依赖升级回归**：Go ≥ `go1.27.4` 与 `vite@8.3.8` 未升级，SEC-06 保持红。
-- **XSS / CSRF 浏览器侧判定**：服务端与 React 默认转义已由代码走查确认，未做浏览器源码截图；本系统用 Bearer 令牌、无会话 cookie，SameSite 不适用。
+- **XSS / CSRF 浏览器侧判定**：三条注入 payload 已真机绿（`reports/sec08-run.log`），但未做浏览器渲染截图；本系统用 Bearer 令牌、无会话 cookie，SameSite 不适用。
