@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CampusClaw API 文档（Swagger）</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
+  <style>
+    body { margin: 0; font-family: system-ui, "Microsoft YaHei", sans-serif; }
+    #fallback { display: none; padding: 2rem; line-height: 1.8; }
+    #fallback h1 { font-size: 22px; }
+    #fallback code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; }
+    .topbar { background: #1e293b; color: #fff; padding: 8px 18px; font-size: 13px; }
+    .topbar a { color: #a5b4fc; }
+  </style>
+</head>
+<body>
+  <div class="topbar">CampusClaw API · <a href="/openapi.json">原始 openapi.json</a> · <a href="/">返回应用</a></div>
+  <div id="swagger-ui"></div>
+  <div id="fallback">
+    <h1>Swagger UI 未能加载</h1>
+    <p>本页从公共 CDN 加载 Swagger UI。当前环境无法访问 CDN 时，可直接打开
+      <a href="/openapi.json"><code>/openapi.json</code></a> 查看完整接口描述（路径、入参出参、错误码、是否需要登录），
+      或运行 <code>python apitest/run_all.py</code> 用接口测试报告核对实际响应。</p>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"
+          onerror="document.getElementById('fallback').style.display='block'"></script>
+  <script>
+    if (window.SwaggerUIBundle) {
+      SwaggerUIBundle({
+        url: '/openapi.json',
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        presets: [SwaggerUIBundle.presets.apis],
+        layout: 'BaseLayout',
+        requestInterceptor: function (req) {
+          // 从应用登录态读取令牌，便于在页面直接「Try it out」。
+          try {
+            var token = localStorage.getItem('cc_access');
+            if (token) req.headers['Authorization'] = 'Bearer ' + token;
+          } catch (e) {}
+          return req;
+        }
+      });
+    } else {
+      document.getElementById('fallback').style.display = 'block';
+    }
+  </script>
+</body>
+</html>

@@ -32,3 +32,8 @@ seed-data/biology/manifest.json
 .DS_Store
 .idea/
 .vscode/
+
+# 接口测试的 HTML 报告（由 apitest/run_all.py 生成，不随作业提交）
+apitest/report.html
+__pycache__/
+*.pyc

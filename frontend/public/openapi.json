@@ -1,0 +1,186 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "CampusClaw API",
+    "version": "1.0.0",
+    "description": "班级知识工作台接口。除 /health、/api/login、/api/refresh、/api/logout 外均需 Bearer 令牌。所有业务查询按本班（class_id）隔离，跨班返回 404。"
+  },
+  "servers": [{ "url": "/" }],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string" },
+              "message": { "type": "string" }
+            }
+          }
+        }
+      },
+      "Skill": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" }, "name": { "type": "string" },
+          "kind": { "type": "string", "enum": ["solve_hint"] },
+          "enabled": { "type": "boolean" }, "instruction": { "type": "string" },
+          "tool_refs": { "type": "array", "items": { "type": "string" } },
+          "version": { "type": "integer" }, "updated_at": { "type": "string" }
+        }
+      },
+      "MCPServer": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" }, "name": { "type": "string" },
+          "base_url": { "type": "string" },
+          "token_configured": { "type": "boolean", "description": "是否已配置令牌；响应绝不回传令牌明文" },
+          "connected": { "type": "boolean" }, "last_error": { "type": "string" }
+        }
+      },
+      "MCPTool": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" }, "description": { "type": "string" },
+          "inputSchema": { "type": "object" }
+        }
+      },
+      "MCPCall": {
+        "type": "object",
+        "description": "只增不改的调用记录，五问齐全",
+        "properties": {
+          "id": { "type": "integer" }, "tool_ref": { "type": "string" },
+          "result": { "type": "string", "enum": ["ok", "denied", "error"] },
+          "actor_name": { "type": "string" }, "conversation_id": { "type": "string" },
+          "round": { "type": "integer" }, "detail": { "type": "string" },
+          "created_at": { "type": "string" }
+        }
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "依赖探活（免认证）", "security": [],
+        "responses": {
+          "200": { "description": "全部依赖就绪" },
+          "503": { "description": "依赖不可用，deps 字段给出原因" }
+        }
+      }
+    },
+    "/api/login": {
+      "post": {
+        "summary": "登录取双令牌", "security": [],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": {
+          "type": "object", "required": ["username", "password"],
+          "properties": { "username": { "type": "string" }, "password": { "type": "string" } }
+        } } } },
+        "responses": {
+          "200": { "description": "access_token / refresh_token / user" },
+          "401": { "description": "账号或口令错误", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/refresh": {
+      "post": {
+        "summary": "续期（令牌轮换）", "security": [],
+        "requestBody": { "content": { "application/json": { "schema": {
+          "type": "object", "properties": { "refresh_token": { "type": "string" } }
+        } } } },
+        "responses": { "200": { "description": "新令牌" }, "401": { "description": "令牌无效" } }
+      }
+    },
+    "/api/logout": {
+      "post": { "summary": "登出并作废 refresh token", "security": [], "responses": { "200": { "description": "成功" } } }
+    },
+    "/api/materials": {
+      "get": { "summary": "本班材料列表", "responses": { "200": { "description": "材料数组" }, "401": { "description": "未认证" } } },
+      "post": { "summary": "上传材料（仅教师，返回 202 + 任务标识）", "responses": { "202": { "description": "已入队" }, "403": { "description": "非教师" } } }
+    },
+    "/api/ask": {
+      "post": {
+        "summary": "流式问答（SSE）：meta → delta* → done",
+        "description": "meta 事件含 citations / no_evidence / skill / tool_calls；工具调用先于正文推送。失败以 error 结束。",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": {
+          "type": "object", "required": ["question"],
+          "properties": { "question": { "type": "string" } }
+        } } } },
+        "responses": {
+          "200": { "description": "text/event-stream" },
+          "400": { "description": "空问题", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/conversations": {
+      "get": { "summary": "本人本班历史问答（limit 默认 20 上限 50）", "responses": { "200": { "description": "items 数组" }, "400": { "description": "limit 非法" } } }
+    },
+    "/api/tasks/{task_id}": {
+      "get": { "summary": "只读任务状态", "parameters": [{ "name": "task_id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "状态" }, "404": { "description": "不存在" } } }
+    },
+    "/api/skills": {
+      "get": { "summary": "本班技能列表（登录可读）", "responses": { "200": { "description": "items 数组" }, "401": { "description": "未认证" } } },
+      "post": {
+        "summary": "新建/更新解题引导技能（仅教师）",
+        "description": "tool_refs 格式 工具名@服务器名；保存前校验格式、工具在发现清单内、服务器已连接，否则 400 bad_tool_ref。",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": {
+          "type": "object", "required": ["name", "instruction"],
+          "properties": {
+            "id": { "type": "integer" }, "name": { "type": "string" },
+            "kind": { "type": "string", "enum": ["solve_hint"] },
+            "enabled": { "type": "boolean" }, "instruction": { "type": "string" },
+            "tool_refs": { "type": "array", "items": { "type": "string" } }
+          }
+        } } } },
+        "responses": {
+          "200": { "description": "保存后的技能", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Skill" } } } },
+          "400": { "description": "参数或工具引用非法" },
+          "403": { "description": "非教师" }
+        }
+      }
+    },
+    "/api/skills/{id}": {
+      "delete": { "summary": "删除本班技能（仅教师）", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "成功" }, "404": { "description": "不存在或跨班" } } }
+    },
+    "/api/mcp/servers": {
+      "get": { "summary": "本班工具服务列表（仅教师；不含令牌）", "responses": { "200": { "description": "items 数组" }, "403": { "description": "非教师" } } },
+      "post": {
+        "summary": "登记工具服务（仅教师）",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": {
+          "type": "object", "required": ["name", "base_url"],
+          "properties": {
+            "name": { "type": "string" }, "base_url": { "type": "string" },
+            "auth_token": { "type": "string", "description": "令牌明文只写不回；留空表示不改动" }
+          }
+        } } } },
+        "responses": { "200": { "description": "登记结果，只回 token_configured 布尔", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MCPServer" } } } }, "400": { "description": "参数非法" }, "403": { "description": "非教师" } }
+      }
+    },
+    "/api/mcp/servers/{id}/connect": {
+      "post": { "summary": "连接：握手 + 工具发现两步（仅教师）", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "connected + tools" }, "502": { "description": "握手或发现失败，停在未连接" } } }
+    },
+    "/api/mcp/servers/{id}/disconnect": {
+      "post": { "summary": "断开：清空清单且不可再调用（仅教师）", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "成功" } } }
+    },
+    "/api/mcp/servers/{id}/tools": {
+      "get": { "summary": "工具发现清单（仅教师）", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "items 数组" }, "404": { "description": "跨班或不存在" } } }
+    },
+    "/api/mcp/servers/{id}": {
+      "delete": { "summary": "删除登记（仅教师）", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "成功" } } }
+    },
+    "/api/mcp/calls": {
+      "get": {
+        "summary": "本班调用记录（仅教师，只增不改）",
+        "parameters": [{ "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20, "maximum": 50 } }],
+        "responses": {
+          "200": { "description": "items 数组，每条含五问字段", "content": { "application/json": { "schema": { "type": "object", "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/MCPCall" } } } } } } },
+          "400": { "description": "limit 非法" }, "403": { "description": "非教师" }
+        }
+      }
+    }
+  }
+}

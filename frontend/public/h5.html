@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>CampusClaw 轻量端</title>
+  <style>
+    :root { --brand:#4f46e5; --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --ok:#059669; --bad:#dc2626; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:system-ui,"Microsoft YaHei",sans-serif; background:#f3f4f6; color:var(--ink); }
+    header { background:var(--brand); color:#fff; padding:16px 20px; }
+    header h1 { margin:0; font-size:18px; } header p { margin:4px 0 0; font-size:12px; opacity:.85; }
+    main { padding:16px; max-width:520px; margin:0 auto; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:14px; }
+    .card h2 { font-size:15px; margin:0 0 12px; }
+    label { display:block; font-size:13px; color:var(--muted); margin-bottom:10px; }
+    input, textarea { width:100%; margin-top:4px; padding:10px; border:1px solid #d1d5db; border-radius:8px; font-size:14px; font-family:inherit; }
+    button { width:100%; padding:12px; background:var(--brand); color:#fff; border:none; border-radius:8px; font-size:15px; margin-top:6px; }
+    button:disabled { opacity:.5; }
+    button.ghost { background:#fff; color:var(--brand); border:1px solid var(--brand); }
+    .step { font-size:12px; color:#3730a3; background:#eef2ff; padding:4px 8px; border-radius:999px; display:inline-block; margin-bottom:10px; }
+    .state { font-size:13px; padding:10px 12px; border-radius:8px; margin-top:10px; word-break:break-all; }
+    .state.ok { background:#ecfdf5; color:var(--ok); } .state.bad { background:#fef2f2; color:var(--bad); }
+    .state.info { background:#f3f4f6; color:var(--muted); }
+    .log { font-family:ui-monospace,monospace; font-size:11px; color:#4b5563; background:#f9fafb; padding:10px; border-radius:8px; white-space:pre-wrap; margin-top:10px; max-height:220px; overflow:auto; }
+    .hidden { display:none; }
+  </style>
+</head>
+<body>
+  <header><h1>CampusClaw · 轻量端</h1><p>复用主应用同一套接口与 Bearer 认证 · 手机浏览器四步走查</p></header>
+  <main>
+    <section class="card" id="loginCard">
+      <span class="step">第 1 步 · 登录取令牌</span>
+      <h2>登录</h2>
+      <label>用户名<input id="user" value="student1" autocomplete="username"></label>
+      <label>口令<input id="pass" type="password" value="student123" autocomplete="current-password"></label>
+      <button id="loginBtn">登录</button>
+      <div id="loginState"></div>
+    </section>
+
+    <section class="card hidden" id="submitCard">
+      <span class="step">第 2 步 · 提交返回 202 + 任务标识</span>
+      <h2>提交材料（异步任务）</h2>
+      <label>讲义标题<input id="title" value="H5 走查讲义"></label>
+      <label>讲义正文<textarea id="content" rows="3">酶是活细胞产生的生物催化剂，化学本质主要是蛋白质。</textarea></label>
+      <button id="submitBtn">提交并返回号码牌</button>
+      <div id="submitState"></div>
+    </section>
+
+    <section class="card hidden" id="pollCard">
+      <span class="step">第 3 步 · 轮询 pending → running → succeeded</span>
+      <h2>任务进度</h2>
+      <button id="pollBtn" class="ghost">从第 2 步的任务标识开始轮询</button>
+      <div id="pollState"></div>
+      <div class="log" id="pollLog"></div>
+    </section>
+
+    <section class="card hidden" id="crossCard">
+      <span class="step">第 4 步 · 换班查别班讲义返回 404</span>
+      <h2>跨班隔离核验</h2>
+      <label>别班材料 id（班级 B 的讲义 id）<input id="otherId" type="number" value="2"></label>
+      <button id="crossBtn" class="ghost">尝试读取</button>
+      <div id="crossState"></div>
+    </section>
+
+    <p style="font-size:12px;color:#9ca3af;text-align:center">轻量端与主应用共用 <code>/api</code> 与会话；登录、提交、读取均写入服务端审计日志。</p>
+  </main>
+  <script>
+    const $ = (id) => document.getElementById(id)
+    let token = sessionStorage.getItem('h5_access') || ''
+    let taskId = ''
+    const state = (id, msg, kind) => { const e = $(id); e.textContent = msg; e.className = 'state ' + (kind || 'info') }
+    const headers = () => ({ 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) })
+    async function req(path, opts = {}) {
+      const res = await fetch(path, { ...opts, headers: { ...headers(), ...(opts.headers || {}) } })
+      let body = null; try { body = await res.json() } catch (_) {}
+      return { status: res.status, body }
+    }
+    function showApp() {
+      $('loginCard').classList.add('hidden')
+      ;['submitCard', 'pollCard', 'crossCard'].forEach((id) => $(id).classList.remove('hidden'))
+    }
+    if (token) showApp()
+
+    $('loginBtn').onclick = async () => {
+      state('loginState', '登录中…')
+      const r = await req('/api/login', { method: 'POST', body: JSON.stringify({ username: $('user').value, password: $('pass').value }) })
+      if (r.status === 200 && r.body && r.body.access_token) {
+        token = r.body.access_token
+        sessionStorage.setItem('h5_access', token)
+        state('loginState', `登录成功 · ${r.body.user.display_name}（${r.body.user.class_name}）`, 'ok')
+        showApp()
+      } else {
+        state('loginState', `登录失败：HTTP ${r.status} ${(r.body && r.body.error && r.body.error.message) || ''}`, 'bad')
+      }
+    }
+
+    $('submitBtn').onclick = async () => {
+      if (!$('title').value.trim() || !$('content').value.trim()) { state('submitState', '标题与正文不能为空', 'bad'); return }
+      state('submitState', '提交中…')
+      const r = await req('/api/materials', { method: 'POST', body: JSON.stringify({ title: $('title').value, content: $('content').value }) })
+      if (r.status === 202 && r.body && r.body.task_id) {
+        taskId = r.body.task_id
+        state('submitState', `已受理 · HTTP 202\ntask_id=${taskId}\nstatus=${r.body.status}\n状态地址=${r.body.status_url}`, 'ok')
+      } else {
+        state('submitState', `提交失败：HTTP ${r.status} ${(r.body && r.body.error && r.body.error.message) || ''}`, 'bad')
+      }
+    }
+
+    $('pollBtn').onclick = async () => {
+      if (!taskId) { state('pollState', '请先完成第 2 步拿到 task_id', 'bad'); return }
+      state('pollState', '轮询中…')
+      let log = `task_id=${taskId}\n\n`, seen = []
+      $('pollLog').textContent = log
+      for (let i = 0; i < 60; i++) {
+        const r = await req('/api/tasks/' + taskId)
+        const s = (r.body && r.body.status) || ('HTTP ' + r.status)
+        if (seen.indexOf(s) < 0) { seen.push(s); log += '→ ' + s + '\n'; $('pollLog').textContent = log }
+        if (['succeeded', 'failed', 'dead'].indexOf(s) >= 0) {
+          state('pollState', `终态：${s}（经历 ${seen.join(' → ')}）`, s === 'succeeded' ? 'ok' : 'bad')
+          return
+        }
+        await new Promise((resolve) => setTimeout(resolve, 500))
+      }
+      state('pollState', '轮询超时，任务仍未到终态', 'bad')
+    }
+
+    $('crossBtn').onclick = async () => {
+      const id = $('otherId').value
+      const r = await req('/api/materials/' + id)
+      if (r.status === 404) state('crossState', `读取别班材料 id=${id} → HTTP 404（跨班不可见，符合预期）`, 'ok')
+      else if (r.status === 200) state('crossState', 'HTTP 200：该 id 属于本班，请换一个别班材料 id 重试', 'bad')
+      else state('crossState', `HTTP ${r.status} ${(r.body && r.body.error && r.body.error.message) || ''}`, 'bad')
+    }
+  </script>
+</body>
+</html>

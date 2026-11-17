@@ -1,0 +1,54 @@
+name: quality-gate
+
+# 课程第 9/11 课：两条门禁挂进 CI，命令与本地 make check / make check-security 同一条。
+# main 保护需在仓库设置里开启「Require a pull request before merging」+「Require status checks」，
+# 并把本工作流的两个 check（check / check-security）设为必需（见 docs/ci-setup.md）。
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.27'
+          cache-dependency-path: backend/go.sum
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install frontend deps
+        run: npm ci --no-audit --no-fund
+        working-directory: frontend
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+
+      - name: make check
+        run: make check
+
+  check-security:
+    name: check-security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.27'
+          cache-dependency-path: backend/go.sum
+
+      - name: make check-security
+        run: make check-security

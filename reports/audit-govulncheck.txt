@@ -1,0 +1,327 @@
+=== Symbol Results ===
+
+Vulnerability #1: GO-2026-6859
+    HTTP/1 server crash due to MaxBytesReader header race in net/http
+  More info: https://pkg.go.dev/vuln/GO-2026-6859
+  Standard library
+    Found in: net/http@go1.27.1
+    Fixed in: net/http@go1.27.4
+    Example traces found:
+      #1: internal/deps/deps.go:24:21: deps.New calls sql.Open, which eventually calls http.CanonicalHeaderKey
+      #2: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do
+      #3: cmd/e2e/main.go:506:45: e2e.checkHTTPContract calls http.Header.Get
+      #4: internal/llm/llm.go:166:16: llm.Client.ChatStream calls http.Header.Set
+      #5: internal/qdrant/qdrant.go:161:40: qdrant.Client.Healthy calls http.NewRequestWithContext
+      #6: internal/httpapi/router.go:119:12: httpapi.Server.Handler calls http.ServeMux.Handle
+      #7: internal/httpapi/router.go:107:16: httpapi.Server.Handler calls http.ServeMux.HandleFunc
+      #8: cmd/mcp-server/main.go:98:30: mcp.main calls http.Server.ListenAndServe
+      #9: cmd/server/main.go:105:18: server.main calls http.Server.Shutdown
+      #10: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http.body.Close
+      #11: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http.body.Read
+      #12: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http.bodyEOFSignal.Close
+      #13: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http.bodyEOFSignal.Read
+      #14: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http.bodyLocked.Read
+      #15: cmd/e2e/main.go:152:17: e2e.checkRequestID calls io.Copy, which eventually calls http.bufioFlushWriter.Write
+      #16: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http.cancelTimerBody.Close
+      #17: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http.cancelTimerBody.Read
+      #18: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which eventually calls http.checkConnErrorWriter.Write
+      #19: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which eventually calls http.chunkWriter.Write
+      #20: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http.connReader.Read
+      #21: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http2.transportResponseBody.Close, which eventually calls http.expectContinueReader.Close
+      #22: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http.expectContinueReader.Read
+      #23: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http.gzipReader.Close
+      #24: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http.gzipReader.Read
+      #25: internal/httpapi/middleware.go:82:10: httpapi.statusRecorder.Flush calls http.http2ResponseWriter.Flush
+      #26: internal/auth/auth.go:110:23: auth.NewRefreshToken calls rand.Read, which eventually calls http.loggingConn.Read
+      #27: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which calls http.loggingConn.Write
+      #28: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http2.transportResponseBody.Close, which eventually calls http.maxBytesReader.Close
+      #29: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http.maxBytesReader.Read
+      #30: cmd/server/main.go:99:15: server.main calls signal.Notify, which eventually calls http.onceCloseListener.Close
+      #31: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http.persistConn.Read
+      #32: cmd/e2e/main.go:152:17: e2e.checkRequestID calls io.Copy, which eventually calls http.persistConnWriter.ReadFrom
+      #33: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which eventually calls http.persistConnWriter.Write
+      #34: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http2.transportResponseBody.Close, which eventually calls http.readTrackingBody.Close
+      #35: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http.readTrackingBody.Read
+      #36: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http.readWriteCloserBody.Read
+      #37: internal/httpapi/middleware.go:82:10: httpapi.statusRecorder.Flush calls http.response.Flush
+      #38: cmd/e2e/main.go:152:17: e2e.checkRequestID calls io.Copy, which eventually calls http.response.ReadFrom
+      #39: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which calls http.response.Write
+      #40: internal/httpapi/middleware.go:77:30: httpapi.statusRecorder.WriteHeader calls http.response.WriteHeader
+      #41: cmd/e2e/main.go:152:17: e2e.checkRequestID calls io.Copy, which eventually calls http.response.WriteString
+      #42: internal/indexer/worker.go:123:56: indexer.Worker.Run calls http.transportReadFromServerError.Error
+
+Vulnerability #2: GO-2026-6809
+    Distrust compromised intermediate certificates in crypto/x509
+  More info: https://pkg.go.dev/vuln/GO-2026-6809
+  Standard library
+    Found in: crypto/x509@go1.27.1
+    Fixed in: crypto/x509@go1.27.3
+    Example traces found:
+      #1: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which eventually calls x509.Certificate.Verify
+
+Vulnerability #3: GO-2026-6617
+    HTTP/2 server crash due to HPACK encoder race in net/http
+  More info: https://pkg.go.dev/vuln/GO-2026-6617
+  Standard library
+    Found in: net/http/internal/http2@go1.27.1
+    Fixed in: net/http/internal/http2@go1.27.2
+    Example traces found:
+      #1: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.NetHTTPClientConn.Close
+      #2: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.NetHTTPClientConn.Close
+      #3: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.NetHTTPClientConn.RoundTrip
+      #4: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.NetHTTPClientConn.RoundTrip
+      #5: cmd/server/main.go:105:18: server.main calls http.Server.Shutdown, which calls http2.Server.GracefulShutdown
+      #6: cmd/server/main.go:105:18: server.main calls http.Server.Shutdown, which calls http2.Server.GracefulShutdown
+      #7: cmd/mcp-server/main.go:98:30: mcp.main calls http.Server.ListenAndServe, which eventually calls http2.Server.ServeConn
+      #8: cmd/mcp-server/main.go:98:30: mcp.main calls http.Server.ListenAndServe, which eventually calls http2.Server.ServeConn
+      #9: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.Transport.AddConn
+      #10: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.Transport.AddConn
+      #11: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.Transport.NewClientConn
+      #12: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.Transport.NewClientConn
+      #13: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.Transport.RoundTrip
+      #14: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.Transport.RoundTrip
+      #15: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which eventually calls http2.bufferedWriterTimeoutWriter.Write
+      #16: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which eventually calls http2.bufferedWriterTimeoutWriter.Write
+      #17: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which eventually calls http2.chunkWriter.Write
+      #18: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which eventually calls http2.chunkWriter.Write
+      #19: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http2.gzipReader.Close
+      #20: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http2.gzipReader.Close
+      #21: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http2.gzipReader.Read
+      #22: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http2.gzipReader.Read
+      #23: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.requestBody.Close
+      #24: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.requestBody.Close
+      #25: internal/httpapi/middleware.go:82:10: httpapi.statusRecorder.Flush calls http.http2ResponseWriter.Flush, which calls http2.responseWriter.FlushError
+      #26: internal/httpapi/middleware.go:82:10: httpapi.statusRecorder.Flush calls http.http2ResponseWriter.Flush, which calls http2.responseWriter.FlushError
+      #27: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which calls http2.responseWriter.Write
+      #28: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which calls http2.responseWriter.Write
+      #29: internal/httpapi/middleware.go:77:30: httpapi.statusRecorder.WriteHeader calls http2.responseWriter.WriteHeader
+      #30: internal/httpapi/middleware.go:77:30: httpapi.statusRecorder.WriteHeader calls http2.responseWriter.WriteHeader
+      #31: cmd/mcp-server/main.go:98:30: mcp.main calls http.Server.ListenAndServe, which eventually calls http2.responseWriter.WriteString
+      #32: cmd/mcp-server/main.go:98:30: mcp.main calls http.Server.ListenAndServe, which eventually calls http2.responseWriter.WriteString
+      #33: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which eventually calls http2.stickyErrWriter.Write
+      #34: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which eventually calls http2.stickyErrWriter.Write
+      #35: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http2.transportResponseBody.Close
+      #36: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http2.transportResponseBody.Close
+      #37: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http2.transportResponseBody.Read
+      #38: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http2.transportResponseBody.Read
+
+Vulnerability #4: GO-2026-6613
+    HTTP/1 server connection desynchronization after 2xx CONNECT response in
+    net/http
+  More info: https://pkg.go.dev/vuln/GO-2026-6613
+  Standard library
+    Found in: net/http@go1.27.1
+    Fixed in: net/http@go1.27.2
+    Example traces found:
+      #1: internal/deps/deps.go:24:21: deps.New calls sql.Open, which eventually calls http.CanonicalHeaderKey
+      #2: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do
+      #3: cmd/e2e/main.go:506:45: e2e.checkHTTPContract calls http.Header.Get
+      #4: internal/llm/llm.go:166:16: llm.Client.ChatStream calls http.Header.Set
+      #5: internal/qdrant/qdrant.go:161:40: qdrant.Client.Healthy calls http.NewRequestWithContext
+      #6: internal/httpapi/router.go:119:12: httpapi.Server.Handler calls http.ServeMux.Handle
+      #7: internal/httpapi/router.go:107:16: httpapi.Server.Handler calls http.ServeMux.HandleFunc
+      #8: cmd/mcp-server/main.go:98:30: mcp.main calls http.Server.ListenAndServe
+      #9: cmd/server/main.go:105:18: server.main calls http.Server.Shutdown
+      #10: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http.body.Close
+      #11: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http.body.Read
+      #12: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http.bodyEOFSignal.Close
+      #13: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http.bodyEOFSignal.Read
+      #14: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http.bodyLocked.Read
+      #15: cmd/e2e/main.go:152:17: e2e.checkRequestID calls io.Copy, which eventually calls http.bufioFlushWriter.Write
+      #16: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http.cancelTimerBody.Close
+      #17: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http.cancelTimerBody.Read
+      #18: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which eventually calls http.checkConnErrorWriter.Write
+      #19: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which eventually calls http.chunkWriter.Write
+      #20: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http.connReader.Read
+      #21: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http2.transportResponseBody.Close, which eventually calls http.expectContinueReader.Close
+      #22: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http.expectContinueReader.Read
+      #23: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http.gzipReader.Close
+      #24: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http.gzipReader.Read
+      #25: internal/httpapi/middleware.go:82:10: httpapi.statusRecorder.Flush calls http.http2ResponseWriter.Flush
+      #26: internal/auth/auth.go:110:23: auth.NewRefreshToken calls rand.Read, which eventually calls http.loggingConn.Read
+      #27: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which calls http.loggingConn.Write
+      #28: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http2.transportResponseBody.Close, which eventually calls http.maxBytesReader.Close
+      #29: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http.maxBytesReader.Read
+      #30: cmd/server/main.go:99:15: server.main calls signal.Notify, which eventually calls http.onceCloseListener.Close
+      #31: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http.persistConn.Read
+      #32: cmd/e2e/main.go:152:17: e2e.checkRequestID calls io.Copy, which eventually calls http.persistConnWriter.ReadFrom
+      #33: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which eventually calls http.persistConnWriter.Write
+      #34: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http2.transportResponseBody.Close, which eventually calls http.readTrackingBody.Close
+      #35: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http.readTrackingBody.Read
+      #36: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http.readWriteCloserBody.Read
+      #37: internal/httpapi/middleware.go:82:10: httpapi.statusRecorder.Flush calls http.response.Flush
+      #38: cmd/e2e/main.go:152:17: e2e.checkRequestID calls io.Copy, which eventually calls http.response.ReadFrom
+      #39: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which calls http.response.Write
+      #40: internal/httpapi/middleware.go:77:30: httpapi.statusRecorder.WriteHeader calls http.response.WriteHeader
+      #41: cmd/e2e/main.go:152:17: e2e.checkRequestID calls io.Copy, which eventually calls http.response.WriteString
+      #42: internal/indexer/worker.go:123:56: indexer.Worker.Run calls http.transportReadFromServerError.Error
+
+Vulnerability #5: GO-2026-6612
+    Double flow control refund on HTTP/2 server streams in net/http
+  More info: https://pkg.go.dev/vuln/GO-2026-6612
+  Standard library
+    Found in: net/http/internal/http2@go1.27.1
+    Fixed in: net/http/internal/http2@go1.27.2
+    Example traces found:
+      #1: cmd/mcp-server/main.go:98:30: mcp.main calls http.Server.ListenAndServe, which eventually calls http2.Server.ServeConn
+      #2: cmd/mcp-server/main.go:98:30: mcp.main calls http.Server.ListenAndServe, which eventually calls http2.Server.ServeConn
+      #3: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.requestBody.Close
+      #4: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.requestBody.Close
+      #5: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http2.requestBody.Read
+      #6: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http2.requestBody.Read
+
+Vulnerability #6: GO-2026-6611
+    Excessive CPU consumption from repeated initial window changes in net/http
+  More info: https://pkg.go.dev/vuln/GO-2026-6611
+  Standard library
+    Found in: net/http/internal/http2@go1.27.1
+    Fixed in: net/http/internal/http2@go1.27.2
+    Example traces found:
+      #1: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.NetHTTPClientConn.Close
+      #2: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.NetHTTPClientConn.Close
+      #3: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.NetHTTPClientConn.RoundTrip
+      #4: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.NetHTTPClientConn.RoundTrip
+      #5: cmd/server/main.go:105:18: server.main calls http.Server.Shutdown, which calls http2.Server.GracefulShutdown
+      #6: cmd/server/main.go:105:18: server.main calls http.Server.Shutdown, which calls http2.Server.GracefulShutdown
+      #7: cmd/mcp-server/main.go:98:30: mcp.main calls http.Server.ListenAndServe, which eventually calls http2.Server.ServeConn
+      #8: cmd/mcp-server/main.go:98:30: mcp.main calls http.Server.ListenAndServe, which eventually calls http2.Server.ServeConn
+      #9: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.Transport.AddConn
+      #10: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.Transport.AddConn
+      #11: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.Transport.NewClientConn
+      #12: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.Transport.NewClientConn
+      #13: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.Transport.RoundTrip
+      #14: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.Transport.RoundTrip
+      #15: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which eventually calls http2.bufferedWriterTimeoutWriter.Write
+      #16: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which eventually calls http2.bufferedWriterTimeoutWriter.Write
+      #17: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which eventually calls http2.chunkWriter.Write
+      #18: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which eventually calls http2.chunkWriter.Write
+      #19: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http2.gzipReader.Close
+      #20: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http2.gzipReader.Close
+      #21: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http2.gzipReader.Read
+      #22: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http2.gzipReader.Read
+      #23: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.requestBody.Close
+      #24: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.requestBody.Close
+      #25: internal/httpapi/middleware.go:82:10: httpapi.statusRecorder.Flush calls http.http2ResponseWriter.Flush, which calls http2.responseWriter.FlushError
+      #26: internal/httpapi/middleware.go:82:10: httpapi.statusRecorder.Flush calls http.http2ResponseWriter.Flush, which calls http2.responseWriter.FlushError
+      #27: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which calls http2.responseWriter.Write
+      #28: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which calls http2.responseWriter.Write
+      #29: internal/httpapi/middleware.go:77:30: httpapi.statusRecorder.WriteHeader calls http2.responseWriter.WriteHeader
+      #30: internal/httpapi/middleware.go:77:30: httpapi.statusRecorder.WriteHeader calls http2.responseWriter.WriteHeader
+      #31: cmd/mcp-server/main.go:98:30: mcp.main calls http.Server.ListenAndServe, which eventually calls http2.responseWriter.WriteString
+      #32: cmd/mcp-server/main.go:98:30: mcp.main calls http.Server.ListenAndServe, which eventually calls http2.responseWriter.WriteString
+      #33: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which eventually calls http2.stickyErrWriter.Write
+      #34: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which eventually calls http2.stickyErrWriter.Write
+      #35: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http2.transportResponseBody.Close
+      #36: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http2.transportResponseBody.Close
+      #37: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http2.transportResponseBody.Read
+      #38: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http2.transportResponseBody.Read
+
+Vulnerability #7: GO-2026-6610
+    HTTP/2 transport accepts malformed framing-related headers in net/http
+  More info: https://pkg.go.dev/vuln/GO-2026-6610
+  Standard library
+    Found in: net/http/internal/http2@go1.27.1
+    Fixed in: net/http/internal/http2@go1.27.2
+    Example traces found:
+      #1: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.Transport.AddConn
+      #2: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.Transport.AddConn
+      #3: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.Transport.NewClientConn
+      #4: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.Transport.NewClientConn
+      #5: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.Transport.RoundTrip
+      #6: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.Transport.RoundTrip
+
+Vulnerability #8: GO-2026-6609
+    Lack of limit on size of parsed Range headers in net/http
+  More info: https://pkg.go.dev/vuln/GO-2026-6609
+  Standard library
+    Found in: net/http@go1.27.1
+    Fixed in: net/http@go1.27.2
+    Example traces found:
+      #1: internal/httpapi/router.go:256:23: httpapi.staticHandler calls http.fileHandler.ServeHTTP
+
+Vulnerability #9: GO-2026-6608
+    Memory limit bypass when parsing MIME headers in net/textproto,
+    mime/multipart
+  More info: https://pkg.go.dev/vuln/GO-2026-6608
+  Standard library
+    Found in: mime/multipart@go1.27.1
+    Fixed in: mime/multipart@go1.27.2
+    Example traces found:
+      #1: internal/httpapi/materials.go:235:32: httpapi.readMultipartMaterial calls http.Request.ParseMultipartForm, which calls multipart.Reader.ReadForm
+      #2: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls textproto.Reader.ReadMIMEHeader
+
+Vulnerability #10: GO-2026-6607
+    Reject malformed ECH outer extension references in crypto/tls
+  More info: https://pkg.go.dev/vuln/GO-2026-6607
+  Standard library
+    Found in: crypto/tls@go1.27.1
+    Fixed in: crypto/tls@go1.27.2
+    Example traces found:
+      #1: internal/deps/deps.go:24:21: deps.New calls sql.Open, which eventually calls tls.Conn.Handshake
+      #2: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls tls.Conn.HandshakeContext
+      #3: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls tls.Conn.Read
+      #4: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which calls tls.Conn.Write
+      #5: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls tls.Dialer.DialContext
+
+Vulnerability #11: GO-2026-6605
+    HTTP/1 client connection desynchronization after CONNECT rejection in
+    net/http
+  More info: https://pkg.go.dev/vuln/GO-2026-6605
+  Standard library
+    Found in: net/http@go1.27.1
+    Fixed in: net/http@go1.27.2
+    Example traces found:
+      #1: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do
+
+Vulnerability #12: GO-2026-6603
+    HTTP/2 server memory exhaustion due to Trailer headers in net/http
+  More info: https://pkg.go.dev/vuln/GO-2026-6603
+  Standard library
+    Found in: net/http/internal/http2@go1.27.1
+    Fixed in: net/http/internal/http2@go1.27.2
+    Example traces found:
+      #1: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.NetHTTPClientConn.Close
+      #2: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.NetHTTPClientConn.Close
+      #3: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.NetHTTPClientConn.RoundTrip
+      #4: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.NetHTTPClientConn.RoundTrip
+      #5: cmd/server/main.go:105:18: server.main calls http.Server.Shutdown, which calls http2.Server.GracefulShutdown
+      #6: cmd/server/main.go:105:18: server.main calls http.Server.Shutdown, which calls http2.Server.GracefulShutdown
+      #7: cmd/mcp-server/main.go:98:30: mcp.main calls http.Server.ListenAndServe, which eventually calls http2.Server.ServeConn
+      #8: cmd/mcp-server/main.go:98:30: mcp.main calls http.Server.ListenAndServe, which eventually calls http2.Server.ServeConn
+      #9: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.Transport.AddConn
+      #10: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.Transport.AddConn
+      #11: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.Transport.NewClientConn
+      #12: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.Transport.NewClientConn
+      #13: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.Transport.RoundTrip
+      #14: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.Transport.RoundTrip
+      #15: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which eventually calls http2.bufferedWriterTimeoutWriter.Write
+      #16: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which eventually calls http2.bufferedWriterTimeoutWriter.Write
+      #17: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which eventually calls http2.chunkWriter.Write
+      #18: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which eventually calls http2.chunkWriter.Write
+      #19: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http2.gzipReader.Close
+      #20: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http2.gzipReader.Close
+      #21: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http2.gzipReader.Read
+      #22: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http2.gzipReader.Read
+      #23: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.requestBody.Close
+      #24: internal/qdrant/qdrant.go:166:24: qdrant.Client.Healthy calls http.Client.Do, which eventually calls http2.requestBody.Close
+      #25: internal/httpapi/middleware.go:82:10: httpapi.statusRecorder.Flush calls http.http2ResponseWriter.Flush, which calls http2.responseWriter.FlushError
+      #26: internal/httpapi/middleware.go:82:10: httpapi.statusRecorder.Flush calls http.http2ResponseWriter.Flush, which calls http2.responseWriter.FlushError
+      #27: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which calls http2.responseWriter.Write
+      #28: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which calls http2.responseWriter.Write
+      #29: internal/httpapi/middleware.go:77:30: httpapi.statusRecorder.WriteHeader calls http2.responseWriter.WriteHeader
+      #30: internal/httpapi/middleware.go:77:30: httpapi.statusRecorder.WriteHeader calls http2.responseWriter.WriteHeader
+      #31: cmd/mcp-server/main.go:98:30: mcp.main calls http.Server.ListenAndServe, which eventually calls http2.responseWriter.WriteString
+      #32: cmd/mcp-server/main.go:98:30: mcp.main calls http.Server.ListenAndServe, which eventually calls http2.responseWriter.WriteString
+      #33: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which eventually calls http2.stickyErrWriter.Write
+      #34: internal/qa/qa.go:419:14: qa.FallbackAnswer calls fmt.Fprintf, which eventually calls http2.stickyErrWriter.Write
+      #35: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http2.transportResponseBody.Close
+      #36: internal/qdrant/qdrant.go:170:2: qdrant.Client.Healthy calls http2.transportResponseBody.Close
+      #37: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http2.transportResponseBody.Read
+      #38: internal/llm/llm.go:180:20: llm.Client.ChatStream calls bytes.Buffer.ReadFrom, which calls http2.transportResponseBody.Read
+
+Your code is affected by 12 vulnerabilities from the Go standard library.
+This scan also found 1 vulnerability in packages you import and 3
+vulnerabilities in modules you require, but your code doesn't appear to call
+these vulnerabilities.
+Use '-show verbose' for more details.
+exit status 3
