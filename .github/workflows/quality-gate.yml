@@ -13,6 +13,17 @@ jobs:
   check:
     name: check
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_ROOT_HOST: "%"
+        ports:
+          - 3306/tcp
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=5s --health-timeout=3s --health-retries=30
     steps:
       - uses: actions/checkout@v4
 
@@ -37,6 +48,12 @@ jobs:
 
       - name: make check
         run: make check
+
+      - name: Upload rollback and retry (MySQL)
+        working-directory: backend
+        env:
+          MYSQL_TEST_ADDR: 127.0.0.1:${{ job.services.mysql.ports[3306] }}
+        run: go test -tags=mysqlintegration ./internal/store -run '^TestUploadRollbackAndRetry$' -count=1 -v
 
       - name: Operating systems lecture checks
         run: node --test seed-data/operating-systems/seed.test.mjs
