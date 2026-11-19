@@ -22,7 +22,7 @@
 | R6.1–R6.6 流式与中断 | `backend/internal/httpapi/ask_test.go`（SSE 帧 / 中断 / 降级 / done id） |
 | R7.1–R7.7 引用回看 | `ask_test.go` `citationFilter`；`scripts/verify-history-ui.mjs`（U3/U6 全文与高亮）；e2e 引用逐条校验 |
 
-## runtime-baseline（25 场景）
+## runtime-baseline（27 场景）
 
 | 场景 | 用例 |
 | --- | --- |
@@ -30,6 +30,7 @@
 | R9.1–R9.5 健康与依赖 | `router_test.go`（`TestHealthOK`、`TestHealthReportsLLMModels`、降级 503） |
 | R10.1–R10.6 日志与 request id | `middleware.go` + e2e R10 请求标识透传用例 |
 | R11.1–R11.5 错误体与 HTTP 契约 | `response_test.go`、`router_test.go`；e2e `checkHTTPContract` |
+| 问答压测：正常回答、无依据拒答和 HTTP 200 后失败 | [流式回归与 CLI 退出码测试](../scripts/bench-ask-stream.test.mjs) |
 | R12.1–R12.3 可复现启动 | `scripts/up.mjs` + `reports/async-criteria.md` 真机启动记录 |
 
 ## async-indexing（25 场景）
