@@ -38,3 +38,6 @@ $ docker compose exec -T backend sh -c "wget ... /points/count (material_id=280)
 
 **判据满足（绿）**：两次提交得到同一 `task_id` / `material_id`，chunks 与向量点都只有 1 份，且由唯一约束兜底。用例常驻门禁（`go test ./internal/store` 覆盖幂等键）。
 **复跑**：五服务已启动，执行 `node scripts/async-criteria.mjs --criterion 3 --count 20` 真机 **PASS**（2026-11-17 晚）：同一内容两次提交复用同一 `task_id` / `material_id`（382），切片每 seq 一行、向量点 1 且不翻倍；捕获 running 后 kill worker 并注入租约过期，恢复后终态 `succeeded`、`attempts=2`。原始输出 `reports/criterion-3.log`。
+
+## 2026-11-19 操作系统讲义导入
+顺序导入六份正文；客户端标题查询仅用于友好去重，最终并发唯一性继续由服务端 uk_material_hash 与任务幂等键约束保证，不把先查后写当作并发保证。不更改 worker 或唯一键。

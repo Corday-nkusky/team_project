@@ -228,6 +228,10 @@ node seed.mjs --no-wait    # 只提交，不等索引完成
 材料由 `fetch-from-wikipedia.mjs` 从中文维基百科抓取生成（内容遵循维基百科的 CC BY-SA 授权），
 已按约 2400 字切成大小适中的材料；重新抓取需能访问维基的网络（`PROXY=http://127.0.0.1:<端口> node fetch-from-wikipedia.mjs`）。
 
+**操作系统课程讲义**
+
+`seed-data/operating-systems/` 提供一班教师使用的六份中文讲义。运行 `node seed-data/operating-systems/seed.mjs --check` 检查，再运行 `node seed-data/operating-systems/seed.mjs` 导入。重复导入跳过相同正文，拒绝学生、跨班账号及同标题不同正文；来源和授权单独记录。详见该目录 README。
+
 **只跑后端（本地开发，不需要 Docker）**
 
 ```bash

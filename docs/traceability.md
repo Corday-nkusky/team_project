@@ -87,3 +87,8 @@
 - 浏览器端 XSS 判定（看页面源码）与 CSRF SameSite 确认：未做真机截图，见 `reports/security-fix-log.md` SEC-08 黄判。
 - apitest 端到端（连接→保存技能→提问→记录）已真机跑通 42/42，H5 四步链路全绿；原始输出见 `reports/apitest-run.log`、`reports/verify-h5.log`。手机浏览器点按未做，用 Node `fetch` 复现同一请求序列。
 - 依赖审计（SEC-06）：已跑，高危未清零（Go 12 条可达 + npm 2 包含 1 high），逐条登记见 `reports/security-baseline.md`；升级 Go / Vite 后的回归未做。
+
+## 2026-11-19 操作系统讲义
+- OS1：seed-data/operating-systems/seed.mjs loadLectures；seed.test.mjs 的数据校验与缺文件/摘要负向断言。
+- OS2：复用 biology/seed.mjs 的上传、去重与任务轮询；seed.test.mjs 覆盖导入、重复、身份、正文冲突、任务失败。
+- 同伴评审待另一位成员完成，自审证据见 reports/os-lectures-review.md。

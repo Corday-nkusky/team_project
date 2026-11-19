@@ -20,7 +20,7 @@ const TIMEOUT_MS = Number(process.env.SEED_TIMEOUT_MS || 30 * 60 * 1000)
 const TERMINAL = new Set(['succeeded', 'failed', 'dead'])
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-const corpus = JSON.parse(readFileSync(new URL('./corpus.json', import.meta.url), 'utf8'))
+const corpus = JSON.parse(readFileSync(process.env.CORPUS_PATH || new URL('./corpus.json', import.meta.url), 'utf8'))
 
 // 中文维基个别条目标题为繁体或地域变体，展示时用大陆通用词
 const DISPLAY = {
@@ -41,7 +41,7 @@ for (const entry of corpus) {
     pieces.push({
       domain: entry.domain,
       source: entry.pageTitle,
-      title: entry.bags.length > 1 ? `${entry.domain}｜${title}（${i + 1}/${entry.bags.length}）` : `${entry.domain}｜${title}`,
+      title: entry.materialTitle && entry.bags.length === 1 ? entry.materialTitle : entry.bags.length > 1 ? `${entry.domain}｜${title}（${i + 1}/${entry.bags.length}）` : `${entry.domain}｜${title}`,
       text,
     })
   })
@@ -56,7 +56,12 @@ async function login() {
     body: JSON.stringify({ username: USER, password: PASS }),
   })
   if (!r.ok) throw new Error(`登录失败 ${r.status}`)
-  token = (await r.json()).access_token
+  const result = await r.json()
+  if (process.env.EXPECTED_CLASS_ID &&
+      (result.user?.role !== 'teacher' || String(result.user?.class_id) !== process.env.EXPECTED_CLASS_ID)) {
+    throw new Error('导入拒绝：必须使用目标班级教师账号')
+  }
+  token = result.access_token
 }
 
 async function api(path, opts = {}) {
@@ -93,6 +98,13 @@ const row = (p, extra) => ({ domain: p.domain, source: p.source, title: p.title,
 
 for (const [i, p] of pieces.entries()) {
   const hit = existing.get(p.title)
+  if (hit && process.env.VERIFY_EXISTING_CONTENT === '1') {
+    const detail = await api(`/api/materials/${hit.id}`)
+    if (!detail.ok) throw new Error(`读取已有材料失败 ${detail.status}`)
+    if ((await detail.json()).content !== p.text) {
+      throw new Error(`同标题正文冲突，未覆盖：${p.title}`)
+    }
+  }
   if (hit && hit.index_status === 'ready') {
     skipped++
     manifest.push(row(p, { id: hit.id, status: 'skipped' }))
@@ -194,7 +206,7 @@ for (const p of pieces) {
   if (!recorded.has(p.title)) manifest.push(row(p, { status: 'skipped' }))
 }
 
-writeFileSync(new URL('./manifest.json', import.meta.url), JSON.stringify(manifest, null, 1), 'utf8')
+writeFileSync(process.env.MANIFEST_PATH || new URL('./manifest.json', import.meta.url), JSON.stringify(manifest, null, 1), 'utf8')
 
 if (failures.length) {
   console.log('\n失败明细（前 5 条）：')

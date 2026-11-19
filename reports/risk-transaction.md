@@ -44,3 +44,6 @@ status=succeeded  attempts=1
 
 **判据满足（绿）**：停消费者期间 `pending` / `attempts=0`，恢复后 `succeeded` / `attempts=1`，无"改了一半"现象；事务性发件箱实现见 `store/tasks.go`。
 **复跑**：五服务已启动，执行 `node scripts/async-criteria.mjs --criterion 2` 真机 **PASS**（2026-11-17 晚）：停 worker 后提交返回 `202` + `task_id`，2 秒后查询仍为 `pending`、`attempts=0`；恢复 worker 后终态 `succeeded`、`attempts=1`，无"改了一半"。原始输出 `reports/criterion-2.log`。
+
+## 2026-11-19 操作系统讲义导入
+脚本只通过现有 POST /api/materials 上传，沿用材料与任务同事务契约，无直接数据库写入。六份资料不是一个批量事务，中途失败保留已成功项，重跑按同标题同正文跳过；测试覆盖索引失败非零退出。
