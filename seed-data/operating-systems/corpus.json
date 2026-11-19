@@ -1,0 +1,32 @@
+[
+  {
+    "title": "操作系统｜01 基本概念与核心机制",
+    "file": "01-overview.md",
+    "sha256": "b4dd9b6c3deed737a48b639f9096b54ac9e3cff2992d1607438cbd3325bacbfd"
+  },
+  {
+    "title": "操作系统｜02 进程管理",
+    "file": "02-processes.md",
+    "sha256": "add2ec9790f57e7b17fcd9bff0166fe0bd4782a755ab557e3f038c160caf6652"
+  },
+  {
+    "title": "操作系统｜03 虚拟内存与分页",
+    "file": "03-virtual-memory.md",
+    "sha256": "400e20c3511846bcd814687200e86296c7b6cbf3b7d35be75a09eac6eb3bec1e"
+  },
+  {
+    "title": "操作系统｜04 虚拟内存机制",
+    "file": "04-memory-mechanisms.md",
+    "sha256": "87c8b62b7b22e9dda2e078139dc672de950533715178b54df8284caf8fcf3050"
+  },
+  {
+    "title": "操作系统｜05 处理器虚拟化",
+    "file": "05-processor-virtualization.md",
+    "sha256": "378185cad70c44d05be9dc82968b0f68da6e68bbe9176bd812debbd1d0f78901"
+  },
+  {
+    "title": "操作系统课程讲义",
+    "file": "06-course-notes.md",
+    "sha256": "40f020e00ad2f416be05d669a5ba23059cc5f1ed36e0f8276683c5685e8fbc07"
+  }
+]
