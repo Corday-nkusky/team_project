@@ -9,8 +9,9 @@
 //
 // 提交用同一份内容（唯一约束复用同一任务，不产生大量材料）；检索走真实 SSE，
 // 会消耗模型额度，请把 REQUESTS 控制在演示环境可承受范围内。
-// 退出码：任一接口出现非 2xx 则 1，否则 0。
+// 退出码：任一接口出现非 2xx 或问答流未正常完成 则 1，否则 0。
 import { writeFileSync } from "node:fs";
+import { readAskStream } from "./bench-ask-stream.mjs";
 import { randomUUID } from "node:crypto";
 
 const BASE = (process.env.BASE_URL || "http://127.0.0.1:8080").replace(/\/+$/, "");
@@ -42,7 +43,15 @@ async function call(path, { token, method = "GET", body } = {}) {
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(180000),
     });
-    await res.arrayBuffer(); // SSE 也读到结束，延迟才包含完整响应
+    if (path === "/api/ask" && res.ok) {
+      try {
+        const stream = await readAskStream(res, started);
+        return { ms: performance.now() - started, status: res.status, ...stream };
+      } catch (error) {
+        return { ms: performance.now() - started, status: res.status, error: error.message };
+      }
+    }
+    await res.arrayBuffer();
     return { ms: performance.now() - started, status: res.status };
   } catch (e) {
     return { ms: performance.now() - started, status: 0, error: String(e) };
@@ -60,16 +69,20 @@ async function login(user) {
   return (await res.json()).access_token;
 }
 
+function percentile(sorted, fraction) {
+  if (!sorted.length) return null;
+  return Math.round(sorted[Math.floor((sorted.length - 1) * fraction)]);
+}
+
 function summarize(samples, wall) {
   const ms = samples.map((s) => s.ms).sort((a, b) => a - b);
-  const at = (p) => ms[Math.min(ms.length - 1, Math.floor((ms.length - 1) * p))] ?? 0;
   // 吞吐按墙钟时间算（并发请求的实际完成速率），不能用延迟之和，否则并发越高越被低估。
   return {
     requests: ms.length,
-    errors: samples.filter((s) => s.status < 200 || s.status >= 300).length,
+    errors: samples.filter((s) => s.status < 200 || s.status >= 300 || s.error).length,
     throughput_rps: wall > 0 ? +(ms.length / wall).toFixed(2) : 0,
-    p50_ms: Math.round(at(0.5)),
-    p95_ms: Math.round(at(0.95)),
+    p50_ms: percentile(ms, 0.5),
+    p95_ms: percentile(ms, 0.95),
     max_ms: Math.round(ms[ms.length - 1] ?? 0),
   };
 }
@@ -98,6 +111,16 @@ async function runLevel(endpoint, level, token, student) {
   await Promise.all(Array.from({ length: level }, worker));
   const wall = (performance.now() - started) / 1000;
   const s = summarize(samples, wall);
+  if (endpoint === "ask") {
+    const completed = samples.filter((sample) => sample.outcome);
+    s.answered = completed.filter((sample) => sample.outcome === "answered").length;
+    s.no_evidence = completed.length - s.answered;
+    for (const [metric, field] of [["first_text", "firstTextMs"], ["done", "doneMs"]]) {
+      const times = completed.map((sample) => sample[field]).sort((a, b) => a - b);
+      s[metric + "_p50_ms"] = percentile(times, 0.5);
+      s[metric + "_p95_ms"] = percentile(times, 0.95);
+    }
+  }
   s.concurrency = level;
   s.wall_seconds = +wall.toFixed(2);
   bad += s.errors;
@@ -114,6 +137,9 @@ for (const endpoint of ENDPOINTS) {
   for (const level of LEVELS) {
     const s = await runLevel(endpoint, level, teacher, student);
     report.results[endpoint].push(s);
+    if (endpoint === "ask") {
+      console.log(`问答完成=${s.answered} 正常拒答=${s.no_evidence} 首字P95(ms)=${s.first_text_p95_ms ?? "—"} 完成P95(ms)=${s.done_p95_ms ?? "—"}`);
+    }
     console.log(`${endpoint.padEnd(7)} C=${String(level).padStart(2)}  ${String(s.requests).padStart(2)} 次  ${String(s.throughput_rps).padStart(7)} req/s  p50=${String(s.p50_ms).padStart(5)}ms  p95=${String(s.p95_ms).padStart(5)}ms  errors=${s.errors}`);
   }
 }

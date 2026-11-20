@@ -64,3 +64,11 @@ BASE_URL=http://127.0.0.1:8080 LEVELS=1,4,8 REQUESTS=8 \
 - 混合负载与真实用户分布；三接口是分开压的。
 - 模型网关限流、超时、断连时的吞吐退化。
 - `reports/bench-raw.json` 里 `wall_seconds` 只保留两位小数；提交/查询的吞吐以脚本按未舍入墙钟时间输出的 `throughput_rps` 为准，检索的吞吐用几十秒量级的 `wall_seconds` 重算（见文件内 `note` 字段）。
+
+## 问答流验收与计时（2026-11-19）
+
+`ask` 结果中的 `answered` 统计含引用清单、可见正文且收到 done 的回答；`no_evidence` 统计空引用、约定拒答文案并收到 done 的请求。已完成的抽取式降级回答同样计入 answered。HTTP 失败、error 事件、提前断流、正文或必要引用缺失均计入 errors，使压测退出码为 1。
+
+`first_text_p50_ms / first_text_p95_ms` 从请求开始计到首个可见正文增量；`done_p50_ms / done_p95_ms` 计到收到 done。两组均只统计正常完成的样本，无样本写 null。原有 p50_ms / p95_ms 继续覆盖整次请求（含失败），提交和列表接口的统计口径沿用原定义。
+
+受控回归：`node --test scripts/bench-ask-stream.test.mjs`。本地单次复跑可执行 `BASE_URL=http://127.0.0.1:8081 ENDPOINTS=ask LEVELS=1 REQUESTS=1 OUT=/tmp/ask-smoke.json node scripts/bench.mjs`，按部署调整端口。此次实测正常拒答 1、错误 0，首字与 done 均为 3795 ms，整次请求 3802 ms。该记录仅验证采集链路；上文历史基线仍采用原口径。

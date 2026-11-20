@@ -55,6 +55,9 @@ jobs:
           MYSQL_TEST_ADDR: 127.0.0.1:${{ job.services.mysql.ports[3306] }}
         run: go test -tags=mysqlintegration ./internal/store -run '^TestUploadRollbackAndRetry$' -count=1 -v
 
+      - name: Ask benchmark stream checks
+        run: node --test scripts/bench-ask-stream.test.mjs
+
       - name: Operating systems lecture checks
         run: node --test seed-data/operating-systems/seed.test.mjs
 
