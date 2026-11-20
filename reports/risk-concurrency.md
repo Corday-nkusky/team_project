@@ -1,43 +1,55 @@
 # 高风险三查 · 并发
 
-> 四件事齐全：用什么手段查 / 查了什么 / 判据 / 结果。最终报告「高风险三查 · 并发」直接素材。
-> 数据来自 2026-11-10 真机复现（`reports/async-criteria.md` 判据三，五服务运行时），命令可当场重放。
+## 用什么手段查
 
-## 四件事
+通过真实 HTTP 接口同时发出两个上传请求，收齐响应后用独立 MySQL 查询和 Qdrant 精确计数核对结果。脚本为 `scripts/async-criteria.mjs`（`--criterion concurrent`）。专用入口保持 worker 在线，使用随机标题与一份单切片正文，结束时清理测试材料与向量点。
 
-- **用什么手段查**：真实 HTTP 并发提交 + 直连 MySQL 断言唯一约束；脚本 `scripts/async-criteria.mjs`（`--criterion 3`）；门禁常驻用例 `go test ./internal/store ./internal/httpapi`。
-- **查了什么**：同一份材料内容连续提交两次（模拟"两个请求同时到达"与"重复投递"），检查是否产生两条材料 / 两份切片 / 两个向量点。
-- **判据**：同一内容只出一份结果——`task_id` 相同、`material_id` 相同、`chunks` 只有 1 行（`COUNT(*)=COUNT(DISTINCT seq)=1`）、Qdrant 点数 = 1。唯一性必须由数据库约束保证，不靠"先查一遍"。
-- **结果**：见下。
+服务端侧证据取自后端访问日志：每条请求一行 JSON，含 `request_id`、`status`、`duration_ms`（spec R10）。脚本从响应头取回两个 `request_id` 回查日志，把两行原文写进报告。
 
-## 复现命令与原始输出
+## 查了什么
 
-```
-$ 连续 POST /api/materials 同一内容两次 → 202 / 202
-- task_id：1e41770d020569b5a4d19c27a7e32932 / 1e41770d020569b5a4d19c27a7e32932
-- material_id：280 / 280
+同一位教师向本班并发上传完全相同的材料。两个请求同时发出，收齐响应后核对 HTTP 状态与返回标识，再等该任务成功完成，最后按班级与本次唯一标题统计材料、上传任务、切片与向量点。
 
-$ docker compose exec -T mysql mysql ... -e \
-    "SELECT COUNT(*), COUNT(DISTINCT seq) FROM chunks WHERE material_id=280"
-1    1
+三份证据分开记录，不互相替代：
 
-$ docker compose exec -T backend sh -c "wget ... /points/count (material_id=280)"
-{"result":{"count":1},"status":"ok","time":0.001828782}
-```
+1. 客户端两请求的在途窗口是否重叠（只能说明客户端没有串行等待）
+2. 服务端两条访问日志的耗时区间是否重叠（说明服务端确实同时处理）
+3. 落库计数是否各一份（最终判据）
 
-（来源：`reports/async-criteria.md:47-57`，2026-11-10T13:40:49Z 真机运行记录。）
+## 通过判据
 
-## 它想保证什么 / 靠什么保证 / 什么时候失效 / 挡得住的写法
+两个请求均返回 HTTP 202、相同的有效材料 ID 和任务 ID。按本班及唯一标题查询材料、关联上传任务各一行；任务关联此次材料并成功完成；该材料仅有一条切片、一个唯一序号和一个向量点。任何一步不满足则专用入口退出非零。
+
+## 想保证什么 / 靠什么保证 / 什么时候失效 / 挡得住的写法
 
 1. **想保证**：同一份讲义只索引一次，重复提交不产生重复材料、切片或向量点。
-2. **靠什么保证**：`ContentHash(title, content)` 派生确定性幂等键；`materials` 上 `uk_material_hash(class_id, content_hash)`、`index_tasks` 上 `uk_idem(idempotency_key)`、`chunks` 上 `uk_chunk_seq(material_id, seq)`——全部是数据库唯一约束。
-3. **什么时候失效**：若用"先 `SELECT` 有没有，没有才 `INSERT`"的写法，两个请求可能同时查完都发现没有，于是都插入——即课程举例的经典并发 bug。
-4. **挡得住的写法**：把唯一性交给数据库约束，插入遇到唯一键冲突就按既定语义返回既有记录（本仓 `UpsertMaterial` / `EnqueueTask` 的做法）。
+2. **靠什么保证**：`ContentHash(title, content)` 派生确定性幂等键（`store.ContentHash` / `store.UploadIdempotencyKey`），加上三层数据库唯一约束——`materials.uk_material_hash(class_id, content_hash)`、`index_tasks.uk_idem(idempotency_key)`、`chunks.uk_chunk_seq(material_id, seq)`。写入路径 `store.CreateMaterialWithTask` 在一个事务里对 materials 与 index_tasks 各执行一次 `INSERT ... ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)`：冲突时不报错、不新增，直接把既有行的 id 取回。唯一性由约束裁决，不由应用层判断。
+3. **什么时候失效**：若改成「先 `SELECT` 有没有、没有才 `INSERT`」，两个请求可能同时查完都得到「没有」，于是都插入——这就是课程举例的经典并发 bug。此时上面的用例会稳定失败：材料行数变成 2，响应里的 `material_id` 也会不同。
+4. **挡得住的写法**：把唯一性交给数据库约束，冲突后按既定语义返回既有记录，而不是在应用层先查一遍。并发下 InnoDB 会让第二个 `INSERT` 在唯一索引上等第一个事务提交，随后命中 `ON DUPLICATE KEY`，因此两个请求必然收敛到同一行。
 
-## 结论
+## 实测与复跑
 
-**判据满足（绿）**：两次提交得到同一 `task_id` / `material_id`，chunks 与向量点都只有 1 份，且由唯一约束兜底。用例常驻门禁（`go test ./internal/store` 覆盖幂等键）。
-**复跑**：五服务已启动，执行 `node scripts/async-criteria.mjs --criterion 3 --count 20` 真机 **PASS**（2026-11-17 晚）：同一内容两次提交复用同一 `task_id` / `material_id`（382），切片每 seq 一行、向量点 1 且不翻倍；捕获 running 后 kill worker 并注入租约过期，恢复后终态 `succeeded`、`attempts=2`。原始输出 `reports/criterion-3.log`。
+2026-11-20 在仓库 Compose 实际端口映射（8080）上复跑：两次请求均 202，材料 `389`、任务 `b009eabfd3d8400ec527e93406b66f73` 完全一致。
+
+- 客户端两请求窗口重叠 12.91 ms
+- 服务端访问日志两行：`07:20:38.026760138Z` / `duration_ms=8` 与 `07:20:38.027966449Z` / `duration_ms=9`。据此反推起始时刻相差约 0.2 ms，两条请求的在途区间重叠约 7.8 ms——服务端同时处理，而不是先后执行。
+- 实际材料、上传任务、切片、向量点分别为 1、1、1、1，退出 0
+
+原始输出、日志原文与计数查询见[并发上传验收记录](concurrent-uploads.md)。该文件由脚本生成，只保留最近一次运行；本 PR 初稿在 8081 端口的一次记录（重叠 5.04 ms、材料 18）已被此次复跑取代。
+
+前置：启动本仓库 Compose 服务、worker 和可用的嵌入网关。将 BASE 指向该套容器的 HTTP 地址，用该班教师账号运行：
+
+```sh
+BASE=http://127.0.0.1:8080 USER=teacher1 node scripts/async-criteria.mjs --criterion concurrent
+```
+
+`--criterion` 只接受 `all / 1 / 2 / 3 / concurrent`，拼错时脚本以退出码 2 终止，不会空跑并写出一份没有结论的报告。此前 2026-11-17 的[顺序重复提交、重索引和 worker 重投记录](criterion-3.log)保留作独立证据；完整判据三入口 `--criterion 3` 先运行上述并发检查，再验证重索引和重投。
+
+## 已知边界
+
+- 本场景是**真机脚本验收**，不在 CI 里跑：它需要起整套 Compose 与嵌入网关，`make check` 只覆盖纯单元测试。`internal/store` 目前没有真库并发用例（`backend/internal/store/upload_rollback_test.go` 是真库用例，但加的是 `mysqlintegration` tag，且验证的是回滚而非并发去重）。这一点不掩饰：并发的自动化回归依赖人工按上面的命令复跑。
+- `duration_ms` 是整数毫秒，反推的起始时刻有 ±1 ms 量级的舍入误差；结论「两条请求在途重叠」在这个精度下仍成立（重叠 7.8 ms 远大于误差）。
 
 ## 2026-11-19 操作系统讲义导入
+
 顺序导入六份正文；客户端标题查询仅用于友好去重，最终并发唯一性继续由服务端 uk_material_hash 与任务幂等键约束保证，不把先查后写当作并发保证。不更改 worker 或唯一键。
