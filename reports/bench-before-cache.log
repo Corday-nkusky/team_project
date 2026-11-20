@@ -1,0 +1,8 @@
+== 压测 base=http://127.0.0.1:8080 levels=1,4,8 requests/level=128 mark=bench-a7f4072e ==
+
+list    C= 1  128 次   643.77 req/s  p50=    1ms  p95=    2ms  errors=0
+list    C= 4  128 次   1733.6 req/s  p50=    2ms  p95=    4ms  errors=0
+list    C= 8  128 次  2623.49 req/s  p50=    3ms  p95=    4ms  errors=0
+
+原始结果：reports/bench-before-cache.json
+结果：全绿

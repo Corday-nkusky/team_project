@@ -3,6 +3,7 @@ package config
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 // setBaseEnv 提供一套齐全且合法的必需项；各用例在此基础上增删。
@@ -151,6 +152,23 @@ func TestLoadLLMUsesExplicitModels(t *testing.T) {
 	}
 	if cfg.APIBase != "https://example.test/v1" {
 		t.Fatalf("APIBase 应去掉末尾斜杠: %q", cfg.APIBase)
+	}
+}
+
+func TestLoadMaterialCacheTTL(t *testing.T) {
+	setBaseEnv(t)
+	cfg, err := Load()
+	if err != nil || cfg.MaterialCacheTTL != 2*time.Second {
+		t.Fatalf("默认缓存 TTL 应为 2 秒：cfg=%+v err=%v", cfg.MaterialCacheTTL, err)
+	}
+	t.Setenv("MATERIAL_CACHE_TTL_MS", "0")
+	cfg, err = Load()
+	if err != nil || cfg.MaterialCacheTTL != 0 {
+		t.Fatalf("TTL=0 应允许显式关闭：cfg=%+v err=%v", cfg.MaterialCacheTTL, err)
+	}
+	t.Setenv("MATERIAL_CACHE_TTL_MS", "-1")
+	if _, err = Load(); err == nil || !strings.Contains(err.Error(), "MATERIAL_CACHE_TTL_MS") {
+		t.Fatalf("非法缓存 TTL 应在启动前拒绝，得到：%v", err)
 	}
 }
 

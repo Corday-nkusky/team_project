@@ -1,0 +1,14 @@
+
+> campusclaw-frontend@1.0.0 build
+> tsc -b && vite build
+
+[36mvite v8.3.8 [32mbuilding client environment for production...[36m[39m
+transforming...
+✓ 23 modules transformed.
+rendering chunks...
+computing gzip size...
+../backend/internal/web/dist/index.html                   0.41 kB │ gzip:  0.30 kB
+../backend/internal/web/dist/assets/index-D734p0SC.css   38.09 kB │ gzip:  8.72 kB
+../backend/internal/web/dist/assets/index-tPRL00p3.js   192.26 kB │ gzip: 60.40 kB
+
+[32m✓ built in 89ms[39m

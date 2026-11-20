@@ -61,6 +61,19 @@ func TestGetMaterialRejectsInvalidID(t *testing.T) {
 	}
 }
 
+func TestSecuritySQLInjectionMaterialID(t *testing.T) {
+	raw := `' OR '1'='1`
+	req := httptest.NewRequest(http.MethodGet, "/api/materials/injection", nil)
+	req.SetPathValue("id", raw)
+	req = req.WithContext(context.WithValue(req.Context(), claimsKey,
+		auth.Claims{UserID: 1, ClassID: 2, Role: "student", Name: "学生"}))
+	rr := httptest.NewRecorder()
+	(&Server{}).handleGetMaterial(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("SQL 注入形态 id 应在触达数据库前返回 400，得到 %d：%s", rr.Code, rr.Body.String())
+	}
+}
+
 // TestCreateMaterialRejectsLongTitle 对应 R3.4：标题按 rune 计数，超过 255 拒绝且不落库。
 // 这些用例都在落库前返回，因此 Server 不需要 store。
 func TestCreateMaterialRejectsLongTitle(t *testing.T) {

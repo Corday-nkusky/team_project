@@ -560,3 +560,21 @@ export async function listMCPCalls(limit = 20): Promise<MCPCall[]> {
   const data = (await resp.json()) as { items?: MCPCall[] }
   return data.items ?? []
 }
+
+// --- 教师运行观测（真实审计与请求窗口，无示例数据）---
+export interface Observability {
+  skills: Array<{ skill_name: string; calls: number; errors: number; usage_count: number; error_rate: number }>
+  requests: Array<{ route: string; calls: number; errors: number; p95_ms: number }>
+  queue_depth: number
+  generated_at: string
+}
+
+export async function getObservability(): Promise<Observability> {
+  const resp = await request('/api/observability')
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => null)
+    throw new Error(body?.error?.message ?? '读取运行观测失败')
+  }
+  const data = (await resp.json()) as Observability
+  return { ...data, skills: data.skills ?? [], requests: data.requests ?? [] }
+}

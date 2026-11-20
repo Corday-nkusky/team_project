@@ -30,7 +30,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.27'
+          go-version: '1.27.4'
           cache-dependency-path: backend/go.sum
 
       - name: Set up Node
@@ -70,8 +70,50 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.27'
+          go-version: '1.27.4'
           cache-dependency-path: backend/go.sum
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend deps
+        run: npm ci --no-audit --no-fund
+        working-directory: frontend
 
       - name: make check-security
         run: make check-security
+
+  image:
+    name: image-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image with commit version
+        run: docker build -f deploy/backend.Dockerfile --build-arg "VERSION=${GITHUB_SHA}" -t campusclaw:ci .
+
+      - name: Verify commit version through health endpoint
+        run: |
+          docker run -d --name campusclaw-version -p 8080:8080 \
+            -e HTTP_ADDR=:8080 -e MYSQL_HOST=127.0.0.1 -e MYSQL_PORT=3306 \
+            -e MYSQL_USER=ci -e MYSQL_PASSWORD=ci-only-not-a-real-secret \
+            -e MYSQL_DATABASE=campusclaw -e QDRANT_URL=http://127.0.0.1:6333 \
+            -e JWT_SECRET=ci-version-check-only-0123456789abcdef0123456789abcdef \
+            campusclaw:ci
+          for i in {1..30}; do
+            if curl -s http://127.0.0.1:8080/health > /tmp/campusclaw-health.json && \
+               python3 -m json.tool /tmp/campusclaw-health.json >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          cat /tmp/campusclaw-health.json
+          python3 -c 'import json, os; body=json.load(open("/tmp/campusclaw-health.json")); assert body["version"] == os.environ["GITHUB_SHA"], (body["version"], os.environ["GITHUB_SHA"])'
+
+      - name: Remove version-check container
+        if: always()
+        run: docker rm -f campusclaw-version

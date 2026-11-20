@@ -383,6 +383,9 @@ func (s *Service) ChatStream(ctx context.Context, system, user string) (<-chan S
 	return s.llm.ChatStream(ctx, system, user)
 }
 
+// BasePromptVersion 随基础提示词人工变更递增；SSE meta 原样返回，供评测定位版本。
+const BasePromptVersion = "grounded-qa:v1"
+
 // SystemPrompt 约束模型只依据给定资料作答并以 [n] 标注出处。
 func SystemPrompt() string {
 	return "你是一位课程助教，只能依据下面提供的「资料」回答学生的问题。要求：\n" +

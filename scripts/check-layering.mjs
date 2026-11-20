@@ -43,6 +43,9 @@ const LAYERS = {
 const HTTPAPI_STORE_ALLOWLIST = new Set([
   "auth.go", "materials.go", "ask.go", "router.go", "tasks.go",
   "skills.go", "skills_test.go", "mcp.go", "mcp_test.go", "ask-tools.go",
+  // ask_audit.go / observability.go 仅做审计单表读写与路由级观测；
+  // middleware.go 仅记录越权拒绝，两个 *_test.go 实现同样的窄接口。
+  "ask_audit.go", "ask_test.go", "middleware.go", "observability.go", "observability_test.go",
 ]);
 const HTTPAPI_FORBIDDEN_DIRECT = new Set(["internal/llm", "internal/qdrant", "internal/retrieval"]);
 

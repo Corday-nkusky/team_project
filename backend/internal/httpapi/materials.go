@@ -69,6 +69,7 @@ func materialDetailOf(m store.Material) materialDetailView {
 func (s *Server) handleCreateMaterial(w http.ResponseWriter, r *http.Request) {
 	c, _ := claimsFrom(r.Context())
 	ctx := r.Context()
+	started := time.Now()
 
 	title, content, err := readMaterialInput(r)
 	if err != nil {
@@ -102,8 +103,14 @@ func (s *Server) handleCreateMaterial(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.materialsCache.invalidate(c.ClassID)
 	detail := "材料:" + title + ";task:" + taskID
-	if err := s.st.Audit(ctx, &c.UserID, c.Name, &c.ClassID, "upload", "ok", detail); err != nil {
+	if err := s.st.WriteAuditEvent(ctx, store.AuditEvent{
+		ActorID: &c.UserID, ActorName: c.Name, ClassID: &c.ClassID,
+		Action: "upload", Result: "ok", Detail: detail, UsageCount: 1,
+		DurationMS: time.Since(started).Milliseconds(),
+		ObjectType: "material", ObjectID: strconv.FormatInt(id, 10),
+	}); err != nil {
 		logServerError(r, "audit_upload", err)
 	}
 	writeJSON(w, http.StatusAccepted, s.acceptedView(r, c.ClassID, taskID, id))
@@ -112,6 +119,10 @@ func (s *Server) handleCreateMaterial(w http.ResponseWriter, r *http.Request) {
 // handleListMaterials 处理 GET /api/materials：只列本班材料（R2.1）。
 func (s *Server) handleListMaterials(w http.ResponseWriter, r *http.Request) {
 	c, _ := claimsFrom(r.Context())
+	if cached, ok := s.materialsCache.get(c.ClassID); ok {
+		writeJSON(w, http.StatusOK, map[string]any{"materials": cached})
+		return
+	}
 	items, err := s.st.ListMaterials(r.Context(), c.ClassID)
 	if err != nil {
 		logServerError(r, "list_materials", err)
@@ -122,6 +133,7 @@ func (s *Server) handleListMaterials(w http.ResponseWriter, r *http.Request) {
 	for _, m := range items {
 		out = append(out, materialViewOf(m))
 	}
+	s.materialsCache.set(c.ClassID, out)
 	writeJSON(w, http.StatusOK, map[string]any{"materials": out})
 }
 
@@ -176,6 +188,7 @@ func (s *Server) handleReindex(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "internal", "提交失败")
 		return
 	}
+	s.materialsCache.invalidate(c.ClassID)
 	writeJSON(w, http.StatusAccepted, s.acceptedView(r, c.ClassID, taskID, id))
 }
 

@@ -18,14 +18,10 @@ check:
 	@echo "== make check =="
 	GO_BIN="$(GO_BIN)" node scripts/quality-gate.mjs
 
-## check-security：密钥扫描 + go vet + 全量 Go 单测（含 401/403/404 越权负向断言）。
-## 依赖审计单独跑，见 reports/security-baseline.md；注入反例素材与判据见 reports/sec08-experiment.md。
+## check-security：密钥 + vet/test + SQL/XSS/CSRF 反例 + Go/npm 依赖审计。
 check-security:
 	@echo "== make check-security =="
-	node scripts/check-secrets.mjs
-	cd backend && "$(GO_BIN)" vet ./...
-	cd backend && "$(GO_BIN)" test ./... -count=1
-	@echo "check-security 全绿（密钥扫描 + vet + 全量单测，含越权负向用例）"
+	GO_BIN="$(GO_BIN)" node scripts/security-gate.mjs
 
 help:
 	@echo "make check          全量质量门禁"

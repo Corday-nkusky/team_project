@@ -1,0 +1,18 @@
+== 15 题真实问答评测 base=http://127.0.0.1:8080 mark=d7146561 ==
+ 1 answerable  PASS answered 
+ 2 answerable  PASS answered 
+ 3 answerable  PASS answered 
+ 4 answerable  PASS answered 
+ 5 answerable  PASS answered 
+ 6 no_answer   PASS no_evidence 
+ 7 no_answer   PASS no_evidence 
+ 8 no_answer   PASS no_evidence 
+ 9 no_answer   PASS no_evidence 
+10 no_answer   PASS no_evidence 
+11 cross_class FAIL answered 必须返回无引用固定拒答
+12 cross_class FAIL answered 必须返回无引用固定拒答
+13 cross_class FAIL answered 必须返回无引用固定拒答
+14 cross_class FAIL answered 必须返回无引用固定拒答
+15 cross_class FAIL answered 必须返回无引用固定拒答
+汇总：{"answerable":{"total":5,"passed":5},"no_answer":{"total":5,"passed":5},"cross_class":{"total":5,"passed":0}}
+原始结果：reports/eval-15.json

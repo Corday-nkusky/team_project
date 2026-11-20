@@ -25,6 +25,8 @@ export async function readAskStream(response, started) {
   let firstTextMs;
   let doneMs;
   let refusalText = "";
+  let answerText = "";
+  let metadata;
   const refusal = "资料中未找到相关内容";
   for await (const { event, data } of frames(response.body)) {
     if (doneMs !== undefined) throw new Error("event_after_done");
@@ -35,6 +37,7 @@ export async function readAskStream(response, started) {
         throw new Error("invalid_meta");
       }
       outcome = data.no_evidence ? "no_evidence" : "answered";
+      metadata = data;
       continue;
     }
     if (!outcome) throw new Error("missing_meta");
@@ -44,6 +47,8 @@ export async function readAskStream(response, started) {
       if (outcome === "no_evidence") {
         refusalText += data.text;
         if (!refusal.startsWith(refusalText)) throw new Error("invalid_refusal");
+      } else {
+        answerText += data.text;
       }
     } else if (event === "done") {
       if (firstTextMs === undefined) throw new Error("empty_answer");
@@ -52,5 +57,8 @@ export async function readAskStream(response, started) {
     }
   }
   if (doneMs === undefined) throw new Error("missing_done");
-  return { outcome, firstTextMs, doneMs };
+  return {
+    outcome, firstTextMs, doneMs, answer: outcome === "answered" ? answerText : refusalText,
+    citations: metadata.citations, promptVersion: metadata.prompt_version || "",
+  };
 }

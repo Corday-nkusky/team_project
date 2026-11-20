@@ -1,0 +1,17 @@
+== H5 四步链路验证  base=http://127.0.0.1:8080 ==
+
+  ok 1 登录返回 200 · HTTP 200
+  ok 1 拿到 access_token
+  ok 2 提交返回 202 · HTTP 202
+  ok 2 返回 task_id · ab068cd6bb4025170127da9449b71d42
+  ok 2 返回 status_url
+  ok 3 观察到 pending · pending → succeeded
+  ok 3 到达终态 succeeded · 终态=succeeded，序列=pending → succeeded
+  ok 4 B 班教师登录 · HTTP 200
+  ok 4 B 班上传材料 · HTTP 202
+  ok 4 拿到 B 班材料 id · 6
+  ok 4 跨班读取返回 404 · HTTP 404
+  ok 4 404 使用统一错误体 · {"code":"not_found","message":"材料不存在"}
+  ok 4 响应不含 B 班密语
+
+结果：全绿

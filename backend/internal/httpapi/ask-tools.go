@@ -11,15 +11,17 @@ import (
 
 	"github.com/Corday-nkusky/team_project/backend/internal/auth"
 	"github.com/Corday-nkusky/team_project/backend/internal/mcpclient"
+	"github.com/Corday-nkusky/team_project/backend/internal/qa"
 	"github.com/Corday-nkusky/team_project/backend/internal/skill"
 	"github.com/Corday-nkusky/team_project/backend/internal/store"
 )
 
 // askContext 是本次问答加载到的技能与工具结果，供 meta 与生成链路共用。
 type askContext struct {
-	Active    skill.Active
-	System    string
-	ToolCalls []mcpclient.ToolEvent
+	Active        skill.Active
+	System        string
+	PromptVersion string
+	ToolCalls     []mcpclient.ToolEvent
 	// ToolNotes 回传给模型的工具数据（作为用户消息一侧的数据，不是指令）。
 	ToolNotes []string
 }
@@ -37,6 +39,10 @@ func (s *Server) prepareAsk(ctx context.Context, c auth.Claims, question string)
 	}
 	result.Active = active
 	result.System = system
+	result.PromptVersion = qa.BasePromptVersion
+	if active.Enabled {
+		result.PromptVersion = fmt.Sprintf("%s;skill:%s:v%d", qa.BasePromptVersion, active.Name, active.Version)
+	}
 	result.ToolCalls = []mcpclient.ToolEvent{}
 
 	if !active.Enabled || len(active.ToolRefs) == 0 {

@@ -59,6 +59,33 @@
           "round": { "type": "integer" }, "detail": { "type": "string" },
           "created_at": { "type": "string" }
         }
+      },
+      "AuditEvent": {
+        "type": "object",
+        "description": "本班只增审计，含操作人、时间、类型、对象、结果、技能、用量与耗时",
+        "properties": {
+          "id": { "type": "integer" }, "actor_id": { "type": "integer", "nullable": true },
+          "actor_name": { "type": "string" }, "class_id": { "type": "integer", "nullable": true },
+          "action": { "type": "string" }, "result": { "type": "string" }, "detail": { "type": "string" },
+          "skill_name": { "type": "string" }, "usage_count": { "type": "integer" },
+          "duration_ms": { "type": "integer" }, "object_type": { "type": "string" },
+          "object_id": { "type": "string" }, "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Observability": {
+        "type": "object",
+        "properties": {
+          "skills": { "type": "array", "items": { "type": "object", "properties": {
+            "skill_name": { "type": "string" }, "calls": { "type": "integer" },
+            "errors": { "type": "integer" }, "usage_count": { "type": "integer" },
+            "error_rate": { "type": "number", "description": "失败与中断占比；正常未命中不计错误" }
+          } } },
+          "requests": { "type": "array", "items": { "type": "object", "properties": {
+            "route": { "type": "string" }, "calls": { "type": "integer" },
+            "errors": { "type": "integer" }, "p95_ms": { "type": "number" }
+          } } },
+          "queue_depth": { "type": "integer" }, "generated_at": { "type": "string", "format": "date-time" }
+        }
       }
     }
   },
@@ -105,7 +132,7 @@
     "/api/ask": {
       "post": {
         "summary": "流式问答（SSE）：meta → delta* → done",
-        "description": "meta 事件含 citations / no_evidence / skill / tool_calls；工具调用先于正文推送。失败以 error 结束。",
+        "description": "meta 事件含 citations / no_evidence / prompt_version / skill / tool_calls；工具调用先于正文推送。失败以 error 结束。",
         "requestBody": { "required": true, "content": { "application/json": { "schema": {
           "type": "object", "required": ["question"],
           "properties": { "question": { "type": "string" } }
@@ -145,6 +172,26 @@
     },
     "/api/skills/{id}": {
       "delete": { "summary": "删除本班技能（仅教师）", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "成功" }, "404": { "description": "不存在或跨班" } } }
+    },
+    "/api/audit": {
+      "get": {
+        "summary": "本班操作审计（仅教师，只增不改）",
+        "parameters": [{ "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50, "minimum": 1, "maximum": 100 } }],
+        "responses": {
+          "200": { "description": "按 id 倒序的本班审计", "content": { "application/json": { "schema": { "type": "object", "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/AuditEvent" } } } } } } },
+          "400": { "description": "limit 非法" }, "403": { "description": "非教师；拒绝行为留痕" }
+        }
+      }
+    },
+    "/api/observability": {
+      "get": {
+        "summary": "本班技能、路由 P95 与索引队列观测（仅教师）",
+        "description": "技能数据来自真实审计；P95 是当前进程每路由最近 256 个样本，重启后清空，不含正文、查询串或令牌。",
+        "responses": {
+          "200": { "description": "真实观测数据", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Observability" } } } },
+          "403": { "description": "非教师；拒绝行为留痕" }, "500": { "description": "观测查询失败，不伪装为空数据" }
+        }
+      }
     },
     "/api/mcp/servers": {
       "get": { "summary": "本班工具服务列表（仅教师；不含令牌）", "responses": { "200": { "description": "items 数组" }, "403": { "description": "非教师" } } },

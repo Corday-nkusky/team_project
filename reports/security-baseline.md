@@ -128,9 +128,18 @@ these vulnerabilities.
 
 ---
 
-## 本篇没能验证的部分
+## 6. 修复后复测（2026-11-21）【实测】
 
-- 升级 Go 到 ≥ `go1.27.4` 后 12 条是否全部消失——本轮未升级工具链。
-- 升级 `vite@8.3.8` 后 `npm run build` 是否仍通过——本轮未升级依赖。
-- `govulncheck -show verbose` 展开的 4 条不可达漏洞的具体编号——原始输出只给了计数。
-- 默认 npmmirror 源无 audit 接口，本报告的 npm 数字来自官方源；若演示机器只能连内网镜像，需同样加 `--registry=https://registry.npmjs.org`。
+上面第 1～5 节保留为**原始红色基线**，不回改历史数字。本轮已把 `backend/go.mod` 与构建镜像升到 Go 1.27.4，把前端升到 Vite 8.3.8、`@vitejs/plugin-react` 6.3.0，并使用固定版本 `govulncheck@v1.10.0` 复测：
+
+| 检查 | 修复前 | 修复后 | 证据 |
+| --- | --- | --- | --- |
+| Go 可达漏洞 | 12 条 | **0 条** | `reports/security-gate-latest.log` |
+| npm 漏洞 | 2 包，含 1 high | **0 条** | 同上 |
+| 前端生产构建 | 未验证 | 通过，23 modules | `npm run build` |
+| SQL / XSS / CSRF 反例 | 分散脚本 | 常驻安全门禁，3/3 通过 | 同上 |
+| 安全门禁故意失败 | — | 注入不可执行的审计命令后退出非零 | `reports/security-gate-intentional-red.log` |
+
+统一复跑：`GO_BIN=/d/tools/go/bin/go.exe node scripts/make-check.mjs security`。govulncheck 仍提示所需模块中有 1 条当前代码不可达漏洞；本报告只把可达调用漏洞计为 0，没有隐藏该提示。原始基线中“保留红”是当时的处置，不再代表当前工作区状态。
+
+本机没有 gcc，`go test -race` 因 `cgo: C compiler "gcc" not found` 未能执行；普通并发单测通过，不把竞态检测写成已验证。

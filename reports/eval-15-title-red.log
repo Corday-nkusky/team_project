@@ -1,0 +1,18 @@
+== 15 题真实问答评测 base=http://127.0.0.1:8080 mark=8800e1c4 ==
+ 1 answerable  FAIL answered 回答未包含独有标记 线粒体-8800e1c4；引用未指向本轮 A 班材料
+ 2 answerable  FAIL answered 回答未包含独有标记 DNA-8800e1c4；引用未指向本轮 A 班材料
+ 3 answerable  FAIL answered 回答未包含独有标记 叶绿体-8800e1c4；引用未指向本轮 A 班材料
+ 4 answerable  FAIL answered 回答未包含独有标记 核糖体-8800e1c4；引用未指向本轮 A 班材料
+ 5 answerable  FAIL answered 回答未包含独有标记 细胞核-8800e1c4；引用未指向本轮 A 班材料
+ 6 no_answer   PASS no_evidence 
+ 7 no_answer   PASS no_evidence 
+ 8 no_answer   PASS no_evidence 
+ 9 no_answer   PASS no_evidence 
+10 no_answer   PASS no_evidence 
+11 cross_class PASS no_evidence 
+12 cross_class PASS no_evidence 
+13 cross_class PASS no_evidence 
+14 cross_class PASS no_evidence 
+15 cross_class PASS no_evidence 
+汇总：{"answerable":{"total":5,"passed":0},"no_answer":{"total":5,"passed":5},"cross_class":{"total":5,"passed":5}}
+原始结果：reports/eval-15.json

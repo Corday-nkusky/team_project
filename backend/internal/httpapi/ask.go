@@ -24,16 +24,19 @@ type askReq struct {
 // 只有完整回答才落库，中断与空回答都不留半条记录（R6.4 / R6.5）。
 func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 	c, _ := claimsFrom(r.Context())
-	ctx := r.Context()
+	ctx := withAskAudit(r.Context())
+	r = r.WithContext(ctx)
 
 	var req askReq
 	if err := decodeJSON(r, &req); err != nil {
 		writeDecodeErr(w, err, "请求体格式不正确")
+		s.auditAsk(ctx, c, "fail", "请求格式拒绝")
 		return
 	}
 	if strings.TrimSpace(req.Question) == "" {
 		// 空问题直接拒绝，绝不调用模型（R5.3）。
 		writeErr(w, http.StatusBadRequest, "empty_question", "问题不能为空")
+		s.auditAsk(ctx, c, "fail", "空问题拒绝")
 		return
 	}
 
@@ -42,12 +45,14 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logServerError(r, "retrieve", err)
 		writeErr(w, http.StatusInternalServerError, "internal", "检索失败")
+		s.auditAsk(ctx, c, "fail", "检索失败")
 		return
 	}
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		writeErr(w, http.StatusInternalServerError, "internal", "当前服务器不支持流式响应")
+		s.auditAsk(ctx, c, "fail", "流式响应不可用")
 		return
 	}
 	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
@@ -60,12 +65,13 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 
 	// 技能与工具：检索命中与未命中都加载，未命中分支仍展示技能状态（spec SK2 / MC3）。
 	askCtx := s.prepareAsk(ctx, c, req.Question)
+	noteAskContext(ctx, askCtx)
 
 	if len(cites) == 0 {
 		// 未命中：固定文案 + no_evidence，不生成编造内容（R5.2 / R7.3）。
 		sw.event("meta", map[string]any{
 			"citations": []qa.Citation{}, "no_evidence": true,
-			"skill": askCtx.Active, "tool_calls": askCtx.ToolCalls,
+			"skill": askCtx.Active, "tool_calls": askCtx.ToolCalls, "prompt_version": askCtx.PromptVersion,
 		})
 		sw.event("delta", map[string]any{"text": qa.NoEvidenceText})
 		sw.event("done", map[string]any{"conversation_id": nil})
@@ -76,7 +82,7 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 	// 调用事件先于正文推送（spec MC3.1）。
 	sw.event("meta", map[string]any{
 		"citations": cites, "no_evidence": false,
-		"skill": askCtx.Active, "tool_calls": askCtx.ToolCalls,
+		"skill": askCtx.Active, "tool_calls": askCtx.ToolCalls, "prompt_version": askCtx.PromptVersion,
 	})
 
 	filt := &citationFilter{max: len(cites)}
@@ -107,7 +113,7 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 		text, aborted := sw.streamText(ctx, filt, fallback, 20*time.Millisecond)
 		answer.WriteString(text)
 		if aborted {
-			s.auditAbort(c)
+			s.auditAbort(ctx, c)
 			return
 		}
 		s.finishWithFlush(r, sw, filt, c, req.Question, &answer, cites)
@@ -144,7 +150,7 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 			safe := filt.Write(ev.Delta)
 			answer.WriteString(safe)
 			if safe != "" && !sw.event("delta", map[string]any{"text": safe}) {
-				s.auditAbort(c)
+				s.auditAbort(ctx, c)
 				return
 			}
 		}
@@ -152,7 +158,7 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 
 	if ctx.Err() != nil {
 		// 客户端断开：不发事件、不落库（R6.3）。
-		s.auditAbort(c)
+		s.auditAbort(ctx, c)
 		return
 	}
 	if interrupted || (sawDelta && !sawDone && !degraded) {
@@ -178,7 +184,7 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 		text, aborted := sw.streamText(ctx, filt, fallback, 20*time.Millisecond)
 		answer.WriteString(text)
 		if aborted {
-			s.auditAbort(c)
+			s.auditAbort(ctx, c)
 			return
 		}
 	}
@@ -213,16 +219,17 @@ func (sw *sseWriter) streamText(ctx context.Context, filt *citationFilter, text 
 func (s *Server) finishWithFlush(r *http.Request, sw *sseWriter, filt *citationFilter,
 	c auth.Claims, question string, answer *strings.Builder, cites []qa.Citation) {
 
+	ctx := r.Context()
 	// 降级路径的文本由本地一次性写出，TCP 缓冲可能让 sw.event 仍返回 true；
 	// 落库前必须复查连接状态，否则客户端已断开却留下半条会话（R6.3）。
 	if r.Context().Err() != nil {
-		s.auditAbort(c)
+		s.auditAbort(ctx, c)
 		return
 	}
 	if tail := filt.Flush(); tail != "" {
 		answer.WriteString(tail)
 		if !sw.event("delta", map[string]any{"text": tail}) {
-			s.auditAbort(c)
+			s.auditAbort(ctx, c)
 			return
 		}
 	}
@@ -254,17 +261,15 @@ func (s *Server) finishAsk(r *http.Request, sw *sseWriter, c auth.Claims,
 		logServerError(r, "save_conversation", err)
 	} else {
 		convID = id
+		noteAskObject(ctx, "conversation", fmt.Sprintf("%d", id))
 	}
-	if err := s.rec.Audit(ctx, &c.UserID, c.Name, &c.ClassID, "ask", "ok",
-		fmt.Sprintf("引用%d条", len(cites))); err != nil {
-		logServerError(r, "audit_ask", err)
-	}
+	s.auditAsk(ctx, c, "ok", fmt.Sprintf("引用%d条", len(cites)))
 	sw.event("done", map[string]any{"conversation_id": convID})
 }
 
 // auditAsk 写一条问答审计；审计失败不回滚已完成的回答，但必须留下 ERROR 日志。
 func (s *Server) auditAsk(ctx context.Context, c auth.Claims, result, detail string) {
-	if err := s.rec.Audit(ctx, &c.UserID, c.Name, &c.ClassID, "ask", result, detail); err != nil {
+	if err := s.writeAuditEvent(ctx, s.newAskAuditEvent(ctx, c, result, detail)); err != nil {
 		slog.ErrorContext(ctx, "audit_write_failed",
 			"request_id", requestIDFrom(ctx),
 			"operation", "audit_ask",
@@ -274,8 +279,11 @@ func (s *Server) auditAsk(ctx context.Context, c auth.Claims, result, detail str
 }
 
 // auditAbort 记录客户端中断；此时请求 ctx 已取消，改用 Background 保证审计能写入。
-func (s *Server) auditAbort(c auth.Claims) {
-	_ = s.rec.Audit(context.Background(), &c.UserID, c.Name, &c.ClassID, "ask", "fail", "客户端中断")
+func (s *Server) auditAbort(ctx context.Context, c auth.Claims) {
+	event := s.newAskAuditEvent(ctx, c, "fail", "客户端中断")
+	if err := s.writeAuditEvent(context.Background(), event); err != nil {
+		slog.Error("audit_write_failed", "operation", "audit_abort", "error", err.Error())
+	}
 }
 
 // sseWriter 负责按 SSE 协议分帧写出并立即 Flush（design D6）。

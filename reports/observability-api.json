@@ -1,0 +1,178 @@
+{
+  "teacher_observability_status": 200,
+  "request_routes": 2,
+  "skill_rows": [
+    {
+      "skill_name": "基础问答",
+      "calls": 362,
+      "errors": 191,
+      "usage_count": 362,
+      "error_rate": 0.5276243093922652
+    }
+  ],
+  "queue_depth": 0,
+  "student_observability_status": 403,
+  "denied_error": {
+    "code": "forbidden",
+    "message": "当前角色无权执行该操作"
+  },
+  "audit_status": 200,
+  "audit_items": [
+    {
+      "id": 1569,
+      "actor_name": "小明",
+      "action": "forbidden",
+      "result": "denied",
+      "detail": "教师权限拒绝",
+      "skill_name": "",
+      "usage_count": 1,
+      "duration_ms": 0,
+      "object_type": "http_route",
+      "object_id": "/api/observability",
+      "created_at": "2026-11-20T21:58:33Z"
+    },
+    {
+      "id": 1568,
+      "actor_name": "student1",
+      "action": "login_success",
+      "result": "ok",
+      "detail": "角色:student",
+      "skill_name": "",
+      "usage_count": 1,
+      "duration_ms": 0,
+      "object_type": "",
+      "object_id": "",
+      "created_at": "2026-11-20T21:58:33Z"
+    },
+    {
+      "id": 1567,
+      "actor_name": "teacher1",
+      "action": "login_success",
+      "result": "ok",
+      "detail": "角色:teacher",
+      "skill_name": "",
+      "usage_count": 1,
+      "duration_ms": 0,
+      "object_type": "",
+      "object_id": "",
+      "created_at": "2026-11-20T21:58:33Z"
+    },
+    {
+      "id": 1566,
+      "actor_name": "student1",
+      "action": "login_success",
+      "result": "ok",
+      "detail": "角色:student",
+      "skill_name": "",
+      "usage_count": 1,
+      "duration_ms": 0,
+      "object_type": "",
+      "object_id": "",
+      "created_at": "2026-11-20T21:56:28Z"
+    },
+    {
+      "id": 1565,
+      "actor_name": "student1",
+      "action": "login_success",
+      "result": "ok",
+      "detail": "角色:student",
+      "skill_name": "",
+      "usage_count": 1,
+      "duration_ms": 0,
+      "object_type": "",
+      "object_id": "",
+      "created_at": "2026-11-20T21:56:28Z"
+    },
+    {
+      "id": 1564,
+      "actor_name": "teacher1",
+      "action": "login_success",
+      "result": "ok",
+      "detail": "角色:teacher",
+      "skill_name": "",
+      "usage_count": 1,
+      "duration_ms": 0,
+      "object_type": "",
+      "object_id": "",
+      "created_at": "2026-11-20T21:56:28Z"
+    },
+    {
+      "id": 1563,
+      "actor_name": "teacher1",
+      "action": "login_success",
+      "result": "ok",
+      "detail": "角色:teacher",
+      "skill_name": "",
+      "usage_count": 1,
+      "duration_ms": 0,
+      "object_type": "",
+      "object_id": "",
+      "created_at": "2026-11-20T21:56:27Z"
+    },
+    {
+      "id": 1562,
+      "actor_name": "student1",
+      "action": "login_success",
+      "result": "ok",
+      "detail": "角色:student",
+      "skill_name": "",
+      "usage_count": 1,
+      "duration_ms": 0,
+      "object_type": "",
+      "object_id": "",
+      "created_at": "2026-11-20T21:56:10Z"
+    },
+    {
+      "id": 1561,
+      "actor_name": "student1",
+      "action": "login_success",
+      "result": "ok",
+      "detail": "角色:student",
+      "skill_name": "",
+      "usage_count": 1,
+      "duration_ms": 0,
+      "object_type": "",
+      "object_id": "",
+      "created_at": "2026-11-20T21:56:10Z"
+    },
+    {
+      "id": 1560,
+      "actor_name": "teacher1",
+      "action": "login_success",
+      "result": "ok",
+      "detail": "角色:teacher",
+      "skill_name": "",
+      "usage_count": 1,
+      "duration_ms": 0,
+      "object_type": "",
+      "object_id": "",
+      "created_at": "2026-11-20T21:56:10Z"
+    },
+    {
+      "id": 1559,
+      "actor_name": "teacher1",
+      "action": "login_success",
+      "result": "ok",
+      "detail": "角色:teacher",
+      "skill_name": "",
+      "usage_count": 1,
+      "duration_ms": 0,
+      "object_type": "",
+      "object_id": "",
+      "created_at": "2026-11-20T21:56:10Z"
+    },
+    {
+      "id": 1558,
+      "actor_name": "worker",
+      "action": "index_task",
+      "result": "ok",
+      "detail": "task:b009eabfd3d8400ec527e93406b66f73;material:389;attempts:1",
+      "skill_name": "",
+      "usage_count": 1,
+      "duration_ms": 0,
+      "object_type": "",
+      "object_id": "",
+      "created_at": "2026-11-20T07:20:38Z"
+    }
+  ]
+}

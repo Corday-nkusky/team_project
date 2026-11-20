@@ -1,0 +1,85 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from backend.Dockerfile
+#1 transferring dockerfile: 2.14kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/alpine:3.21
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/node:22-alpine
+#3 DONE 0.0s
+
+#4 [internal] load metadata for docker.io/library/golang:1.27.4
+#4 DONE 1.1s
+
+#5 [internal] load .dockerignore
+#5 transferring context: 223B done
+#5 DONE 0.0s
+
+#6 [stage-2 1/5] FROM docker.io/library/alpine:3.21
+#6 DONE 0.0s
+
+#7 [build 1/8] FROM docker.io/library/golang:1.27.4@sha256:205c7636d74e0ffbe3d007162df7d74f859f5a8c8322dfb9f907977686c126cf
+#7 DONE 0.0s
+
+#8 [frontend 1/6] FROM docker.io/library/node:22-alpine
+#8 DONE 0.0s
+
+#9 [internal] load build context
+#9 transferring context: 16.66kB done
+#9 DONE 0.0s
+
+#10 [frontend 2/6] WORKDIR /fe
+#10 CACHED
+
+#11 [frontend 4/6] RUN npm ci --no-audit --no-fund
+#11 CACHED
+
+#12 [frontend 3/6] COPY frontend/package.json frontend/package-lock.json ./
+#12 CACHED
+
+#13 [frontend 5/6] COPY frontend/ ./
+#13 CACHED
+
+#14 [build 2/8] WORKDIR /src
+#14 CACHED
+
+#15 [frontend 6/6] RUN VITE_OUT_DIR=dist npx vite build
+#15 CACHED
+
+#16 [build 3/8] COPY backend/go.mod backend/go.sum ./
+#16 CACHED
+
+#17 [build 4/8] RUN go mod download
+#17 DONE 0.9s
+
+#18 [build 5/8] COPY backend/ ./
+#18 DONE 0.0s
+
+#19 [build 6/8] RUN rm -rf ./internal/web/dist && mkdir -p ./internal/web/dist
+#19 DONE 0.2s
+
+#20 [build 7/8] COPY --from=frontend /fe/dist/ ./internal/web/dist/
+#20 DONE 0.0s
+
+#21 [build 8/8] RUN go build -trimpath -ldflags="-s -w -X main.version=local-final-smoke-20261121" -o /out/server ./cmd/server &&     go build -trimpath -ldflags="-s -w -X main.version=local-final-smoke-20261121" -o /out/worker ./cmd/worker &&     go build -trimpath -ldflags="-s -w -X main.version=local-final-smoke-20261121" -o /out/mcp-server ./cmd/mcp-server
+#21 DONE 7.1s
+
+#22 [stage-2 2/5] RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 app
+#22 CACHED
+
+#23 [stage-2 3/5] COPY --from=build /out/server /usr/local/bin/server
+#23 DONE 0.0s
+
+#24 [stage-2 4/5] COPY --from=build /out/worker /usr/local/bin/worker
+#24 DONE 0.0s
+
+#25 [stage-2 5/5] COPY --from=build /out/mcp-server /usr/local/bin/mcp-server
+#25 DONE 0.0s
+
+#26 exporting to image
+#26 exporting layers 0.0s done
+#26 writing image sha256:4a37ad6668117853ec7b6600ace87ab3b0a0c08cddb62308d54990a3cc4f7121 done
+#26 naming to docker.io/library/campusclaw:version-smoke done
+#26 DONE 0.1s

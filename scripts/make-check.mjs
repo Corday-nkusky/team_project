@@ -23,10 +23,7 @@ function run(name, cmd, args, cwd = root) {
 
 if (security) {
   console.log("== check-security（Node 入口）==");
-  run("密钥扫描", process.execPath, ["scripts/check-secrets.mjs"]);
-  run("go vet", goBin, ["vet", "./..."], path.join(root, "backend"));
-  run("go test", goBin, ["test", "./...", "-count=1"], path.join(root, "backend"));
-  console.log("check-security 全绿");
+  run("安全门禁", process.execPath, ["scripts/security-gate.mjs"]);
 } else {
   console.log("== check（Node 入口）==");
   run("质量门禁", process.execPath, ["scripts/quality-gate.mjs"]);

@@ -68,15 +68,18 @@ type mcpStore interface {
 
 // Server 汇总依赖并提供路由。
 type Server struct {
-	cfg      config.Config
-	st       *store.Store
-	rec      askRecorder
-	qa       qaService
-	skills   *skill.Loader
-	skillsRW skillRW
-	mcp      mcpStore
-	checker  Checker
-	version  string
+	cfg            config.Config
+	st             *store.Store
+	rec            askRecorder
+	qa             qaService
+	skills         *skill.Loader
+	skillsRW       skillRW
+	mcp            mcpStore
+	obs            observationStore
+	metrics        *requestMetrics
+	materialsCache *materialListCache
+	checker        Checker
+	version        string
 }
 
 // New 构造 Server。version 由构建期注入（`-X main.version=...`），空值回退为 dev。
@@ -86,7 +89,8 @@ func New(cfg config.Config, st *store.Store, svc *qa.Service, checker Checker, v
 	}
 	return &Server{
 		cfg: cfg, st: st, rec: st, qa: svc,
-		skills: skill.New(st), skillsRW: st, mcp: st, checker: checker, version: version,
+		skills: skill.New(st), skillsRW: st, mcp: st, obs: st,
+		metrics: newRequestMetrics(), materialsCache: newMaterialListCache(cfg.MaterialCacheTTL), checker: checker, version: version,
 	}
 }
 
@@ -129,11 +133,17 @@ func (s *Server) Handler() http.Handler {
 
 	// 仅教师：上传与重索引（R2.3）。
 	mux.Handle("POST /api/materials",
-		s.requireAuth(requireRole("teacher", http.HandlerFunc(s.handleCreateMaterial))))
+		s.requireAuth(s.requireTeacher(http.HandlerFunc(s.handleCreateMaterial))))
 	mux.HandleFunc("/api/materials", methodNotAllowed(http.MethodGet, http.MethodPost))
 	mux.Handle("POST /api/materials/{id}/reindex",
-		s.requireAuth(requireRole("teacher", http.HandlerFunc(s.handleReindex))))
+		s.requireAuth(s.requireTeacher(http.HandlerFunc(s.handleReindex))))
 	mux.HandleFunc("/api/materials/{id}/reindex", methodNotAllowed(http.MethodPost))
+
+	// 运行观测与审计只限本班教师；拒绝行为同样留痕。
+	mux.Handle("GET /api/audit", s.requireAuth(s.requireTeacher(http.HandlerFunc(s.handleListAudit))))
+	mux.HandleFunc("/api/audit", methodNotAllowed(http.MethodGet))
+	mux.Handle("GET /api/observability", s.requireAuth(s.requireTeacher(http.HandlerFunc(s.handleObservability))))
+	mux.HandleFunc("/api/observability", methodNotAllowed(http.MethodGet))
 
 	// 任务状态：本班只读查询，不触发执行（A2.2 / A2.3）。
 	mux.Handle("GET /api/tasks/{task_id}", s.requireAuth(http.HandlerFunc(s.handleGetTask)))
@@ -142,26 +152,26 @@ func (s *Server) Handler() http.Handler {
 	// 解题引导技能：读=登录，写=教师（spec SK1）。
 	mux.Handle("GET /api/skills", s.requireAuth(http.HandlerFunc(s.handleListSkills)))
 	mux.HandleFunc("/api/skills", methodNotAllowed(http.MethodGet, http.MethodPost, http.MethodDelete))
-	mux.Handle("POST /api/skills", s.requireAuth(requireRole("teacher", http.HandlerFunc(s.handleUpsertSkill))))
-	mux.Handle("DELETE /api/skills/{id}", s.requireAuth(requireRole("teacher", http.HandlerFunc(s.handleDeleteSkill))))
+	mux.Handle("POST /api/skills", s.requireAuth(s.requireTeacher(http.HandlerFunc(s.handleUpsertSkill))))
+	mux.Handle("DELETE /api/skills/{id}", s.requireAuth(s.requireTeacher(http.HandlerFunc(s.handleDeleteSkill))))
 	mux.HandleFunc("/api/skills/{id}", methodNotAllowed(http.MethodDelete))
 
 	// MCP 宿主侧：管理角色（教师）专属（spec MC2/MC4）。
-	mux.Handle("GET /api/mcp/servers", s.requireAuth(requireRole("teacher", http.HandlerFunc(s.handleListMCPServers))))
-	mux.Handle("POST /api/mcp/servers", s.requireAuth(requireRole("teacher", http.HandlerFunc(s.handleUpsertMCPServer))))
+	mux.Handle("GET /api/mcp/servers", s.requireAuth(s.requireTeacher(http.HandlerFunc(s.handleListMCPServers))))
+	mux.Handle("POST /api/mcp/servers", s.requireAuth(s.requireTeacher(http.HandlerFunc(s.handleUpsertMCPServer))))
 	mux.HandleFunc("/api/mcp/servers", methodNotAllowed(http.MethodGet, http.MethodPost))
 	mux.Handle("POST /api/mcp/servers/{id}/connect",
-		s.requireAuth(requireRole("teacher", http.HandlerFunc(s.handleMCPConnect))))
+		s.requireAuth(s.requireTeacher(http.HandlerFunc(s.handleMCPConnect))))
 	mux.HandleFunc("/api/mcp/servers/{id}/connect", methodNotAllowed(http.MethodPost))
 	mux.Handle("POST /api/mcp/servers/{id}/disconnect",
-		s.requireAuth(requireRole("teacher", http.HandlerFunc(s.handleMCPDisconnect))))
+		s.requireAuth(s.requireTeacher(http.HandlerFunc(s.handleMCPDisconnect))))
 	mux.HandleFunc("/api/mcp/servers/{id}/disconnect", methodNotAllowed(http.MethodPost))
-	mux.Handle("GET /api/mcp/servers/{id}/tools", s.requireAuth(requireRole("teacher", http.HandlerFunc(s.handleMCPTools))))
+	mux.Handle("GET /api/mcp/servers/{id}/tools", s.requireAuth(s.requireTeacher(http.HandlerFunc(s.handleMCPTools))))
 	mux.HandleFunc("/api/mcp/servers/{id}/tools", methodNotAllowed(http.MethodGet))
-	mux.Handle("GET /api/mcp/calls", s.requireAuth(requireRole("teacher", http.HandlerFunc(s.handleListMCPCalls))))
+	mux.Handle("GET /api/mcp/calls", s.requireAuth(s.requireTeacher(http.HandlerFunc(s.handleListMCPCalls))))
 	mux.HandleFunc("/api/mcp/calls", methodNotAllowed(http.MethodGet))
 	mux.Handle("DELETE /api/mcp/servers/{id}",
-		s.requireAuth(requireRole("teacher", http.HandlerFunc(s.handleDeleteMCPServer))))
+		s.requireAuth(s.requireTeacher(http.HandlerFunc(s.handleDeleteMCPServer))))
 	mux.HandleFunc("/api/mcp/servers/{id}", methodNotAllowed(http.MethodDelete))
 
 	// 未注册的 API 路径统一返回 JSON 404，绝不回落到 SPA（spec R11.2）。
@@ -180,7 +190,7 @@ func (s *Server) Handler() http.Handler {
 		static.ServeHTTP(w, r)
 	})
 
-	return withLogging(mux)
+	return s.withLogging(mux)
 }
 
 // methodNotAllowed 为已注册路径兜底未支持的方法，返回 JSON 405 并写明 Allow（spec R11.1）。

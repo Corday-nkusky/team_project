@@ -122,6 +122,7 @@ function backendAccessLog(ids) {
 
 let token = ''
 let classID
+let vectorExpected = false
 async function login() {
   const r = await fetch(`${BASE}/api/login`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -132,6 +133,13 @@ async function login() {
   token = session.access_token
   classID = session.user.class_id
   if (!Number.isSafeInteger(classID) || classID <= 0) throw new Error('无有效班级标识')
+  const healthResponse = await fetch(`${BASE}/health`)
+  const health = await healthResponse.json()
+  if (!healthResponse.ok || typeof health.llm?.enabled !== 'boolean') {
+    throw new Error(`健康检查无法确认模型模式 ${healthResponse.status}`)
+  }
+  vectorExpected = health.llm.enabled
+  say(`- 索引模式：${vectorExpected ? '模型已配置，必须核验向量点不重复' : '零密钥降级，向量点未生成时记 SKIP，不冒充向量验证'}`)
 }
 async function api(p, init = {}) {
   const r = await fetch(BASE + p, {
@@ -272,15 +280,18 @@ async function concurrentUpload() {
     WHERE material_id=${a.body.material_id} AND class_id=${classID}`)
   const points = qdrantCount(a.body.material_id)
   say(`- 材料/上传任务=${rows}；切片/唯一序号=${chunks}；向量点=${points ?? '未采集'}`)
-  if (rows !== '1\t1' || chunks !== '1\t1' || points !== 1) {
-    throw new Error('单切片材料应恰有一行材料、一个上传任务、一条切片和一个向量点')
+  const vectorOK = points === 1 || (!vectorExpected && points === null)
+  if (rows !== '1\t1' || chunks !== '1\t1' || !vectorOK) {
+    throw new Error(vectorExpected
+      ? '单切片材料应恰有一行材料、一个上传任务、一条切片和一个向量点'
+      : '零密钥模式仍须恰有一行材料、一个上传任务和一条切片；向量点只允许未采集或恰为一个')
   }
-  return a.body.material_id
+  return { materialID: a.body.material_id, points }
 }
 
 async function criterion3() {
   section('判据三 · 并发提交 / 重复投递只出一份结果')
-  const materialID = await concurrentUpload()
+  const { materialID } = await concurrentUpload()
 
   // 对同一份材料再发起一次重索引：成功后 revision+1 会生成新任务，
   // 重复执行全量替换切片与向量，用来验证确定性点 ID 不会让点数翻倍。
@@ -334,8 +345,11 @@ async function criterion3() {
 try {
   await login()
   if (WHICH === 'concurrent') {
-    await concurrentUpload()
-    verdict('并发上传', true, '两次 202、相同标识，材料/上传任务/切片/向量点各一份')
+    const { points } = await concurrentUpload()
+    verdict('并发上传', points === null ? null : true,
+      points === null
+        ? '两次 202、相同标识，材料/上传任务/切片各一份；零密钥模式向量点未采集，向量子项 SKIP'
+        : '两次 202、相同标识，材料/上传任务/切片/向量点各一份')
   }
   if (WHICH === 'all' || WHICH === '1') await criterion1()
   if (WHICH === 'all' || WHICH === '2') await criterion2()

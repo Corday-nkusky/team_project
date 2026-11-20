@@ -14,6 +14,8 @@ import (
 	"github.com/Corday-nkusky/team_project/backend/internal/auth"
 	"github.com/Corday-nkusky/team_project/backend/internal/config"
 	"github.com/Corday-nkusky/team_project/backend/internal/qa"
+	"github.com/Corday-nkusky/team_project/backend/internal/skill"
+	"github.com/Corday-nkusky/team_project/backend/internal/store"
 )
 
 // stubQA 是 qaService 的可控替身，用于覆盖流式分支而不依赖数据库或模型。
@@ -53,6 +55,7 @@ type stubRec struct {
 	saved         int
 	lastAnswer    string
 	audits        []string
+	events        []store.AuditEvent
 	saveErr       error
 	listJSON      json.RawMessage
 	listErr       error
@@ -64,6 +67,12 @@ type stubRec struct {
 
 func (r *stubRec) Audit(_ context.Context, _ *int64, _ string, _ *int64, _ string, result, detail string) error {
 	r.audits = append(r.audits, result+":"+detail)
+	return nil
+}
+
+func (r *stubRec) WriteAuditEvent(_ context.Context, event store.AuditEvent) error {
+	r.audits = append(r.audits, event.Result+":"+event.Detail)
+	r.events = append(r.events, event)
 	return nil
 }
 
@@ -160,6 +169,28 @@ func TestAskNoEvidence(t *testing.T) {
 	}
 	if rec.saved != 0 || len(rec.audits) != 1 || rec.audits[0] != "fail:no_evidence" {
 		t.Fatalf("未命中不应落库，应留痕：saved=%d audits=%v", rec.saved, rec.audits)
+	}
+}
+
+func TestAskAuditRecordsSkillUsageAndPromptVersion(t *testing.T) {
+	q := &stubQA{cites: nil, enabled: true}
+	rec := &stubRec{}
+	s := newAskServer(q, rec)
+	s.skills = skill.New(stubSkillRW{})
+
+	rr := httptest.NewRecorder()
+	s.handleAsk(rr, askRequest(t, "未命中问题"))
+	evs := parseSSE(t, rr.Body.String())
+	if got := evs[0].data["prompt_version"]; got != "grounded-qa:v1;skill:解题引导:v1" {
+		t.Fatalf("提示词版本不符：%v", got)
+	}
+	if len(rec.events) != 1 {
+		t.Fatalf("应写一条完整审计，实际 %d", len(rec.events))
+	}
+	event := rec.events[0]
+	if event.SkillName != "解题引导" || event.UsageCount != 1 || event.DurationMS < 0 ||
+		event.ObjectType != "http_request" || event.Action != "ask" {
+		t.Fatalf("技能/用量/耗时/对象字段不完整：%+v", event)
 	}
 }
 

@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { readAskStream } from "./bench-ask-stream.mjs";
 
 const frame = (name, data) => `event: ${name}\r\ndata: ${JSON.stringify(data)}\r\n\r\n`;
-const meta = (hit) => frame("meta", { citations: hit ? [{ snippet: "原文" }] : [], no_evidence: !hit });
+const meta = (hit) => frame("meta", { citations: hit ? [{ snippet: "原文" }] : [], no_evidence: !hit, prompt_version: "grounded-qa:v1" });
 const delta = (text) => frame("delta", { text });
 const done = frame("done", { conversation_id: null });
 const answer = meta(true) + frame("degraded", { reason: "upstream_error" }) + delta("原文") + done;
@@ -27,6 +27,9 @@ test("UTF-8 characters and frame boundaries may span chunks; first text precedes
   });
   const sample = await readAskStream(new Response(body, { headers }), performance.now());
   assert.equal(sample.outcome, "answered");
+  assert.equal(sample.answer, "原文");
+  assert.equal(sample.promptVersion, "grounded-qa:v1");
+  assert.equal(sample.citations.length, 1);
   assert.ok(sample.firstTextMs >= 0 && sample.doneMs > sample.firstTextMs);
 });
 

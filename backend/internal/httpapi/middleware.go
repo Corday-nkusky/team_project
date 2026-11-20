@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Corday-nkusky/team_project/backend/internal/auth"
+	"github.com/Corday-nkusky/team_project/backend/internal/store"
 )
 
 type ctxKey string
@@ -64,6 +65,34 @@ func requireRole(role string, next http.Handler) http.Handler {
 	})
 }
 
+// requireTeacher 限制教师操作，并对已认证的学生越权尝试追加留痕。
+// 未认证请求由 requireAuth 先返回 401，这里没有可归属的操作人。
+func (s *Server) requireTeacher(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c, ok := claimsFrom(r.Context())
+		if !ok || c.Role != "teacher" {
+			if ok && s.rec != nil {
+				if recorder, supported := s.rec.(interface {
+					WriteAuditEvent(context.Context, store.AuditEvent) error
+				}); supported {
+					err := recorder.WriteAuditEvent(r.Context(), store.AuditEvent{
+						ActorID: &c.UserID, ActorName: c.Name, ClassID: &c.ClassID,
+						Action: "forbidden", Result: "denied", Detail: "教师权限拒绝",
+						UsageCount: 1, ObjectType: "http_route", ObjectID: r.URL.Path,
+					})
+					if err != nil {
+						slog.WarnContext(r.Context(), "audit_write_failed",
+							"request_id", requestIDFrom(r.Context()), "operation", "audit_forbidden", "error", err.Error())
+					}
+				}
+			}
+			writeErr(w, http.StatusForbidden, "forbidden", "当前角色无权执行该操作")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // statusRecorder 记录响应状态码供访问日志使用。
 //
 // 关键：必须透传 Flush()（design D6 / tasks 4.5）——否则 SSE 会退化为「一次性返回」。
@@ -90,7 +119,7 @@ func (r *statusRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter 
 //
 // 只记录方法、路径、状态、耗时与请求标识；不记录请求头、请求体与查询串，
 // 以免口令或令牌进入日志（R10.3）。
-func withLogging(next http.Handler) http.Handler {
+func (s *Server) withLogging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rid := acceptableRequestID(r.Header.Get("X-Request-ID"))
 		if rid == "" {
@@ -103,6 +132,11 @@ func withLogging(next http.Handler) http.Handler {
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(rec, r)
 
+		route := r.Pattern
+		if route == "" {
+			route = r.URL.Path
+		}
+		s.metrics.observe(r.Method, route, rec.status, time.Since(start))
 		slog.Info("http_request",
 			"request_id", rid,
 			"method", r.Method,

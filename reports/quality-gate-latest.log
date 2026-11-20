@@ -1,0 +1,10 @@
+✓ 配置样例完整性
+✓ 分层依赖 (80ms)
+✓ 密钥与配置卫生 (115ms)
+✓ gofmt (53ms)
+✓ go build (1060ms)
+✓ go vet (403ms)
+✓ go test (823ms)
+✓ OpenSpec 严格校验 (1928ms)
+
+质量门禁全部通过。

@@ -90,6 +90,17 @@ func TestLoginRejectsOversizedBody(t *testing.T) {
 	}
 }
 
+func TestSecurityXSSJSONEscapesScript(t *testing.T) {
+	rr := httptest.NewRecorder()
+	writeJSON(rr, http.StatusOK, materialDetailView{Title: "<script>alert(1)</script>", Content: "正文"})
+	if strings.Contains(rr.Body.String(), "<script>") {
+		t.Fatalf("XSS payload 不得原样进入 JSON：%s", rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), `\u003cscript\u003e`) {
+		t.Fatalf("JSON 编码器应转义尖括号：%s", rr.Body.String())
+	}
+}
+
 func TestLoginRejectsTrailingJSON(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/login",
 		strings.NewReader(`{"username":"a","password":"b"}{"x":1}`))

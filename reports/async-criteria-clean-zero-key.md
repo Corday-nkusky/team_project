@@ -1,0 +1,118 @@
+# 第 8 课异步三判据复现记录
+
+- 时间：2026-11-20T23:00:17.735Z
+- 服务：http://127.0.0.1:8080；compose：-f deploy/docker-compose.yml
+- 参数：--criterion all --count 20
+- 索引模式：零密钥降级，向量点未生成时记 SKIP，不冒充向量验证
+
+## 判据一 · 提交 P95 ≪ 执行耗时，且响应不含结果
+
+- 本批 20 个任务到达终态：20
+$ 连续 POST /api/materials 20 次（curl -w '%{time_total}' 等价：脚本内 performance.now()）
+- 每次提交耗时（ms，升序）：10.8, 11.4, 50.3, 50.4, 50.8, 50.9, 51.3, 51.4, 51.9, 52.0, 52.1, 52.4, 52.5, 52.7, 52.7, 52.8, 53.1, 56.0, 56.7, 57.5
+- P95 = **57.5 ms**；首个任务状态 = succeeded
+- 一次索引执行耗时（finished_at − started_at）= 19 ms
+- 202 且含 task_id / status_url：true；响应不含索引结果：true
+**结论：FAIL** — 判据一：P95 57.5ms vs 执行 19ms；不含结果=true。
+
+
+## 判据二 · 停消费者提交、恢复后自动执行不丢
+
+$ docker compose -f deploy/docker-compose.yml stop worker
+```
+Container campusclaw-clean-20261121-worker-1 Stopping 
+ Container campusclaw-clean-20261121-worker-1 Stopped
+```
+$ POST /api/materials → 202 {"task_id":"ab005b65901fd3dd58c2b9c032c5b5ad","material_id":82,"status":"pending","status_url":"/api/tasks/ab005b65901fd3dd58c2b9c032c5b5ad"}
+- 消费者停止 2 秒后查询：200 {"task_id":"ab005b65901fd3dd58c2b9c032c5b5ad","material_id":82,"kind":"upload","status":"pending","attempts":0,"request_id":"ea022e3a1180b7c196a40d2b82b822e8","created_at":"2026-11-20T23:00:20.662Z"}
+$ docker compose -f deploy/docker-compose.yml start worker
+```
+Container campusclaw-clean-20261121-mysql-1 Waiting 
+ Container campusclaw-clean-20261121-mysql-1 Healthy 
+ Container campusclaw-clean-20261121-backend-1 Waiting 
+ Container campusclaw-clean-20261121-backend-1 Healthy 
+ Container campusclaw-clean-20261121-worker-1 Starting 
+ Container campusclaw-clean-20261121-worker-1 Started
+```
+- 恢复消费者后终态：succeeded attempts=1
+**结论：PASS** — 判据二：停止期间状态=pending，恢复后=succeeded
+
+$ docker compose -f deploy/docker-compose.yml start worker
+```
+Container campusclaw-clean-20261121-mysql-1 Waiting 
+ Container campusclaw-clean-20261121-mysql-1 Healthy 
+ Container campusclaw-clean-20261121-backend-1 Waiting 
+ Container campusclaw-clean-20261121-backend-1 Healthy
+```
+
+## 判据三 · 并发提交 / 重复投递只出一份结果
+
+- 请求 1：HTTP 202；material_id=83；task_id=9f89c4f3d8b034ac7e788d770c698c9f
+- 请求 2：HTTP 202；material_id=83；task_id=9f89c4f3d8b034ac7e788d770c698c9f
+- 服务端请求标识：d646e90f1beb81352cc54f93fe4a7cbe / 50952e5c7c2b56964578f6c8998c3a2a（两条不同，说明服务端收到两次独立请求）
+$ docker compose logs --tail 400 backend | grep <两条 request id>
+```
+backend-1  | {"time":"2026-11-20T23:00:25.121427191Z","level":"INFO","msg":"http_request","request_id":"d646e90f1beb81352cc54f93fe4a7cbe","method":"POST","path":"/api/materials","status":202,"duration_ms":8}
+backend-1  | {"time":"2026-11-20T23:00:25.123076565Z","level":"INFO","msg":"http_request","request_id":"50952e5c7c2b56964578f6c8998c3a2a","method":"POST","path":"/api/materials","status":202,"duration_ms":9}
+```
+- 客户端两请求窗口重叠：10.52 ms（客户端观测值，非服务端并发直证）
+$ docker compose exec -T mysql mysql ... -e "SELECT COUNT(DISTINCT m.id), COUNT(t.id) FROM materials m LEFT JOIN index_tasks t ON t.material_id=m.id AND t.class_id=m.class_id AND t.kind='upload' WHERE m.class_id=1 AND m.title='并发上传-d2c851a0-7bc6-4442-8402-edf662554423'"
+```
+1	1
+```
+$ docker compose exec -T mysql mysql ... -e "SELECT COUNT(*), COUNT(DISTINCT seq) FROM chunks WHERE material_id=83 AND class_id=1"
+```
+1	1
+```
+$ docker compose exec -T backend sh -c "wget ... /points/count (material_id=83)"
+```
+wget: server returned error: HTTP/1.1 404 Not Found
+```
+- 材料/上传任务=1	1；切片/唯一序号=1	1；向量点=未采集
+$ docker compose exec -T mysql mysql ... -e "SELECT COUNT(*), COUNT(DISTINCT seq) FROM chunks WHERE material_id=83"
+```
+1	1
+```
+$ docker compose exec -T backend sh -c "wget ... /points/count (material_id=83)"
+```
+wget: server returned error: HTTP/1.1 404 Not Found
+```
+- 再次重索引：succeeded；切片 1 行 / 1 个 seq；向量点 未采集
+$ docker compose -f deploy/docker-compose.yml stop worker
+```
+Container campusclaw-clean-20261121-worker-1 Stopping 
+ Container campusclaw-clean-20261121-worker-1 Stopped
+```
+$ docker compose -f deploy/docker-compose.yml start worker
+```
+Container campusclaw-clean-20261121-mysql-1 Waiting 
+ Container campusclaw-clean-20261121-mysql-1 Healthy 
+ Container campusclaw-clean-20261121-backend-1 Waiting 
+ Container campusclaw-clean-20261121-backend-1 Healthy 
+ Container campusclaw-clean-20261121-worker-1 Starting 
+ Container campusclaw-clean-20261121-worker-1 Started
+```
+- 未捕获到 running 窗口（任务太快完成），重复投递子项记为 SKIP，不伪造结果。
+$ docker compose -f deploy/docker-compose.yml start worker
+```
+Container campusclaw-clean-20261121-mysql-1 Waiting 
+ Container campusclaw-clean-20261121-mysql-1 Healthy 
+ Container campusclaw-clean-20261121-backend-1 Waiting 
+ Container campusclaw-clean-20261121-backend-1 Healthy
+```
+**结论：SKIP** — 判据三：并发入口幂等=true；切片每 seq 一行且不增长=true；向量点不翻倍=未采集；重复投递 attempts≥2=SKIP。 Qdrant 点数未采集（容器内网不可达时记为 SKIP，不算通过）。
+
+$ docker compose -f deploy/docker-compose.yml start worker
+```
+Container campusclaw-clean-20261121-mysql-1 Waiting 
+ Container campusclaw-clean-20261121-mysql-1 Healthy 
+ Container campusclaw-clean-20261121-backend-1 Waiting 
+ Container campusclaw-clean-20261121-backend-1 Healthy
+```
+$ docker compose exec -T mysql mysql ... -e "DELETE FROM materials WHERE id IN (62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,85)"
+
+## 汇总
+
+- 判据一：FAIL
+- 判据二：PASS
+- 判据三：SKIP

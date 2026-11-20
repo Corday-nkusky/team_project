@@ -1,0 +1,72 @@
+== CampusClaw 接口测试  target=http://127.0.0.1:8080 ==
+
+
+--- cases\api\ask\POST.py ---
+
+== 端到端：技能 → 工具调用 → 记录 ==
+  PASS 连接成功
+  PASS 技能保存成功且引用一致
+  PASS 收到 meta 事件 · events=['meta', 'delta', 'done']
+  PASS meta.tool_calls 含本次工具 · [{'tool_ref': 'formula_hint@e2e-srv-b2f8a06f', 'result': 'ok'}]
+  PASS meta.skill 标记启用
+  PASS 记录中出现 tool@server · 匹配 1 条
+  PASS 记录结果非空 · ok
+  PASS 记录含触发人与轮次
+  PASS 断开后引用被拒 · [{'tool_ref': 'formula_hint@e2e-srv-b2f8a06f', 'result': 'denied', 'reason': '���������������������������������'}]
+
+--- cases\api\login\POST.py ---
+
+== POST /api/login ==
+  PASS 正确口令返回 200 · HTTP 200
+  PASS 响应含 access_token
+  PASS 响应含 user 与班级
+  PASS 错误口令返回 401 · HTTP 401
+  PASS 错误口令不回令牌
+
+--- cases\api\mcp\calls\GET.py ---
+
+== GET /api/mcp/calls ==
+  PASS 教师可读 200 · HTTP 200
+  PASS 返回 items 数组
+  PASS 学生 403 · HTTP 403
+  PASS 非法 limit=abc 返回 400 · HTTP 400
+  PASS 非法 limit=0 返回 400 · HTTP 400
+  PASS 非法 limit=-1 返回 400 · HTTP 400
+
+--- cases\api\mcp\servers\POST.py ---
+
+== POST /api/mcp/servers（登记 / 连接 / 断开） ==
+  PASS 登记服务 200 · HTTP 200 {"id":4,"name":"tools-fe5a86d2","base_url":"http://mcp-server:8090","token_configured":true,"connected":false}
+
+  PASS 只回 token_configured 布尔
+  PASS 响应不含令牌明文
+  PASS 返回服务 id
+  PASS 连接成功 200 · HTTP 200 {"connected":true,"id":4,"tools":[{"name":"formula_hint","description":"当学生就某道题卡住、需要思路但不应直接给答案时使用；只返回分步解题线索，不含最终答案。不适用于要求核对具体材料事实的提问。","inputSchema":{
+  PASS 发现至少 2 个工具 · tools=2
+  PASS 工具三项齐全
+  PASS 重复连接 200
+  PASS 重复连接工具数不翻倍
+  PASS 工具清单可读
+  PASS 断开 200
+  PASS 断开后清单为空
+
+--- cases\api\skills\GET.py ---
+
+== GET /api/skills ==
+  PASS 未登录 401 · HTTP 401
+  PASS 学生可读 200 · HTTP 200
+  PASS 返回 items 数组
+
+--- cases\api\skills\POST.py ---
+
+== POST /api/skills ==
+  PASS 教师保存技能 200 · HTTP 200 {"id":4,"name":"引导-548d62da","kind":"solve_hint","enabled":true,"instruction":"先问学生卡在哪一步，再给一个提示。","tool_refs":[],"version":1,"updated_at":"2026-11-20T
+  PASS 返回版本号
+  PASS 学生保存被拒 403 · HTTP 403
+  PASS 非法工具引用 400 · HTTP 400
+  PASS 错误码可读
+  PASS 关闭技能保存成功
+  PASS version 递增 · version=2
+
+== 结果：42/42 通过 ==
+报告：D:\code\team-project\apitest\report.html

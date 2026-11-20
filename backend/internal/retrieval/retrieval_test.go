@@ -209,6 +209,21 @@ func TestRerankAdmitsShortConceptAndRejectsCrossDomain(t *testing.T) {
 	}
 }
 
+func TestRerankZeroKeyRejectsSharedClassroomWording(t *testing.T) {
+	candidate := Candidate{ID: 1, RRFRank: 1, Doc: Doc{
+		ID: 1, MaterialID: 10, HeadingPath: "细胞基础 > 线粒体",
+		Text: "线粒体对应的知识点是能量转换；本材料给它的课堂标记是线粒体-test。",
+	}}
+	terms := QueryTerms("别班材料中火山的课堂标记是什么？")
+	if !containsStr(terms, "火山") || containsStr(terms, "课堂") || containsStr(terms, "标记") || containsStr(terms, "别班") {
+		t.Fatalf("应保留主题实体并剔除通用课堂措辞，实际词元 %v", terms)
+	}
+	got := Rerank([]Candidate{candidate}, terms, EvidencePolicy{MinCoverage: 0.30, VecEnabled: false})
+	if len(got) != 1 || got[0].Evidence {
+		t.Fatalf("仅共享课堂措辞的本班片段不能回答别班实体问题：%+v", got)
+	}
+}
+
 func TestRerankZeroKeyStillAnswersDoubleCharConcept(t *testing.T) {
 	ix := NewIndex()
 	ix.Build(testDocs())

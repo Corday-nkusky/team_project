@@ -1,0 +1,61 @@
+
+== 密钥与配置卫生 ==
+✓ 密钥/配置卫生检查通过（扫描 268 个已跟踪文件）
+
+== Go vet ==
+
+== Go 全量单测 ==
+?   	github.com/Corday-nkusky/team_project/backend/cmd/e2e	[no test files]
+?   	github.com/Corday-nkusky/team_project/backend/cmd/mcp-server	[no test files]
+?   	github.com/Corday-nkusky/team_project/backend/cmd/server	[no test files]
+?   	github.com/Corday-nkusky/team_project/backend/cmd/worker	[no test files]
+?   	github.com/Corday-nkusky/team_project/backend/internal/auth	[no test files]
+ok  	github.com/Corday-nkusky/team_project/backend/internal/config	0.588s
+?   	github.com/Corday-nkusky/team_project/backend/internal/db	[no test files]
+?   	github.com/Corday-nkusky/team_project/backend/internal/deps	[no test files]
+ok  	github.com/Corday-nkusky/team_project/backend/internal/httpapi	0.467s
+ok  	github.com/Corday-nkusky/team_project/backend/internal/indexer	0.663s
+ok  	github.com/Corday-nkusky/team_project/backend/internal/llm	1.229s
+ok  	github.com/Corday-nkusky/team_project/backend/internal/mcpclient	1.173s
+ok  	github.com/Corday-nkusky/team_project/backend/internal/qa	0.634s
+ok  	github.com/Corday-nkusky/team_project/backend/internal/qdrant	1.206s
+ok  	github.com/Corday-nkusky/team_project/backend/internal/retrieval	0.397s
+ok  	github.com/Corday-nkusky/team_project/backend/internal/skill	0.494s
+ok  	github.com/Corday-nkusky/team_project/backend/internal/store	0.381s
+?   	github.com/Corday-nkusky/team_project/backend/internal/web	[no test files]
+
+== SQL/XSS/CSRF 常驻反例 ==
+=== RUN   TestSecuritySQLInjectionMaterialID
+--- PASS: TestSecuritySQLInjectionMaterialID (0.00s)
+=== RUN   TestSecurityXSSJSONEscapesScript
+--- PASS: TestSecurityXSSJSONEscapesScript (0.00s)
+=== RUN   TestSecurityCSRFForgedWriteWithoutBearer
+2026/11/21 06:05:03 INFO http_request request_id=a9edbcff3fac70f084bfeed0b814e6ef method=POST path=/api/skills status=401 duration_ms=0
+--- PASS: TestSecurityCSRFForgedWriteWithoutBearer (0.01s)
+PASS
+ok  	github.com/Corday-nkusky/team_project/backend/internal/httpapi	0.169s
+
+== Go 可达漏洞审计 ==
+node:internal/modules/cjs/loader:1568
+  throw err;
+  ^
+
+Error: Cannot find module 'D:\code\team-project\backend\...'
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1564:15)
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1169:12)
+    at Module._load (node:internal/modules/cjs/loader:1341:5)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:261:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
+
+Node.js v24.21.0
+
+== npm 高危依赖审计 ==
+found 0 vulnerabilities
+
+安全门禁未通过：Go 可达漏洞审计

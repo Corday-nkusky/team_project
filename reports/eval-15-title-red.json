@@ -1,0 +1,211 @@
+{
+  "generated_at": "2026-11-20T22:06:46.264Z",
+  "base": "http://127.0.0.1:8080",
+  "mark": "8800e1c4",
+  "summary": {
+    "answerable": {
+      "total": 5,
+      "passed": 0
+    },
+    "no_answer": {
+      "total": 5,
+      "passed": 5
+    },
+    "cross_class": {
+      "total": 5,
+      "passed": 5
+    }
+  },
+  "results": [
+    {
+      "category": "answerable",
+      "question": "在标题为“评测-A-8800e1c4”的材料中，线粒体对应的知识点与课堂标记是什么？",
+      "pass": false,
+      "outcome": "answered",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [
+        "评测-A-23a398c8",
+        "评测-A-23a398c8",
+        "评测-A-23a398c8",
+        "评测-A-23a398c8"
+      ],
+      "answer": "资料中未找到相关内容",
+      "failures": [
+        "回答未包含独有标记 线粒体-8800e1c4",
+        "引用未指向本轮 A 班材料"
+      ]
+    },
+    {
+      "category": "answerable",
+      "question": "在标题为“评测-A-8800e1c4”的材料中，DNA对应的知识点与课堂标记是什么？",
+      "pass": false,
+      "outcome": "answered",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [
+        "评测-A-23a398c8",
+        "评测-A-23a398c8",
+        "评测-A-23a398c8",
+        "评测-A-23a398c8"
+      ],
+      "answer": "资料中未找到相关内容",
+      "failures": [
+        "回答未包含独有标记 DNA-8800e1c4",
+        "引用未指向本轮 A 班材料"
+      ]
+    },
+    {
+      "category": "answerable",
+      "question": "在标题为“评测-A-8800e1c4”的材料中，叶绿体对应的知识点与课堂标记是什么？",
+      "pass": false,
+      "outcome": "answered",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [
+        "评测-A-23a398c8",
+        "评测-A-23a398c8",
+        "评测-A-23a398c8",
+        "评测-A-23a398c8"
+      ],
+      "answer": "资料中未找到相关内容",
+      "failures": [
+        "回答未包含独有标记 叶绿体-8800e1c4",
+        "引用未指向本轮 A 班材料"
+      ]
+    },
+    {
+      "category": "answerable",
+      "question": "在标题为“评测-A-8800e1c4”的材料中，核糖体对应的知识点与课堂标记是什么？",
+      "pass": false,
+      "outcome": "answered",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [
+        "评测-A-23a398c8",
+        "评测-A-23a398c8",
+        "评测-A-23a398c8",
+        "评测-A-23a398c8"
+      ],
+      "answer": "资料中未找到相关内容",
+      "failures": [
+        "回答未包含独有标记 核糖体-8800e1c4",
+        "引用未指向本轮 A 班材料"
+      ]
+    },
+    {
+      "category": "answerable",
+      "question": "在标题为“评测-A-8800e1c4”的材料中，细胞核对应的知识点与课堂标记是什么？",
+      "pass": false,
+      "outcome": "answered",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [
+        "评测-A-23a398c8",
+        "评测-A-23a398c8",
+        "评测-A-23a398c8",
+        "评测-A-23a398c8"
+      ],
+      "answer": "资料中未找到相关内容",
+      "failures": [
+        "回答未包含独有标记 细胞核-8800e1c4",
+        "引用未指向本轮 A 班材料"
+      ]
+    },
+    {
+      "category": "no_answer",
+      "question": "Kubernetes 的 Pod 应该如何配置自动扩缩容？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "no_answer",
+      "question": "量子引力与广义相对论如何统一？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "no_answer",
+      "question": "请预测 2035 年诺贝尔文学奖得主。",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "no_answer",
+      "question": "如何给生产数据库开启异地多活？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "no_answer",
+      "question": "古罗马元老院的日常议事流程是什么？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "cross_class",
+      "question": "别班材料中火山的课堂标记是什么？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "cross_class",
+      "question": "别班材料中潮汐的课堂标记是什么？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "cross_class",
+      "question": "别班材料中冰川的课堂标记是什么？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "cross_class",
+      "question": "别班材料中季风的课堂标记是什么？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "cross_class",
+      "question": "别班材料中峡谷的课堂标记是什么？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    }
+  ]
+}

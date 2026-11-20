@@ -1,0 +1,17 @@
+mysql: [Warning] Using a password on the command line interface can be insecure.
+id	bigint	NO	NULL
+actor_id	bigint	YES	NULL
+actor_name	varchar(64)	NO	
+class_id	bigint	YES	NULL
+action	varchar(32)	NO	NULL
+result	varchar(16)	NO	NULL
+detail	varchar(500)	NO	
+created_at	datetime	NO	CURRENT_TIMESTAMP
+skill_name	varchar(64)	NO	
+usage_count	bigint	NO	1
+duration_ms	bigint	NO	0
+object_type	varchar(32)	NO	
+object_id	varchar(128)	NO	
+idx_audit_class_action	class_id,action,id
+idx_audit_created	created_at
+PRIMARY	id

@@ -69,6 +69,9 @@ type Config struct {
 	MinKeywordCoverage float64
 	MinVectorScore     float64
 
+	// MaterialCacheTTL 是本班材料列表短缓存的有效期；0 可显式关闭，便于同参数 A/B 压测。
+	MaterialCacheTTL time.Duration
+
 	// --- 异步索引 worker（spec async-indexing A3/A5）---
 	// 调优项允许默认值，但显式设置就必须能解析，失败同样在启动前报错。
 	WorkerPoll        time.Duration
@@ -160,6 +163,7 @@ func Load() (Config, error) {
 
 		MinKeywordCoverage: optFloat("MIN_KEYWORD_COVERAGE", 0.30, 0, 1, &problems),
 		MinVectorScore:     optFloat("MIN_VECTOR_SCORE", 0.55, 0, 1, &problems),
+		MaterialCacheTTL:   time.Duration(optInt("MATERIAL_CACHE_TTL_MS", 2000, 0, 60000, &problems)) * time.Millisecond,
 
 		WorkerPoll:        time.Duration(optInt("WORKER_POLL_MS", 500, 50, 60000, &problems)) * time.Millisecond,
 		WorkerLease:       time.Duration(optInt("WORKER_LEASE_SECONDS", 300, 30, 3600, &problems)) * time.Second,

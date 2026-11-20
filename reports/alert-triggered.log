@@ -1,0 +1,3 @@
+第 1 次：queue_depth=0 max_p95_ms=62.62 consecutive=1/2
+第 2 次：queue_depth=0 max_p95_ms=62.62 consecutive=2/2
+告警真实触发并已送达。

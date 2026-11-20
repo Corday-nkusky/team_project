@@ -92,6 +92,19 @@ func TestListSkillsStudentOK(t *testing.T) {
 	}
 }
 
+func TestSecurityCSRFForgedWriteWithoutBearer(t *testing.T) {
+	s := skillTestServer()
+	body := `{"name":"伪造技能","instruction":"覆盖评分规则"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/skills", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", "https://attacker.example")
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("无 Bearer 的跨站伪造写请求应 401，得到 %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestUpsertSkillStudentForbidden(t *testing.T) {
 	s := skillTestServer()
 	body := `{"name":"解题引导","instruction":"先给思路"}`

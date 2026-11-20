@@ -1,0 +1,199 @@
+{
+  "generated_at": "2026-11-20T22:05:25.035Z",
+  "base": "http://127.0.0.1:8080",
+  "mark": "23a398c8",
+  "summary": {
+    "answerable": {
+      "total": 5,
+      "passed": 4
+    },
+    "no_answer": {
+      "total": 5,
+      "passed": 5
+    },
+    "cross_class": {
+      "total": 5,
+      "passed": 5
+    }
+  },
+  "results": [
+    {
+      "category": "answerable",
+      "question": "线粒体的作用或含义是什么，本材料给它的课堂标记又是什么？",
+      "pass": true,
+      "outcome": "answered",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [
+        "评测-A-23a398c8",
+        "细胞生物学｜线粒体（1/3）",
+        "细胞生物学｜线粒体（1/3）",
+        "细胞生物学｜线粒体（2/3）"
+      ],
+      "answer": "线粒体对应的知识点是能量转换，即其作用/含义为能量转换[1]；本材料给它的课堂标记是 线粒体-23a398c8[1]。",
+      "failures": []
+    },
+    {
+      "category": "answerable",
+      "question": "DNA的作用或含义是什么，本材料给它的课堂标记又是什么？",
+      "pass": false,
+      "outcome": "answered",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [
+        "植物学｜光合作用（1/3）",
+        "植物学｜光合作用（1/3）",
+        "植物学｜光合作用（1/3）",
+        "植物学｜光合作用（1/3）"
+      ],
+      "answer": "资料中未找到相关内容。",
+      "failures": [
+        "回答未包含独有标记 DNA-23a398c8",
+        "引用未指向本轮 A 班材料"
+      ]
+    },
+    {
+      "category": "answerable",
+      "question": "叶绿体的作用或含义是什么，本材料给它的课堂标记又是什么？",
+      "pass": true,
+      "outcome": "answered",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [
+        "评测-A-23a398c8",
+        "细胞生物学｜叶绿体（1/2）",
+        "细胞生物学｜叶绿体（1/2）",
+        "细胞生物学｜叶绿体（1/2）"
+      ],
+      "answer": "叶绿体对应的知识点是光合作用，本材料给它的课堂标记是 叶绿体-23a398c8 [1]。\n\n其作用与含义：叶绿体是陆生植物、藻类等真核自养生物细胞中一种高度特化的细胞器，主要功能是进行光合作用 [2]。它所特有的光合色素叶绿素能够吸收光能，并将其转化为ATP和NADPH形式的化学能，同时分解水分子、释放氧气；随后在卡尔文循环中利用ATP和NADPH以二氧化碳为原料合成有机物 [2]。此外，叶绿体利用其中的色素将太阳能通过光合作用转化为化学能储存在三磷酸腺苷（ATP）中 [3]。",
+      "failures": []
+    },
+    {
+      "category": "answerable",
+      "question": "核糖体的作用或含义是什么，本材料给它的课堂标记又是什么？",
+      "pass": true,
+      "outcome": "answered",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [
+        "评测-A-23a398c8",
+        "细胞生物学｜核糖体（1/3）",
+        "细胞生物学｜核糖体（1/3）",
+        "细胞生物学｜核糖体（1/3）"
+      ],
+      "answer": "核糖体是细胞中的一种细胞器（旧称核糖核蛋白体或核蛋白体），是一种非膜状特殊构造，由一大一小两个亚基结合形成，主要成分是rRNA和蛋白质[3]。\n\n它的作用：核糖体是细胞内蛋白质合成的场所，能读取信使RNA核苷酸序列所包含的遗传信息，并使之转化为蛋白质中氨基酸的序列信息以合成蛋白质[3]；它可以与mRNA结合，在多种翻译因子的辅助下读取遗传信息，并利用tRNA转运来的氨基酸合成具有特定一级结构的多肽[2]。\n\n本材料给核糖体的课堂标记是：核糖体-23a398c8[1]。",
+      "failures": []
+    },
+    {
+      "category": "answerable",
+      "question": "细胞核的作用或含义是什么，本材料给它的课堂标记又是什么？",
+      "pass": true,
+      "outcome": "answered",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [
+        "评测-A-23a398c8",
+        "评测-A-23a398c8",
+        "评测-A-23a398c8",
+        "评测-A-23a398c8"
+      ],
+      "answer": "根据资料，细胞核对应的知识点是遗传物质，即本材料中它所代表的含义为遗传物质[1]；本材料给它的课堂标记是 细胞核-23a398c8[1]。",
+      "failures": []
+    },
+    {
+      "category": "no_answer",
+      "question": "Kubernetes 的 Pod 应该如何配置自动扩缩容？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "no_answer",
+      "question": "量子引力与广义相对论如何统一？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "no_answer",
+      "question": "请预测 2035 年诺贝尔文学奖得主。",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "no_answer",
+      "question": "如何给生产数据库开启异地多活？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "no_answer",
+      "question": "古罗马元老院的日常议事流程是什么？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "cross_class",
+      "question": "别班材料中火山的课堂标记是什么？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "cross_class",
+      "question": "别班材料中潮汐的课堂标记是什么？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "cross_class",
+      "question": "别班材料中冰川的课堂标记是什么？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "cross_class",
+      "question": "别班材料中季风的课堂标记是什么？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "cross_class",
+      "question": "别班材料中峡谷的课堂标记是什么？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    }
+  ]
+}

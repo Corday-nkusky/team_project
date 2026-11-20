@@ -14,7 +14,7 @@ COPY frontend/ ./
 # 输出到容器内独立目录，稍后拷入 Go 的嵌入目录。
 RUN VITE_OUT_DIR=dist npx vite build
 
-FROM golang:1.27 AS build
+FROM golang:1.27.4 AS build
 # 模块代理走国内镜像（proxy.golang.org 在部分网络下不可达）；
 # GOTOOLCHAIN=local：镜像内 go 版本已满足 go.mod，禁止再联网下载工具链。
 ENV GOPROXY=https://goproxy.cn,direct \

@@ -1,0 +1,194 @@
+{
+  "generated_at": "2026-11-20T22:19:22.002Z",
+  "base": "http://127.0.0.1:8080",
+  "mark": "5f61db5f",
+  "summary": {
+    "answerable": {
+      "total": 5,
+      "passed": 5
+    },
+    "no_answer": {
+      "total": 5,
+      "passed": 5
+    },
+    "cross_class": {
+      "total": 5,
+      "passed": 5
+    }
+  },
+  "results": [
+    {
+      "category": "answerable",
+      "question": "线粒体的作用或含义是什么，本材料给它的课堂标记又是什么？",
+      "pass": true,
+      "outcome": "answered",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [
+        "评测-A-d7146561",
+        "评测-A-5f61db5f",
+        "评测-A-d7146561",
+        "评测-A-5f61db5f"
+      ],
+      "answer": "（以下回答直接摘自本班材料）\n\n[1] 《评测-A-d7146561》：线粒体对应的知识点是能量转换；本材料给它的课堂标记是 线粒体-d7146561。\n\n[2] 《评测-A-5f61db5f》：线粒体对应的知识点是能量转换；本材料给它的课堂标记是 线粒体-5f61db5f。\n\n[3] 《评测-A-d7146561》：叶绿体对应的知识点是光合作用；本材料给它的课堂标记是 叶绿体-d7146561。\n\n[4] 《评测-A-5f61db5f》：叶绿体对应的知识点是光合作用；本材料给它的课堂标记是 叶绿体-5f61db5f。\n\n以上内容均来自你的班级已上传的材料，可点击引用核对该片段的完整原文。",
+      "failures": []
+    },
+    {
+      "category": "answerable",
+      "question": "DNA的作用或含义是什么，本材料给它的课堂标记又是什么？",
+      "pass": true,
+      "outcome": "answered",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [
+        "评测-A-d7146561",
+        "评测-A-5f61db5f",
+        "评测-A-d7146561",
+        "评测-A-5f61db5f"
+      ],
+      "answer": "（以下回答直接摘自本班材料）\n\n[1] 《评测-A-d7146561》：DNA对应的知识点是脱氧核糖核酸；本材料给它的课堂标记是 DNA-d7146561。\n\n[2] 《评测-A-5f61db5f》：DNA对应的知识点是脱氧核糖核酸；本材料给它的课堂标记是 DNA-5f61db5f。\n\n[3] 《评测-A-d7146561》：叶绿体对应的知识点是光合作用；本材料给它的课堂标记是 叶绿体-d7146561。\n\n[4] 《评测-A-5f61db5f》：叶绿体对应的知识点是光合作用；本材料给它的课堂标记是 叶绿体-5f61db5f。\n\n以上内容均来自你的班级已上传的材料，可点击引用核对该片段的完整原文。",
+      "failures": []
+    },
+    {
+      "category": "answerable",
+      "question": "叶绿体的作用或含义是什么，本材料给它的课堂标记又是什么？",
+      "pass": true,
+      "outcome": "answered",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [
+        "评测-A-d7146561",
+        "评测-A-5f61db5f"
+      ],
+      "answer": "（以下回答直接摘自本班材料）\n\n[1] 《评测-A-d7146561》：叶绿体对应的知识点是光合作用；本材料给它的课堂标记是 叶绿体-d7146561。\n\n[2] 《评测-A-5f61db5f》：叶绿体对应的知识点是光合作用；本材料给它的课堂标记是 叶绿体-5f61db5f。\n\n以上内容均来自你的班级已上传的材料，可点击引用核对该片段的完整原文。",
+      "failures": []
+    },
+    {
+      "category": "answerable",
+      "question": "核糖体的作用或含义是什么，本材料给它的课堂标记又是什么？",
+      "pass": true,
+      "outcome": "answered",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [
+        "评测-A-d7146561",
+        "评测-A-5f61db5f",
+        "评测-A-d7146561",
+        "评测-A-5f61db5f"
+      ],
+      "answer": "（以下回答直接摘自本班材料）\n\n[1] 《评测-A-d7146561》：核糖体对应的知识点是蛋白质合成；本材料给它的课堂标记是 核糖体-d7146561。\n\n[2] 《评测-A-5f61db5f》：核糖体对应的知识点是蛋白质合成；本材料给它的课堂标记是 核糖体-5f61db5f。\n\n[3] 《评测-A-d7146561》：叶绿体对应的知识点是光合作用；本材料给它的课堂标记是 叶绿体-d7146561。\n\n[4] 《评测-A-5f61db5f》：叶绿体对应的知识点是光合作用；本材料给它的课堂标记是 叶绿体-5f61db5f。\n\n以上内容均来自你的班级已上传的材料，可点击引用核对该片段的完整原文。",
+      "failures": []
+    },
+    {
+      "category": "answerable",
+      "question": "细胞核的作用或含义是什么，本材料给它的课堂标记又是什么？",
+      "pass": true,
+      "outcome": "answered",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [
+        "评测-A-d7146561",
+        "评测-A-5f61db5f",
+        "评测-A-d7146561",
+        "评测-A-5f61db5f"
+      ],
+      "answer": "（以下回答直接摘自本班材料）\n\n[1] 《评测-A-d7146561》：细胞核对应的知识点是遗传物质；本材料给它的课堂标记是 细胞核-d7146561。\n\n[2] 《评测-A-5f61db5f》：细胞核对应的知识点是遗传物质；本材料给它的课堂标记是 细胞核-5f61db5f。\n\n[3] 《评测-A-d7146561》：叶绿体对应的知识点是光合作用；本材料给它的课堂标记是 叶绿体-d7146561。\n\n[4] 《评测-A-5f61db5f》：叶绿体对应的知识点是光合作用；本材料给它的课堂标记是 叶绿体-5f61db5f。\n\n以上内容均来自你的班级已上传的材料，可点击引用核对该片段的完整原文。",
+      "failures": []
+    },
+    {
+      "category": "no_answer",
+      "question": "Kubernetes 的 Pod 应该如何配置自动扩缩容？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "no_answer",
+      "question": "量子引力与广义相对论如何统一？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "no_answer",
+      "question": "请预测 2035 年诺贝尔文学奖得主。",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "no_answer",
+      "question": "如何给生产数据库开启异地多活？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "no_answer",
+      "question": "古罗马元老院的日常议事流程是什么？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "cross_class",
+      "question": "别班材料中火山的课堂标记是什么？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "cross_class",
+      "question": "别班材料中潮汐的课堂标记是什么？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "cross_class",
+      "question": "别班材料中冰川的课堂标记是什么？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "cross_class",
+      "question": "别班材料中季风的课堂标记是什么？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    },
+    {
+      "category": "cross_class",
+      "question": "别班材料中峡谷的课堂标记是什么？",
+      "pass": true,
+      "outcome": "no_evidence",
+      "prompt_version": "grounded-qa:v1",
+      "citations": [],
+      "answer": "资料中未找到相关内容",
+      "failures": []
+    }
+  ]
+}

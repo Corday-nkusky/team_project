@@ -226,6 +226,7 @@ async function main() {
       await send('Page.enable')
       await send('DOM.enable')
       await send('Network.enable')
+      await send('Page.bringToFront')
 
       // 记录文件上传请求的 Content-Type，确认浏览器保留了 multipart boundary（B01）。
       let multipartCT = ''
@@ -269,6 +270,83 @@ async function main() {
       )
       ok('T2 正确凭据登录后进入主界面', loggedIn)
       ok('T2b 顶栏显示角色与班级', await evaluate(`document.body.innerText.includes('教师') && document.body.innerText.includes('班')`))
+
+      // 键盘用例放在上传与长 SSE 之前：本机 headless Chrome 经过这些异步流程后
+      // 会停止投递 CDP 键事件（keydown 计数为 0），但新进程中的真实组件工作正常。
+      // 不断言合成 JS 事件，也不改变任何行为判据。
+      await evaluate(`window.__t.byText('button', '教学材料').click()`)
+      await evaluate(`window.__t.waitFor(() => document.querySelector('.mat-title-button'))`)
+      await evaluate(`(() => {
+        window.__keyboardTrigger = document.querySelector('.mat-title-button');
+        window.__keyboardTrigger.click();
+      })()`)
+      await evaluate(`window.__t.waitFor(() => document.querySelector('[role="dialog"] .material-content'))`)
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27, nativeVirtualKeyCode: 27 })
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27, nativeVirtualKeyCode: 27 })
+      ok('T3e Esc 关闭阅读面板且焦点回到标题按钮', await evaluate(
+        `window.__t.waitFor(() => !document.querySelector('[role="dialog"]') && document.activeElement === window.__keyboardTrigger)
+           .then(() => true).catch(() => false)`,
+      ))
+      await evaluate(`window.__keyboardTrigger.focus()`)
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', text: '\r', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 })
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', text: '\r', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 })
+      ok('T3f 键盘 Enter 可打开阅读面板', await evaluate(
+        `window.__t.waitFor(() => !!document.querySelector('[role="dialog"] .material-content')).then(() => true).catch(() => false)`,
+      ))
+      ok('T3g 打开后焦点落在关闭按钮', await evaluate(
+        `window.__t.waitFor(() => document.activeElement?.classList.contains('reader-close')).then(() => true).catch(() => false)`,
+      ))
+      await evaluate(`document.querySelector('.reader-close').click()`)
+      await evaluate(`window.__t.waitFor(() => !document.querySelector('[role="dialog"]'))`)
+
+      // T5c/T5d 原生按钮必须支持真实键盘，不能只响应鼠标 click。
+      // 即时 mock 只替代模型流；真实回答路径仍由 T4/T5/T5b 覆盖。
+      await evaluate(`window.__t.byText('button', '提问问答').click()`)
+      await evaluate(`window.__t.waitFor(() => document.querySelector('#q'))`)
+      await evaluate(`window.__t.installFetchMock()`)
+      await evaluate(`window.__t.setAskMode('cite')`)
+      await evaluate(`window.__t.askQuestion('键盘可操作性验证')`)
+      await evaluate(`window.__t.waitFor(() => !!document.querySelector('.cite'))`)
+      const citeFocusable = await evaluate(`new Promise((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          const el = document.querySelector('.cite');
+          if (!el) return resolve(false);
+          el.focus();
+          resolve(document.activeElement === el);
+        }));
+      })`)
+      ok('T5c 引用按钮可获得键盘焦点', citeFocusable)
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', text: '\r', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 })
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', text: '\r', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 })
+      const keyboardOpened = await evaluate(
+        `window.__t.waitFor(() => {
+           const el = document.querySelector('.cite');
+           return el && el.getAttribute('aria-pressed') === 'true' && !!document.querySelector('.cite-item.focused');
+         }).then(() => true).catch(() => false)`,
+      )
+      ok('T5c Enter 可展开当前引用', keyboardOpened)
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key: ' ', code: 'Space', text: ' ', windowsVirtualKeyCode: 32, nativeVirtualKeyCode: 32 })
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: ' ', code: 'Space', windowsVirtualKeyCode: 32, nativeVirtualKeyCode: 32 })
+      const keyboardClosed = keyboardOpened && await evaluate(
+        `window.__t.waitFor(() => {
+           const el = document.querySelector('.cite');
+           if (!el || el.getAttribute('aria-pressed') !== 'false') return false;
+           if (document.querySelector('.cite-item.focused')) return false;
+           if (document.activeElement !== el) return false;
+           const style = getComputedStyle(el);
+           return el.matches(':focus-visible') && (style.outlineStyle !== 'none' || style.boxShadow !== 'none');
+         }).then(() => true).catch(() => false)`,
+      )
+      ok('T5d Space 可收起引用且焦点清晰可见', keyboardClosed, keyboardClosed ? '' : await evaluate(`JSON.stringify({
+        pressed: document.querySelector('.cite')?.getAttribute('aria-pressed'),
+        focused: !!document.querySelector('.cite-item.focused'),
+        active: document.activeElement?.outerHTML,
+        focusVisible: document.querySelector('.cite')?.matches(':focus-visible'),
+        outline: document.querySelector('.cite') ? getComputedStyle(document.querySelector('.cite')).outlineStyle : '',
+        boxShadow: document.querySelector('.cite') ? getComputedStyle(document.querySelector('.cite')).boxShadow : '',
+      })`))
+      await evaluate(`window.__t.setAskMode('normal')`)
+      await evaluate(`window.__t.restoreFetch()`)
 
       // T3 上传材料
       await evaluate(`window.__t.byText('button', '教学材料').click()`)
@@ -323,89 +401,11 @@ async function main() {
         readerMeta && readerMeta.length > 300 && readerMeta.whiteSpace === 'pre-wrap' && readerMeta.hasHeader,
         JSON.stringify(readerMeta),
       )
-      await send('Input.dispatchKeyEvent', {
-        type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27, nativeVirtualKeyCode: 27,
-      })
-      await send('Input.dispatchKeyEvent', {
-        type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27, nativeVirtualKeyCode: 27,
-      })
-      ok('T3e Esc 关闭阅读面板且焦点回到标题按钮', await evaluate(
-        `window.__t.waitFor(() => !document.querySelector('[role="dialog"]') && document.activeElement?.classList.contains('mat-title-button'))
-           .then(() => true).catch(() => false)`,
-      ))
-
-      // T3f/T3g 键盘激活标题按钮打开，焦点落在关闭按钮。
-      await evaluate(`(() => {
-        const buttons = [...document.querySelectorAll('.mat-title-button')];
-        const btn = buttons.find(b => b.textContent.trim() === ${JSON.stringify(unique)})
-                 || buttons.find(b => b.textContent.includes(${JSON.stringify(unique)}));
-        if (!btn) return false;
-        btn.focus();
-        return true;
-      })()`)
-      await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', text: '\r', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 })
-      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', text: '\r', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 })
-      ok('T3f 键盘 Enter 可打开阅读面板', await evaluate(
-        `window.__t.waitFor(() => !!document.querySelector('[role="dialog"] .material-content')).then(() => true).catch(() => false)`,
-      ))
-      ok('T3g 打开后焦点落在关闭按钮', await evaluate(
-        `window.__t.waitFor(() => document.activeElement?.classList.contains('reader-close')).then(() => true).catch(() => false)`,
-      ))
-      await evaluate(`document.querySelector('.reader-close').click()`)
-      await evaluate(`window.__t.waitFor(() => !document.querySelector('[role="dialog"]')).then(() => true).catch(() => false)`)
-
-      // T5c/T5d 原生按钮必须支持真实键盘，不能只响应鼠标 click。
-      // 用即时 mock 流触发：本机 headless Chrome 在真实网关的长 SSE 结束后不再把 CDP
-      // 键盘事件派发给页面（keydown 计数为 0，document.hasFocus 仍为 true），
-      // 放在真实回答之后会把「事件未送达」误判成「按钮不响应键盘」。
-      // 真实回答路径的引用展开与完整切片仍由 T5/T5b 覆盖。
-      await evaluate(`window.__t.byText('button', '提问问答').click()`)
-      await evaluate(`window.__t.waitFor(() => document.querySelector('#q'))`)
-      await evaluate(`window.__t.installFetchMock()`)
-      await evaluate(`window.__t.setAskMode('cite')`)
-      await evaluate(`window.__t.askQuestion('键盘可操作性验证')`)
-      await evaluate(`window.__t.waitFor(() => !!document.querySelector('.cite')).then(() => true).catch(() => false)`)
-      const citeFocusable = await evaluate(`new Promise((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-          const el = document.querySelector('.cite');
-          if (!el) return resolve(false);
-          el.focus();
-          resolve(document.activeElement === el);
-        }));
-      })`)
-      ok('T5c 引用按钮可获得键盘焦点', citeFocusable)
-      await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', text: '\r', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 })
-      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', text: '\r', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 })
-      const keyboardOpened = await evaluate(
-        `window.__t.waitFor(() => {
-           const el = document.querySelector('.cite');
-           return el && el.getAttribute('aria-pressed') === 'true' && !!document.querySelector('.cite-item.focused');
-         }).then(() => true).catch(() => false)`,
-      )
-      ok('T5c Enter 可展开当前引用', keyboardOpened)
-      // Space 的默认激活发生在 keyup；keyDown 必须带 text 才会产生默认动作。
-      // 只有 Enter 确实展开过，才可能验证 Space 收起，避免两条断言同时空转。
-      await send('Input.dispatchKeyEvent', { type: 'keyDown', key: ' ', code: 'Space', text: ' ', windowsVirtualKeyCode: 32, nativeVirtualKeyCode: 32 })
-      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: ' ', code: 'Space', windowsVirtualKeyCode: 32, nativeVirtualKeyCode: 32 })
-      const keyboardClosed = keyboardOpened && await evaluate(
-        `window.__t.waitFor(() => {
-           const el = document.querySelector('.cite');
-           if (!el || el.getAttribute('aria-pressed') !== 'false') return false;
-           if (document.querySelector('.cite-item.focused')) return false;
-           if (document.activeElement !== el) return false;
-           const style = getComputedStyle(el);
-           return el.matches(':focus-visible') && (style.outlineStyle !== 'none' || style.boxShadow !== 'none');
-         }).then(() => true).catch(() => false)`,
-      )
-      ok('T5d Space 可收起引用且焦点清晰可见', keyboardClosed)
-      await evaluate(`window.__t.setAskMode('normal')`)
-      await evaluate(`window.__t.restoreFetch()`)
-
       // T4 流式问答 + 引用
       await evaluate(`window.__t.byText('button', '提问问答').click()`)
       await evaluate(`window.__t.waitFor(() => document.querySelector('#q'))`)
-      // 带上本轮独有词，保证新上传的材料排在 topK 内（历史运行会累积同主题材料）。
-      await evaluate(`window.__t.askQuestion('教师应该在哪里上传讲义？' + ${JSON.stringify(unique)})`)
+      // 只问本轮独有尾注：历史文件也含「上传材料 / 界面验证」，长问题会让短旧片段挤占 topK。
+      await evaluate(`window.__t.askQuestion(${JSON.stringify('尾注' + unique)})`)
       const streamed = await evaluate(
         `window.__t.waitFor(() => document.querySelector('.answer') && document.querySelector('.answer').innerText.trim().length > 0)
            .then(() => true).catch(() => false)`,
@@ -642,6 +642,65 @@ async function main() {
       ok('T7b access 被篡改后仍能加载数据（自动续期并重放）', recovered)
       ok('T7c 续期后本地令牌已更新', await evaluate(`localStorage.getItem('cc_access') !== 'tampered.token.value'`))
 
+      // T16 教师运行观测：真实数据、加载、错误、空态；截图只保存真实数据页。
+      await evaluate(`window.__t.byText('button', '运行观测').click()`)
+      const obsReal = await evaluate(`window.__t.waitFor(() =>
+        document.querySelector('.obs-page') && document.querySelectorAll('.obs-card').length === 3 &&
+        document.body.innerText.includes('基础问答') && document.body.innerText.includes('接口 P95 与队列深度')
+      ).then(() => true).catch(() => false)`)
+      ok('T16a 教师观测页展示真实问答、错误率、P95 与队列', obsReal)
+      const obsShot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true })
+      writeFileSync('reports/observability-page.png', Buffer.from(obsShot.data, 'base64'))
+
+      await evaluate(`(() => {
+        window.__obsOrigFetch = window.fetch.bind(window);
+        window.__obsMode = 'normal';
+        window.__obsResolve = null;
+        window.fetch = (input, init) => {
+          const url = typeof input === 'string' ? input : input.url;
+          if (typeof url === 'string' && url.endsWith('/api/observability')) {
+            if (window.__obsMode === 'delay') return new Promise((resolve, reject) => {
+              window.__obsResolve = () => window.__obsOrigFetch(input, init).then(resolve, reject);
+            });
+            if (window.__obsMode === 'fail') return Promise.resolve(new Response(
+              JSON.stringify({ error: { code: 'internal', message: '模拟观测读取失败' } }),
+              { status: 500, headers: { 'Content-Type': 'application/json' } },
+            ));
+            if (window.__obsMode === 'empty') return Promise.resolve(new Response(
+              JSON.stringify({ skills: [], requests: [], queue_depth: 0, generated_at: new Date().toISOString() }),
+              { status: 200, headers: { 'Content-Type': 'application/json' } },
+            ));
+          }
+          return window.__obsOrigFetch(input, init);
+        };
+      })()`)
+      await evaluate(`window.__t.byText('button', '提问问答').click()`)
+      await evaluate(`window.__t.waitFor(() => !!document.querySelector('#q'))`)
+      await evaluate(`window.__obsMode = 'delay'; window.__t.byText('button', '运行观测').click()`)
+      ok('T16b 初次加载显示加载状态而非空态', await evaluate(
+        `window.__t.waitFor(() => document.querySelector('.obs-state[role="status"]')?.innerText.includes('正在汇总') && !document.body.innerText.includes('还没有运行数据'))
+          .then(() => true).catch(() => false)`,
+      ))
+      await evaluate(`window.__obsResolve()`)
+      await evaluate(`window.__t.waitFor(() => !!document.querySelector('.obs-page'))`)
+      await evaluate(`window.__t.byText('button', '提问问答').click()`)
+      await evaluate(`window.__t.waitFor(() => !!document.querySelector('#q'))`)
+      await evaluate(`window.__obsMode = 'fail'; window.__t.byText('button', '运行观测').click()`)
+      ok('T16c 读取失败显示错误与重新加载', await evaluate(
+        `window.__t.waitFor(() => document.querySelector('.obs-state[role="alert"]')?.innerText.includes('模拟观测读取失败') && !!window.__t.byText('button', '重新加载'))
+          .then(() => true).catch(() => false)`,
+      ))
+      await evaluate(`window.__obsMode = 'normal'; window.__t.byText('button', '重新加载').click()`)
+      await evaluate(`window.__t.waitFor(() => !!document.querySelector('.obs-page'))`)
+      await evaluate(`window.__t.byText('button', '提问问答').click()`)
+      await evaluate(`window.__t.waitFor(() => !!document.querySelector('#q'))`)
+      await evaluate(`window.__obsMode = 'empty'; window.__t.byText('button', '运行观测').click()`)
+      ok('T16d 空数据给出下一步且不生成示例曲线', await evaluate(
+        `window.__t.waitFor(() => document.body.innerText.includes('还没有运行数据') && document.body.innerText.includes('先完成一次本班提问或材料上传'))
+          .then(() => document.querySelectorAll('.obs-row').length === 0).catch(() => false)`,
+      ))
+      await evaluate(`window.fetch = window.__obsOrigFetch; window.__obsOrigFetch = null`)
+
       // T8 登出
       await evaluate(`window.__t.byText('button', '退出登录').click()`)
       const loggedOut = await evaluate(
@@ -656,6 +715,14 @@ async function main() {
         window.__t.byText('button', '登录').click();
       })()`)
       await evaluate(`window.__t.waitFor(() => document.body.innerText.includes('退出登录'))`)
+      ok('T14a 学生不显示观测入口且教师接口返回 403', await evaluate(`(async () => {
+        if (window.__t.byText('button', '运行观测')) return false;
+        const response = await fetch('/api/observability', {
+          headers: { Authorization: 'Bearer ' + localStorage.getItem('cc_access') },
+        });
+        const body = await response.json();
+        return response.status === 403 && body.error?.code === 'forbidden';
+      })()`))
       await evaluate(`window.__t.byText('button', '教学材料').click()`)
       await evaluate(`window.__t.waitFor(() => document.body.innerText.includes('班级材料，有序沉淀'))`)
       ok('T14 学生材料视图不显示上传控件', await evaluate(`(() => {
@@ -665,6 +732,8 @@ async function main() {
       })()`))
 
       // T14b–T14d 学生只读阅读本班材料，关闭后焦点回归。
+      await evaluate(`window.__t.waitFor(() => [...document.querySelectorAll('.mat-title-button')]
+        .some(b => b.textContent.includes(${JSON.stringify(unique)})))`)
       const studentRead = await evaluate(`(() => {
         const buttons = [...document.querySelectorAll('.mat-title-button')];
         const btn = buttons.find(b => b.textContent.trim() === ${JSON.stringify(unique)})
@@ -682,7 +751,7 @@ async function main() {
         return !!panel && !panel.querySelector('textarea') && !panel.querySelector('input') &&
           !window.__t.byText('button', '上传文本') && !window.__t.byText('button', '重试索引');
       })()`))
-      await evaluate(`document.querySelector('.reader-close').click()`)
+      if (studentRead) await evaluate(`document.querySelector('.reader-close').click()`)
       ok('T14d 关闭后焦点回到学生点击的标题按钮', await evaluate(
         `window.__t.waitFor(() => !document.querySelector('[role="dialog"]') && document.activeElement?.classList.contains('mat-title-button'))
            .then(() => true).catch(() => false)`,

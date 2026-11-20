@@ -5,13 +5,15 @@ import LoginPage from './pages/LoginPage'
 import MaterialsPage from './pages/MaterialsPage'
 import AskPage from './pages/AskPage'
 import SkillsPage from './pages/SkillsPage'
+import ObservabilityPage from './pages/ObservabilityPage'
 
-type Tab = 'ask' | 'materials' | 'skills'
+type Tab = 'ask' | 'materials' | 'skills' | 'observability'
 
 const NAV: Array<{ id: Tab; label: string; icon: IconName }> = [
   { id: 'ask', label: '提问问答', icon: 'ask' },
   { id: 'materials', label: '教学材料', icon: 'materials' },
   { id: 'skills', label: '技能与工具', icon: 'shield' },
+  { id: 'observability', label: '运行观测', icon: 'clock' },
 ]
 
 export default function App() {
@@ -42,13 +44,14 @@ export default function App() {
     }
   }
 
-  // 技能与工具是教师配置项，学生不显示入口。
-  const nav = NAV.filter((item) => item.id !== 'skills' || user.role === 'teacher')
-  const activeTab: Tab = tab === 'skills' && user.role !== 'teacher' ? 'ask' : tab
+  // 技能、工具与运行观测是教师功能，学生不显示入口。
+  const nav = NAV.filter((item) => (item.id !== 'skills' && item.id !== 'observability') || user.role === 'teacher')
+  const activeTab: Tab = (tab === 'skills' || tab === 'observability') && user.role !== 'teacher' ? 'ask' : tab
   const heading = {
     ask: ['GROUNDED Q&A', '从班级资料里，找到答案', '每一个回答都有材料依据，每一处引用都能回看。'],
     materials: ['CLASS LIBRARY', '班级材料，有序沉淀', '上传、索引与检索，都严格限定在当前班级。'],
     skills: ['AI CAPABILITIES', '技能与 MCP 工具', '配置解题引导与工具服务，所有操作按班级隔离。'],
+    observability: ['OPERATIONS', '运行观测，有据可查', '技能调用、错误率、接口时延与队列深度都来自真实运行记录。'],
   }[activeTab]
   const initial = [...user.display_name][0] ?? '用'
 
@@ -119,6 +122,7 @@ export default function App() {
           {activeTab === 'ask' && <AskPage />}
           {activeTab === 'materials' && <MaterialsPage user={user} />}
           {activeTab === 'skills' && <SkillsPage />}
+          {activeTab === 'observability' && <ObservabilityPage />}
         </div>
       </main>
     </div>

@@ -1,0 +1,45 @@
+{
+  "base": "http://127.0.0.1:8080",
+  "levels": [
+    1,
+    4,
+    8
+  ],
+  "requests_per_level": 128,
+  "mark": "bench-78dbb693",
+  "generated_at": "2026-11-20T21:56:28.139Z",
+  "results": {
+    "list": [
+      {
+        "requests": 128,
+        "errors": 0,
+        "throughput_rps": 1122.62,
+        "p50_ms": 1,
+        "p95_ms": 1,
+        "max_ms": 4,
+        "concurrency": 1,
+        "wall_seconds": 0.11
+      },
+      {
+        "requests": 128,
+        "errors": 0,
+        "throughput_rps": 2604.64,
+        "p50_ms": 1,
+        "p95_ms": 2,
+        "max_ms": 4,
+        "concurrency": 4,
+        "wall_seconds": 0.05
+      },
+      {
+        "requests": 128,
+        "errors": 0,
+        "throughput_rps": 3144.68,
+        "p50_ms": 2,
+        "p95_ms": 4,
+        "max_ms": 5,
+        "concurrency": 8,
+        "wall_seconds": 0.04
+      }
+    ]
+  }
+}

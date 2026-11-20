@@ -1,0 +1,17 @@
+第 1 次：queue_depth=0 max_p95_ms=62.62 consecutive=1/1
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+[TypeError: fetch failed] {
+  [cause]: Error: connect ECONNREFUSED 127.0.0.1:19098
+      at TCPConnectWrap.afterConnect [as oncomplete] (node:net:2021:16) {
+    errno: -4078,
+    code: 'ECONNREFUSED',
+    syscall: 'connect',
+    address: '127.0.0.1',
+    port: 19098
+  }
+}
+
+Node.js v24.21.0

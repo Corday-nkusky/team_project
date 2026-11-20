@@ -1,0 +1,128 @@
+# 第 8 课异步三判据复现记录
+
+- 时间：2026-11-20T23:02:54.516Z
+- 服务：http://127.0.0.1:8080；compose：-f deploy/docker-compose.yml
+- 参数：--criterion all --count 20
+- 索引模式：模型已配置，必须核验向量点不重复
+
+## 判据一 · 提交 P95 ≪ 执行耗时，且响应不含结果
+
+- 本批 20 个任务到达终态：20
+$ 连续 POST /api/materials 20 次（curl -w '%{time_total}' 等价：脚本内 performance.now()）
+- 每次提交耗时（ms，升序）：6.6, 7.0, 7.1, 7.3, 7.4, 7.5, 7.6, 7.9, 7.9, 8.2, 8.4, 8.4, 8.6, 9.4, 9.4, 9.6, 10.5, 11.4, 14.4, 21.8
+- P95 = **21.8 ms**；首个任务状态 = succeeded
+- 一次索引执行耗时（finished_at − started_at）= 327 ms
+- 202 且含 task_id / status_url：true；响应不含索引结果：true
+**结论：PASS** — 判据一：P95 21.8ms vs 执行 327ms；不含结果=true。
+
+
+## 判据二 · 停消费者提交、恢复后自动执行不丢
+
+$ docker compose -f deploy/docker-compose.yml stop worker
+```
+Container deploy-worker-1 Stopping 
+ Container deploy-worker-1 Stopped
+```
+$ POST /api/materials → 202 {"task_id":"c5d85a59298d7d9cb673399fed475c17","material_id":415,"status":"pending","status_url":"/api/tasks/c5d85a59298d7d9cb673399fed475c17"}
+- 消费者停止 2 秒后查询：200 {"task_id":"c5d85a59298d7d9cb673399fed475c17","material_id":415,"kind":"upload","status":"pending","attempts":0,"request_id":"b4d227d25dd17d65b896b42b0de8b6f0","created_at":"2026-11-20T23:02:59.441Z"}
+$ docker compose -f deploy/docker-compose.yml start worker
+```
+Container deploy-mysql-1 Waiting 
+ Container deploy-mysql-1 Healthy 
+ Container deploy-backend-1 Waiting 
+ Container deploy-backend-1 Healthy 
+ Container deploy-worker-1 Starting 
+ Container deploy-worker-1 Started
+```
+- 恢复消费者后终态：succeeded attempts=1
+**结论：PASS** — 判据二：停止期间状态=pending，恢复后=succeeded
+
+$ docker compose -f deploy/docker-compose.yml start worker
+```
+Container deploy-mysql-1 Waiting 
+ Container deploy-mysql-1 Healthy 
+ Container deploy-backend-1 Waiting 
+ Container deploy-backend-1 Healthy
+```
+
+## 判据三 · 并发提交 / 重复投递只出一份结果
+
+- 请求 1：HTTP 202；material_id=416；task_id=ef95b0c1e40a2ada9e960863bced0080
+- 请求 2：HTTP 202；material_id=416；task_id=ef95b0c1e40a2ada9e960863bced0080
+- 服务端请求标识：1d04e1e12a79e14d2a5965e095bd50ea / da76f8e2a409b7fb082779effdaec4f8（两条不同，说明服务端收到两次独立请求）
+$ docker compose logs --tail 400 backend | grep <两条 request id>
+```
+backend-1  | {"time":"2026-11-20T23:03:04.197003083Z","level":"INFO","msg":"http_request","request_id":"1d04e1e12a79e14d2a5965e095bd50ea","method":"POST","path":"/api/materials","status":202,"duration_ms":15}
+backend-1  | {"time":"2026-11-20T23:03:04.202132409Z","level":"INFO","msg":"http_request","request_id":"da76f8e2a409b7fb082779effdaec4f8","method":"POST","path":"/api/materials","status":202,"duration_ms":19}
+```
+- 客户端两请求窗口重叠：17.92 ms（客户端观测值，非服务端并发直证）
+$ docker compose exec -T mysql mysql ... -e "SELECT COUNT(DISTINCT m.id), COUNT(t.id) FROM materials m LEFT JOIN index_tasks t ON t.material_id=m.id AND t.class_id=m.class_id AND t.kind='upload' WHERE m.class_id=1 AND m.title='并发上传-7bb2abd4-50e7-4fbb-82ed-704480dd15f5'"
+```
+1	1
+```
+$ docker compose exec -T mysql mysql ... -e "SELECT COUNT(*), COUNT(DISTINCT seq) FROM chunks WHERE material_id=416 AND class_id=1"
+```
+1	1
+```
+$ docker compose exec -T backend sh -c "wget ... /points/count (material_id=416)"
+```
+{"result":{"count":1},"status":"ok","time":0.00406728}
+```
+- 材料/上传任务=1	1；切片/唯一序号=1	1；向量点=1
+$ docker compose exec -T mysql mysql ... -e "SELECT COUNT(*), COUNT(DISTINCT seq) FROM chunks WHERE material_id=416"
+```
+1	1
+```
+$ docker compose exec -T backend sh -c "wget ... /points/count (material_id=416)"
+```
+{"result":{"count":1},"status":"ok","time":0.003749365}
+```
+- 再次重索引：succeeded；切片 1 行 / 1 个 seq；向量点 1
+$ docker compose -f deploy/docker-compose.yml stop worker
+```
+Container deploy-worker-1 Stopping 
+ Container deploy-worker-1 Stopped
+```
+$ docker compose -f deploy/docker-compose.yml start worker
+```
+Container deploy-mysql-1 Waiting 
+ Container deploy-mysql-1 Healthy 
+ Container deploy-backend-1 Waiting 
+ Container deploy-backend-1 Healthy 
+ Container deploy-worker-1 Starting 
+ Container deploy-worker-1 Started
+```
+$ docker compose -f deploy/docker-compose.yml kill worker
+```
+Container deploy-worker-1 Killing 
+ Container deploy-worker-1 Killed
+```
+$ docker compose exec -T mysql mysql ... -e "UPDATE index_tasks SET lease_until=DATE_SUB(NOW(3), INTERVAL 1 SECOND) WHERE task_id='c1654d8fa41d73f962a8ef43bf1b714f' AND status='running'"
+$ docker compose -f deploy/docker-compose.yml start worker
+```
+Container deploy-mysql-1 Waiting 
+ Container deploy-mysql-1 Healthy 
+ Container deploy-backend-1 Waiting 
+ Container deploy-backend-1 Healthy 
+ Container deploy-worker-1 Starting 
+ Container deploy-worker-1 Started
+```
+- 捕获 running 后 kill worker，注入租约过期再启动；终态 succeeded，attempts=2
+**结论：PASS** — 判据三：并发入口幂等=true；切片每 seq 一行且不增长=true；向量点不翻倍=true；重复投递 attempts≥2=true。
+
+$ docker compose -f deploy/docker-compose.yml start worker
+```
+Container deploy-mysql-1 Waiting 
+ Container deploy-mysql-1 Healthy 
+ Container deploy-backend-1 Waiting 
+ Container deploy-backend-1 Healthy
+```
+$ docker compose exec -T mysql mysql ... -e "DELETE FROM materials WHERE id IN (395,396,397,398,399,400,401,402,403,404,405,406,407,408,409,410,411,412,413,414,415,416,418)"
+
+## 汇总
+
+- 判据一：PASS
+- 判据二：PASS
+- 判据三：PASS
+
+归档：reports/async-criteria.md

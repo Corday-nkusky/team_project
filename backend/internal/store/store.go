@@ -118,11 +118,12 @@ func (s *Store) RevokeAllRefreshTokens(ctx context.Context, userID int64) error 
 // --- 审计（R4）---
 
 // Audit 写一条操作留痕。detail 不得包含明文口令等敏感信息（R4.2）。
+// 保留旧签名供既有动作使用；需要技能、耗时和对象字段时调用 WriteAuditEvent。
 func (s *Store) Audit(ctx context.Context, actorID *int64, actorName string, classID *int64, action, result, detail string) error {
-	_, err := s.DB.ExecContext(ctx,
-		`INSERT INTO audit_logs (actor_id, actor_name, class_id, action, result, detail) VALUES (?,?,?,?,?,?)`,
-		actorID, actorName, classID, action, result, detail)
-	return err
+	return s.WriteAuditEvent(ctx, AuditEvent{
+		ActorID: actorID, ActorName: actorName, ClassID: classID,
+		Action: action, Result: result, Detail: detail, UsageCount: 1,
+	})
 }
 
 // CountAudit 统计某动作的留痕条数（供验收核对）。

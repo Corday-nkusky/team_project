@@ -24,6 +24,7 @@ type Active struct {
 	Name     string   `json:"name"`
 	Enabled  bool     `json:"enabled"`
 	Mode     string   `json:"mode,omitempty"`
+	Version  int      `json:"version,omitempty"`
 	ToolRefs []string `json:"tool_refs,omitempty"`
 }
 
@@ -48,7 +49,7 @@ func (l *Loader) Load(ctx context.Context, classID int64) (Active, string, error
 	}
 	s := skills[0]
 	active := Active{
-		Name: s.Name, Enabled: true, Mode: s.Kind,
+		Name: s.Name, Enabled: true, Mode: s.Kind, Version: s.Version,
 		ToolRefs: append([]string{}, s.ToolRefs...),
 	}
 	return active, compose(base, s), nil

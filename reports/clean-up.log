@@ -1,0 +1,164 @@
+已生成 deploy\.env
+已写入随机值：JWT_SECRET, MCP_AUTH_TOKEN, MYSQL_PASSWORD, MYSQL_ROOT_PASSWORD
+ Image campusclaw:dev Building 
+ Image campusclaw:dev Building 
+ Image campusclaw:dev Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.71kB done
+#1 DONE 0.0s
+
+#2 [worker internal] load build definition from backend.Dockerfile
+#2 transferring dockerfile: 2.14kB done
+#2 DONE 0.0s
+
+#3 [worker internal] load metadata for docker.io/library/alpine:3.21
+#3 DONE 0.0s
+
+#4 [mcp-server internal] load metadata for docker.io/library/node:22-alpine
+#4 DONE 0.0s
+
+#5 [mcp-server internal] load metadata for docker.io/library/golang:1.27.4
+#5 DONE 0.2s
+
+#6 [mcp-server internal] load .dockerignore
+#6 transferring context: 223B done
+#6 DONE 0.0s
+
+#7 [mcp-server stage-2 1/5] FROM docker.io/library/alpine:3.21
+#7 DONE 0.0s
+
+#8 [mcp-server build 1/8] FROM docker.io/library/golang:1.27.4@sha256:205c7636d74e0ffbe3d007162df7d74f859f5a8c8322dfb9f907977686c126cf
+#8 DONE 0.0s
+
+#9 [mcp-server frontend 1/6] FROM docker.io/library/node:22-alpine
+#9 DONE 0.0s
+
+#10 [backend internal] load build context
+#10 transferring context: 594.77kB 0.1s done
+#10 DONE 0.1s
+
+#11 [worker frontend 2/6] WORKDIR /fe
+#11 CACHED
+
+#12 [worker frontend 3/6] COPY frontend/package.json frontend/package-lock.json ./
+#12 CACHED
+
+#13 [worker frontend 4/6] RUN npm ci --no-audit --no-fund
+#13 CACHED
+
+#14 [backend build 2/8] WORKDIR /src
+#14 CACHED
+
+#15 [backend build 3/8] COPY backend/go.mod backend/go.sum ./
+#15 CACHED
+
+#16 [backend build 4/8] RUN go mod download
+#16 CACHED
+
+#17 [mcp-server frontend 5/6] COPY frontend/ ./
+#17 DONE 0.0s
+
+#18 [mcp-server build 5/8] COPY backend/ ./
+#18 DONE 0.0s
+
+#19 [backend build 6/8] RUN rm -rf ./internal/web/dist && mkdir -p ./internal/web/dist
+#19 DONE 0.2s
+
+#20 [backend frontend 6/6] RUN VITE_OUT_DIR=dist npx vite build
+#20 1.056 vite v8.3.8 building client environment for production...
+#20 1.071 transforming...
+#20 1.131 ✓ 23 modules transformed.
+#20 1.178 rendering chunks...
+#20 1.207 computing gzip size...
+#20 1.210 dist/index.html                   0.41 kB │ gzip:  0.30 kB
+#20 1.210 dist/assets/index-D734p0SC.css   38.09 kB │ gzip:  8.72 kB
+#20 1.210 dist/assets/index-tPRL00p3.js   192.26 kB │ gzip: 60.40 kB
+#20 1.210 
+#20 1.211 ✓ built in 154ms
+#20 DONE 1.2s
+
+#21 [backend build 7/8] COPY --from=frontend /fe/dist/ ./internal/web/dist/
+#21 DONE 0.0s
+
+#22 [worker build 8/8] RUN go build -trimpath -ldflags="-s -w -X main.version=dev" -o /out/server ./cmd/server &&     go build -trimpath -ldflags="-s -w -X main.version=dev" -o /out/worker ./cmd/worker &&     go build -trimpath -ldflags="-s -w -X main.version=dev" -o /out/mcp-server ./cmd/mcp-server
+#22 DONE 7.0s
+
+#23 [backend stage-2 2/5] RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 app
+#23 CACHED
+
+#24 [backend stage-2 3/5] COPY --from=build /out/server /usr/local/bin/server
+#24 DONE 0.0s
+
+#25 [worker stage-2 4/5] COPY --from=build /out/worker /usr/local/bin/worker
+#25 DONE 0.0s
+
+#26 [mcp-server stage-2 5/5] COPY --from=build /out/mcp-server /usr/local/bin/mcp-server
+#26 DONE 0.0s
+
+#27 [backend] exporting to image
+#27 exporting layers 0.0s done
+#27 writing image sha256:61e52984b4db4e46fd3f503ee2de29e2c552190cfbc6f7ee2fb53da6218f06c5 done
+#27 naming to docker.io/library/campusclaw:dev done
+#27 DONE 0.1s
+
+#28 [worker] exporting to image
+#28 exporting layers 0.0s done
+#28 writing image sha256:a2c84c24780a15f9af2686a1b15d73d46df52ffaa7aa98e65666ef8b76e35f00 done
+#28 naming to docker.io/library/campusclaw:dev done
+#28 DONE 0.1s
+
+#29 [mcp-server] exporting to image
+#29 exporting layers 0.0s done
+#29 writing image sha256:93e79b1ef5fd958a35137fdba22a568b71875d621227298b61615863efa2fcca done
+#29 naming to docker.io/library/campusclaw:dev done
+#29 DONE 0.1s
+
+#30 [backend] resolving provenance for metadata file
+#30 DONE 0.0s
+
+#31 [worker] resolving provenance for metadata file
+#31 DONE 0.0s
+
+#32 [mcp-server] resolving provenance for metadata file
+#32 DONE 0.0s
+ Image campusclaw:dev Built 
+ Image campusclaw:dev Built 
+ Image campusclaw:dev Built 
+ Volume campusclaw-clean-20261121_qdrant-data Creating 
+ Volume campusclaw-clean-20261121_mysql-data Creating 
+ Network campusclaw-clean-20261121_default Creating 
+ Network campusclaw-clean-20261121_default Creating 
+ Volume campusclaw-clean-20261121_mysql-data Creating 
+ Volume campusclaw-clean-20261121_qdrant-data Creating 
+ Volume campusclaw-clean-20261121_qdrant-data Created 
+ Volume campusclaw-clean-20261121_qdrant-data Created 
+ Volume campusclaw-clean-20261121_mysql-data Created 
+ Volume campusclaw-clean-20261121_mysql-data Created 
+ Network campusclaw-clean-20261121_default Created 
+ Network campusclaw-clean-20261121_default Created 
+ Container campusclaw-clean-20261121-mcp-server-1 Creating 
+ Container campusclaw-clean-20261121-qdrant-1 Creating 
+ Container campusclaw-clean-20261121-mysql-1 Creating 
+ Container campusclaw-clean-20261121-mcp-server-1 Created 
+ Container campusclaw-clean-20261121-qdrant-1 Created 
+ Container campusclaw-clean-20261121-mysql-1 Created 
+ Container campusclaw-clean-20261121-backend-1 Creating 
+ Container campusclaw-clean-20261121-backend-1 Created 
+ Container campusclaw-clean-20261121-worker-1 Creating 
+ Container campusclaw-clean-20261121-worker-1 Created 
+ Container campusclaw-clean-20261121-qdrant-1 Starting 
+ Container campusclaw-clean-20261121-mysql-1 Starting 
+ Container campusclaw-clean-20261121-mcp-server-1 Starting 
+ Container campusclaw-clean-20261121-qdrant-1 Started 
+ Container campusclaw-clean-20261121-mysql-1 Started 
+ Container campusclaw-clean-20261121-mysql-1 Waiting 
+ Container campusclaw-clean-20261121-mcp-server-1 Started 
+ Container campusclaw-clean-20261121-mysql-1 Healthy 
+ Container campusclaw-clean-20261121-backend-1 Starting 
+ Container campusclaw-clean-20261121-backend-1 Started 
+ Container campusclaw-clean-20261121-backend-1 Waiting 
+ Container campusclaw-clean-20261121-backend-1 Healthy 
+ Container campusclaw-clean-20261121-worker-1 Starting 
+ Container campusclaw-clean-20261121-worker-1 Started 
+等待 /health 就绪
+就绪：version=dev time=2026-11-20T22:12:13Z deps={"mysql":"ok","qdrant":"ok"}

@@ -126,16 +126,22 @@ var schema = []string{
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
 	`CREATE TABLE IF NOT EXISTS audit_logs (
-		id         BIGINT       NOT NULL AUTO_INCREMENT,
-		actor_id   BIGINT       NULL,
-		actor_name VARCHAR(64)  NOT NULL DEFAULT '',
-		class_id   BIGINT       NULL,
-		action     VARCHAR(32)  NOT NULL,
-		result     VARCHAR(16)  NOT NULL,
-		detail     VARCHAR(500) NOT NULL DEFAULT '',
-		created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		id          BIGINT       NOT NULL AUTO_INCREMENT,
+		actor_id    BIGINT       NULL,
+		actor_name  VARCHAR(64)  NOT NULL DEFAULT '',
+		class_id    BIGINT       NULL,
+		action      VARCHAR(32)  NOT NULL,
+		result      VARCHAR(16)  NOT NULL,
+		detail      VARCHAR(500) NOT NULL DEFAULT '',
+		skill_name  VARCHAR(64)  NOT NULL DEFAULT '',
+		usage_count BIGINT       NOT NULL DEFAULT 1,
+		duration_ms BIGINT       NOT NULL DEFAULT 0,
+		object_type VARCHAR(32)  NOT NULL DEFAULT '',
+		object_id   VARCHAR(128) NOT NULL DEFAULT '',
+		created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		PRIMARY KEY (id),
-		KEY idx_audit_created (created_at)
+		KEY idx_audit_created (created_at),
+		KEY idx_audit_class_action (class_id, action, id)
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
 	// 会话记录仅在回答完整生成后落库；客户端中断则不留记录（R6.3）。
@@ -223,7 +229,43 @@ func Migrate(ctx context.Context, conn *sql.DB) error {
 	if err := migrateMaterialAsyncColumns(ctx, conn); err != nil {
 		return err
 	}
+	if err := migrateAuditObservability(ctx, conn); err != nil {
+		return err
+	}
 	return migrateChunkSeqUnique(ctx, conn)
+}
+
+// migrateAuditObservability 只增列与索引；旧审计行保留，默认用量为 1、耗时为 0。
+func migrateAuditObservability(ctx context.Context, conn *sql.DB) error {
+	columns := []struct{ name, ddl string }{
+		{"skill_name", `ALTER TABLE audit_logs ADD COLUMN skill_name VARCHAR(64) NOT NULL DEFAULT ''`},
+		{"usage_count", `ALTER TABLE audit_logs ADD COLUMN usage_count BIGINT NOT NULL DEFAULT 1`},
+		{"duration_ms", `ALTER TABLE audit_logs ADD COLUMN duration_ms BIGINT NOT NULL DEFAULT 0`},
+		{"object_type", `ALTER TABLE audit_logs ADD COLUMN object_type VARCHAR(32) NOT NULL DEFAULT ''`},
+		{"object_id", `ALTER TABLE audit_logs ADD COLUMN object_id VARCHAR(128) NOT NULL DEFAULT ''`},
+	}
+	for _, column := range columns {
+		has, err := columnExists(ctx, conn, "audit_logs", column.name)
+		if err != nil {
+			return err
+		}
+		if !has {
+			if _, err := conn.ExecContext(ctx, column.ddl); err != nil {
+				return fmt.Errorf("新增 audit_logs.%s 列失败: %w", column.name, err)
+			}
+		}
+	}
+	hasIndex, err := indexExists(ctx, conn, "audit_logs", "idx_audit_class_action")
+	if err != nil {
+		return err
+	}
+	if !hasIndex {
+		if _, err := conn.ExecContext(ctx,
+			`ALTER TABLE audit_logs ADD KEY idx_audit_class_action (class_id, action, id)`); err != nil {
+			return fmt.Errorf("新增审计本班索引失败: %w", err)
+		}
+	}
+	return nil
 }
 
 // columnExists / indexExists 供幂等迁移使用：information_schema 判定，重复执行安全。

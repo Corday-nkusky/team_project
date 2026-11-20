@@ -1,0 +1,1 @@
+{"version":"local-final-smoke-20261121","status":"degraded","deps":{"mysql":"ping 失败: dial tcp 127.0.0.1:3306: connect: connection refused","qdrant":"Get \"http://127.0.0.1:6333/healthz\": dial tcp 127.0.0.1:6333: connect: connection refused"}}

@@ -1,0 +1,19 @@
+{
+  "http_status": 200,
+  "ask_rows": 34,
+  "completed": {
+    "id": 1606,
+    "actor_id": 2,
+    "actor_name": "小明",
+    "class_id": 1,
+    "action": "ask",
+    "result": "ok",
+    "detail": "引用4条",
+    "skill_name": "",
+    "usage_count": 1,
+    "duration_ms": 4872,
+    "object_type": "conversation",
+    "object_id": "183",
+    "created_at": "2026-11-20T22:06:44Z"
+  }
+}
