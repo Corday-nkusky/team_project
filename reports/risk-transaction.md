@@ -47,3 +47,16 @@ status=succeeded  attempts=1
 
 ## 2026-11-19 操作系统讲义导入
 脚本只通过现有 POST /api/materials 上传，沿用材料与任务同事务契约，无直接数据库写入。六份资料不是一个批量事务，中途失败保留已成功项，重跑按同标题同正文跳过；测试覆盖索引失败非零退出。
+
+## A1.2 / A1.4 任务写入失败时回滚与重试
+
+自动化用例位于 `backend/internal/store/upload_rollback_test.go`。测试通过上传使用的存储入口提交材料，在独立测试库中用具名 CHECK 拒绝任务写入，并校验 MySQL 3819 及约束名。从另一条连接核对材料、任务均为 0；解除约束，以相同参数重试，核对两表各有一行，pending 上传任务指向返回的材料。
+
+复跑需要 Go 和专用 MySQL 8.4 实例，测试账号 root 需有创建和删除临时库的权限。设置 `MYSQL_TEST_ADDR` 为该实例的 host:port，有口令时通过环境变量 `MYSQL_TEST_PASSWORD` 提供。测试在结束时清理随机命名的库。
+
+```sh
+cd backend
+go test -tags=mysqlintegration ./internal/store -run '^TestUploadRollbackAndRetry$' -count=2 -v
+```
+
+2026-11-19 本地真实 MySQL 连跑两次通过。另在一次性容器中将材料写入移出事务，测试因 `materials=1 tasks=0, want 0 each` 失败（退出 1）。PR 工作流的 check 作业用专用 MySQL 服务执行该用例。
