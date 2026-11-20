@@ -39,6 +39,12 @@ const opt = (name, fallback) => {
   return i >= 0 && args[i + 1] ? args[i + 1] : fallback
 }
 const WHICH = opt('--criterion', 'all')
+const CRITERIA = ['all', '1', '2', '3', 'concurrent']
+if (!CRITERIA.includes(WHICH)) {
+  // 未知取值不能静默空跑：否则一条拼写错误会得到「没有 FAIL 所以退出 0」的空报告。
+  console.error(`--criterion 只接受 ${CRITERIA.join(' / ')}，收到 ${WHICH}`)
+  process.exit(2)
+}
 const COUNT = Number(opt('--count', '20'))
 if (!Number.isInteger(COUNT) || COUNT < 1 || COUNT > 100) {
   console.error('--count 必须是 1..100 的整数')
@@ -53,10 +59,11 @@ const output = (s) => {
   const t = String(s ?? '').trim()
   if (t) say('```\n' + t.slice(0, 4000) + '\n```')
 }
-say(`# 第 8 课异步三判据复现记录`)
+say(`# ${WHICH === 'concurrent' ? '第 8 课并发上传验收记录' : '第 8 课异步三判据复现记录'}`)
 say(`\n- 时间：${new Date().toISOString()}`)
 say(`- 服务：${BASE}；compose：-f deploy/docker-compose.yml`)
-say(`- 参数：--criterion ${WHICH} --count ${COUNT}`)
+// --count 只影响判据一，别在只跑并发时打印一个不生效的参数。
+say(`- 参数：--criterion ${WHICH}${WHICH === 'all' || WHICH === '1' ? ` --count ${COUNT}` : ''}`)
 
 const results = {}
 const verdict = (name, pass, detail) => {
@@ -104,6 +111,15 @@ function qdrantDelete(materialID) {
     { cwd: root, encoding: 'utf8', timeout: 30000 })
 }
 
+// 访问日志里同一 request_id 的行带服务端状态与耗时，是并发判据能取到的最强服务端证据。
+// 取不到（容器日志不可达或已滚动）不算失败，由调用方决定如何记录。
+function backendAccessLog(ids) {
+  const r = spawnSync('docker', [...COMPOSE, 'logs', '--tail', '400', 'backend'],
+    { cwd: root, encoding: 'utf8', timeout: 30000 })
+  const text = (r.stdout || '') + (r.stderr || '')
+  return text.split(/\r?\n/).filter((line) => ids.some((id) => id && line.includes(id)))
+}
+
 let token = ''
 let classID
 async function login() {
@@ -123,7 +139,8 @@ async function api(p, init = {}) {
   })
   let body = null
   try { body = await r.json() } catch { body = {} }
-  return { status: r.status, body, raw: JSON.stringify(body) }
+  // 服务端为每条请求生成并回写 X-Request-ID（spec R10），用它把两次并发请求区分开。
+  return { status: r.status, body, raw: JSON.stringify(body), requestID: r.headers.get('x-request-id') || '' }
 }
 const TERMINAL = new Set(['succeeded', 'failed', 'dead'])
 async function waitTask(taskID, timeoutMs = 120000, onState) {
@@ -225,8 +242,21 @@ async function concurrentUpload() {
     }
     return reply.value
   })
+  const ids = [a.requestID, b.requestID]
+  if (!ids[0] || !ids[1]) throw new Error('响应未带回 X-Request-ID，无法确认是两个独立请求')
+  if (ids[0] === ids[1]) throw new Error(`两次请求拿到相同的 request id（${ids[0]}），不是两个独立请求`)
+  say(`- 服务端请求标识：${ids[0]} / ${ids[1]}（两条不同，说明服务端收到两次独立请求）`)
+  const logged = backendAccessLog(ids)
+  if (logged.length) {
+    command('docker compose logs --tail 400 backend | grep <两条 request id>')
+    output(logged.join('\n'))
+  } else {
+    say('- 服务端访问日志未采集（容器日志不可达或已滚动）；并发结论以下面的落库计数为准')
+  }
   const overlap = Math.min(a.finished, b.finished) - Math.max(a.started, b.started)
-  say(`- 客户端两请求同时在途：${overlap.toFixed(2)} ms`)
+  // 两个 fetch 同时发起，在途窗口必然重叠：这个数字只能说明客户端没有串行等待，
+  // 不能当作「服务端两个事务同时进行」的直接证据，真正的判据是下面的落库计数。
+  say(`- 客户端两请求窗口重叠：${overlap.toFixed(2)} ms（客户端观测值，非服务端并发直证）`)
   if (overlap <= 0) throw new Error('请求未重叠')
   if (a.body.task_id !== b.body.task_id || a.body.material_id !== b.body.material_id) throw new Error('并发上传标识不一致')
   const first = await waitTask(a.body.task_id, 150000)
