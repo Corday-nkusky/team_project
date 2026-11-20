@@ -2,6 +2,7 @@
 // 第 8 课「异步任务与消息队列」三条验收判据的可复跑复现脚本。
 //
 //   node scripts/async-criteria.mjs                    # 三条全跑
+//   node scripts/async-criteria.mjs --criterion concurrent  # 仅并发上传，不启停 worker
 //   node scripts/async-criteria.mjs --criterion 2     # 只跑判据二
 //   node scripts/async-criteria.mjs --count 5         # 判据一提交次数改为 5
 //
@@ -12,6 +13,7 @@
 // 判据一：提交 P95 ≪ 一次索引执行耗时，且响应不含结果。
 // 判据二：停消费者后提交，任务停在 pending；恢复后自动执行不丢。
 // 判据三：重复提交 / 重复投递只出一份结果（每个 seq 一行切片、向量点数不翻倍）。
+import { randomUUID } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { performance } from 'node:perf_hooks'
@@ -73,8 +75,8 @@ function compose(...rest) {
 
 function mysql(sql) {
   const cmd = ['docker', ...COMPOSE, 'exec', '-T', '-e', `MYSQL_PWD=${cfg.MYSQL_PASSWORD}`,
-    'mysql', 'mysql', '-u', cfg.MYSQL_USER, '-N', '-B', cfg.MYSQL_DATABASE, '-e', sql]
-  command('docker compose exec -T mysql mysql ... -e "' + sql.replace(/\s+/g, ' ').slice(0, 220) + '"')
+    'mysql', 'mysql', '--default-character-set=utf8mb4', '-u', cfg.MYSQL_USER, '-N', '-B', cfg.MYSQL_DATABASE, '-e', sql]
+  command('docker compose exec -T mysql mysql ... -e "' + sql.replace(/\s+/g, ' ') + '"')
   const r = spawnSync(cmd[0], cmd.slice(1), { cwd: root, encoding: 'utf8', timeout: 60000 })
   const text = ((r.stdout || '') + (r.stderr || '')).trim()
   output(text)
@@ -103,13 +105,17 @@ function qdrantDelete(materialID) {
 }
 
 let token = ''
+let classID
 async function login() {
   const r = await fetch(`${BASE}/api/login`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username: USER, password: PASS }),
   })
   if (!r.ok) throw new Error(`登录失败 ${r.status}`)
-  token = (await r.json()).access_token
+  const session = await r.json()
+  token = session.access_token
+  classID = session.user.class_id
+  if (!Number.isSafeInteger(classID) || classID <= 0) throw new Error('无有效班级标识')
 }
 async function api(p, init = {}) {
   const r = await fetch(BASE + p, {
@@ -133,16 +139,16 @@ async function waitTask(taskID, timeoutMs = 120000, onState) {
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 
 const created = []
-const unique = Date.now().toString(36)
+const unique = randomUUID()
 async function submit(title, content) {
   const t0 = performance.now()
   const r = await api('/api/materials', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ title, content }),
   })
-  const elapsed = performance.now() - t0
-  if (r.status === 202 && r.body.material_id) created.push(r.body.material_id)
-  return { ...r, elapsed }
+  const finished = performance.now()
+  if (r.status === 202 && Number.isSafeInteger(r.body.material_id) && r.body.material_id > 0) created.push(r.body.material_id)
+  return { ...r, started: t0, finished, elapsed: finished - t0 }
 }
 
 // ---------------------------------------------------------------- 判据一
@@ -204,28 +210,55 @@ async function criterion2() {
 }
 
 // ---------------------------------------------------------------- 判据三
-async function criterion3() {
-  section('判据三 · 重复提交 / 重复投递只出一份结果')
-  const content = `重复投递验收材料，独有词 ${unique}C。`.repeat(12)
-  const a = await submit(`判据三-${unique}`, content)
-  const b = await submit(`判据三-${unique}`, content)
-  command(`连续 POST 同一份内容两次 → ${a.status} / ${b.status}`)
-  say(`- task_id：${a.body.task_id} / ${b.body.task_id}；material_id：${a.body.material_id} / ${b.body.material_id}`)
-  const idem = a.body.task_id === b.body.task_id && a.body.material_id === b.body.material_id
-
+async function concurrentUpload() {
+  const title = `并发上传-${unique}`
+  const content = `单切片材料，唯一标记 ${unique}。`
+  // 两个 fetch 均在等待响应前启动；等待所有请求结束后才检查结果或清理。
+  const replies = await Promise.allSettled([submit(title, content), submit(title, content)])
+  const [a, b] = replies.map((reply, i) => {
+    if (reply.status === 'rejected') throw reply.reason
+    const { status, body } = reply.value
+    say(`- 请求 ${i + 1}：HTTP ${status}；material_id=${body.material_id}；task_id=${body.task_id}`)
+    if (status !== 202 || !Number.isSafeInteger(body.material_id) || body.material_id <= 0 ||
+        typeof body.task_id !== 'string' || !body.task_id.trim()) {
+      throw new Error('并发上传未返回 202 和有效标识')
+    }
+    return reply.value
+  })
+  const overlap = Math.min(a.finished, b.finished) - Math.max(a.started, b.started)
+  say(`- 客户端两请求同时在途：${overlap.toFixed(2)} ms`)
+  if (overlap <= 0) throw new Error('请求未重叠')
+  if (a.body.task_id !== b.body.task_id || a.body.material_id !== b.body.material_id) throw new Error('并发上传标识不一致')
   const first = await waitTask(a.body.task_id, 150000)
-  const chunks1 = mysql(`SELECT COUNT(*), COUNT(DISTINCT seq) FROM chunks WHERE material_id=${a.body.material_id}`)
-  const points1 = qdrantCount(a.body.material_id)
+  if (first?.status !== 'succeeded' || first.material_id !== a.body.material_id) {
+    throw new Error(`索引任务未成功关联本次材料：${first?.status ?? '超时'}`)
+  }
+
+  // 标题仅由固定前缀和随机 UUID 组成。独立核验实际行数，避免只比较两份回执。
+  const rows = mysql(`SELECT COUNT(DISTINCT m.id), COUNT(t.id) FROM materials m
+    LEFT JOIN index_tasks t ON t.material_id=m.id AND t.class_id=m.class_id AND t.kind='upload'
+    WHERE m.class_id=${classID} AND m.title='${title}'`)
+  const chunks = mysql(`SELECT COUNT(*), COUNT(DISTINCT seq) FROM chunks
+    WHERE material_id=${a.body.material_id} AND class_id=${classID}`)
+  const points = qdrantCount(a.body.material_id)
+  say(`- 材料/上传任务=${rows}；切片/唯一序号=${chunks}；向量点=${points ?? '未采集'}`)
+  if (rows !== '1\t1' || chunks !== '1\t1' || points !== 1) {
+    throw new Error('单切片材料应恰有一行材料、一个上传任务、一条切片和一个向量点')
+  }
+  return a.body.material_id
+}
+
+async function criterion3() {
+  section('判据三 · 并发提交 / 重复投递只出一份结果')
+  const materialID = await concurrentUpload()
 
   // 对同一份材料再发起一次重索引：成功后 revision+1 会生成新任务，
   // 重复执行全量替换切片与向量，用来验证确定性点 ID 不会让点数翻倍。
-  const re = await api(`/api/materials/${a.body.material_id}/reindex`, { method: 'POST' })
+  const re = await api(`/api/materials/${materialID}/reindex`, { method: 'POST' })
   const second = re.status === 202 ? await waitTask(re.body.task_id, 150000) : null
-  const chunks2 = mysql(`SELECT COUNT(*), COUNT(DISTINCT seq) FROM chunks WHERE material_id=${a.body.material_id}`)
-  const points2 = qdrantCount(a.body.material_id)
-  const [total1, distinct1] = chunks1.split(/\s+/).map(Number)
+  const chunks2 = mysql(`SELECT COUNT(*), COUNT(DISTINCT seq) FROM chunks WHERE material_id=${materialID}`)
+  const points2 = qdrantCount(materialID)
   const [total2, distinct2] = chunks2.split(/\s+/).map(Number)
-  say(`- 首次完成：${first?.status}；切片 ${total1} 行 / ${distinct1} 个 seq；向量点 ${points1 ?? '未采集'}`)
   say(`- 再次重索引：${second?.status}；切片 ${total2} 行 / ${distinct2} 个 seq；向量点 ${points2 ?? '未采集'}`)
 
   // 在 running 期间终止消费者：注入租约过期只是把「等 5 分钟自动到期」压缩到可复跑的时长，
@@ -254,15 +287,15 @@ async function criterion3() {
     compose('start', 'worker')
   }
   const redelivery = sawRunning ? attempts >= 2 : null
-  const noDup = total1 === distinct1 && total2 === distinct2 && total1 === total2
-  const measuredPoints = points1 !== null && points2 !== null
-  const noPointDup = measuredPoints && points2 === points1
+  const noDup = second?.status === 'succeeded' && total2 === 1 && distinct2 === 1
+  const measuredPoints = points2 !== null
+  const noPointDup = measuredPoints && points2 === 1
   // 任一子项未采集就记 SKIP，绝不把「没测到」写成通过。
-  const outcome = (!idem || !noDup || redelivery === false || (measuredPoints && !noPointDup))
+  const outcome = (!noDup || redelivery === false || (measuredPoints && !noPointDup))
     ? false
     : (!measuredPoints || redelivery === null) ? null : true
   verdict('判据三', outcome,
-    `入口幂等=${idem}；切片每 seq 一行且不增长=${noDup}；向量点不翻倍=${measuredPoints ? noPointDup : '未采集'}；` +
+    `并发入口幂等=true；切片每 seq 一行且不增长=${noDup}；向量点不翻倍=${measuredPoints ? noPointDup : '未采集'}；` +
     `重复投递 attempts≥2=${redelivery === null ? 'SKIP' : redelivery}。` +
     (!measuredPoints ? ' Qdrant 点数未采集（容器内网不可达时记为 SKIP，不算通过）。' : ''))
 }
@@ -270,6 +303,10 @@ async function criterion3() {
 // ---------------------------------------------------------------- 主流程
 try {
   await login()
+  if (WHICH === 'concurrent') {
+    await concurrentUpload()
+    verdict('并发上传', true, '两次 202、相同标识，材料/上传任务/切片/向量点各一份')
+  }
   if (WHICH === 'all' || WHICH === '1') await criterion1()
   if (WHICH === 'all' || WHICH === '2') await criterion2()
   if (WHICH === 'all' || WHICH === '3') await criterion3()
@@ -277,7 +314,7 @@ try {
   say(`\n**脚本异常**：${e.stack || e.message}`)
   results['执行'] = 'FAIL'
 } finally {
-  compose('start', 'worker')
+  if (WHICH !== 'concurrent') compose('start', 'worker')
   // 清理本次写入的测试材料（chunks / index_tasks 有 ON DELETE CASCADE）。
   if (created.length) {
     const ids = [...new Set(created)].join(',')
@@ -288,7 +325,8 @@ try {
   for (const [k, v] of Object.entries(results)) say(`- ${k}：${v}`)
   const dir = path.join(root, 'reports')
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-  writeFileSync(path.join(dir, 'async-criteria.md'), lines.join('\n') + '\n', 'utf8')
-  console.log(`\n归档：reports/async-criteria.md`)
+  const filename = WHICH === 'concurrent' ? 'concurrent-uploads.md' : 'async-criteria.md'
+  writeFileSync(path.join(dir, filename), lines.join('\n') + '\n', 'utf8')
+  console.log(`\n归档：reports/${filename}`)
   process.exit(Object.values(results).includes('FAIL') ? 1 : 0)
 }
