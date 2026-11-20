@@ -30,6 +30,12 @@
 - **THEN** 迁移不报错、表结构与列不重复增加
 - **AND** 第二条任务被唯一约束拒绝，任务总数不变
 
+#### Scenario: A1.4 任务插入失败并恢复后重试
+
+- **GIVEN** 班级内尚无本次材料，数据库约束将拒绝创建上传任务
+- **WHEN** 提交材料，收到该约束错误，随后移除约束并重新提交相同输入
+- **THEN** 第一次调用返回后在独立连接中查得材料和任务均为零；重试后各有一行，任务为 pending 且关联返回的材料
+
 ### Requirement: A2 提交契约与只读状态查询
 
 提交类接口 SHALL 返回 `202 Accepted`，响应体只含 `task_id`、`material_id`、`status`、`status_url`，不含切片数、`ready` 或其他索引结果；代码库 SHALL NOT 存在请求内调用 `qa.Index` 的分支。`GET /api/tasks/{task_id}` SHALL 只读返回任务状态、`attempts`、`error` 与时间戳，不触发任何执行。

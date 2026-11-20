@@ -33,10 +33,11 @@
 | 问答压测：正常回答、无依据拒答和 HTTP 200 后失败 | [流式回归与 CLI 退出码测试](../scripts/bench-ask-stream.test.mjs) |
 | R12.1–R12.3 可复现启动 | `scripts/up.mjs` + `reports/async-criteria.md` 真机启动记录 |
 
-## async-indexing（25 场景）
+## async-indexing（26 场景）
 
 | 场景 | 用例 |
 | --- | --- |
+| A1.2、A1.4 任务写入回滚与原请求重试 | [TestUploadRollbackAndRetry](../backend/internal/store/upload_rollback_test.go)；[MySQL 复跑说明](../reports/risk-transaction.md) |
 | A1–A3 幂等与事务性发件箱 | `internal/store/tasks_test.go`；`reports/risk-concurrency.md`、`reports/risk-transaction.md`（真机输出） |
 | A4–A6 worker 抢占 / 租约 / 重试 | `internal/indexer/*_test.go`；`reports/async-criteria.md` 判据二（停 worker / 恢复） |
 | A7–A9 状态机与终态 | e2e 轮询任务终态；`scripts/verify-h5.mjs` 第 3 步（pending→running→succeeded） |
