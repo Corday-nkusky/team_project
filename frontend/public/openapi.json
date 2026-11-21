@@ -132,7 +132,7 @@
     "/api/ask": {
       "post": {
         "summary": "流式问答（SSE）：meta → delta* → done",
-        "description": "meta 事件含 citations / no_evidence / prompt_version / skill / tool_calls；工具调用先于正文推送。失败以 error 结束。",
+        "description": "meta 事件含 citations / no_evidence / prompt_version / skill / tool_calls / vector_retrieval。vector_retrieval 取值为 available（向量查询均成功）、partial（部分成功）、unavailable（向量服务不可用）、disabled（模型未配置）、skipped（无需检索）。由向量路召回的引用含 vector_match: true。工具调用先于正文推送。失败以 error 结束。",
         "requestBody": { "required": true, "content": { "application/json": { "schema": {
           "type": "object", "required": ["question"],
           "properties": { "question": { "type": "string" } }

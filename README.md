@@ -160,10 +160,12 @@ Key 必须是 `id.secret` 形式；客户端会用 secret 签发一枚 1 小时�
 `glm-5.3-flash` 是推理模型，流式响应前段只有 `reasoning_content`，客户端只取 `content`，
 因此回答出现前会有一段静默，属正常现象。
 
-**更换嵌入模型后必须全量重索引**：即使维度相同（`course-embedding` 与 `embedding-3` 同为
-2048 维），向量空间不同也不能新旧混用。先删除 Qdrant 集合 `team_campusclaw_chunks`
-（清掉旧向量与已删材料的孤儿点），再执行 `node scripts/reindex-all.mjs --reset`；
-脚本按 202 + 轮询逐篇重建，遇到 429 / 额度耗尽立即停并保存进度。
+继续使用现有嵌入配置时，升级后可直接使用 Qdrant 集合 `team_campusclaw_chunks` 中的存量索引。
+**更换嵌入模型后必须全量重索引**，即便新旧模型维度相同。按原部署流程先删除该集合，
+再以各班教师身份执行 `node scripts/reindex-all.mjs --reset`。
+
+`/health` 的 `llm.enabled` 表示已配置模型。运行 `node scripts/verify-llm.mjs` 验证真实网关、
+索引、向量召回和对话流，预期脚本退出码为 0。
 
 **上传与重索引是异步的**（spec `async-indexing` / 第 8 课）
 

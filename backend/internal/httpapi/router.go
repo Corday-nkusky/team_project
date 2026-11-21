@@ -26,7 +26,7 @@ type Checker interface {
 // 用窄接口而非具体类型，一是让问答流的失败分支可在无数据库的情况下单测，
 // 二是防止 handler 直接触达检索/向量细节（分层规范）。
 type qaService interface {
-	Retrieve(ctx context.Context, classID int64, question string) ([]qa.Citation, error)
+	Retrieve(ctx context.Context, classID int64, question string) ([]qa.Citation, qa.VectorStatus, error)
 	LLMEnabled() bool
 	ChatStream(ctx context.Context, system, user string) (<-chan qa.StreamEvent, error)
 }

@@ -253,13 +253,13 @@ curl -sS --noproxy '*' http://127.0.0.1:8080/health
 node scripts/verify-llm.mjs
 ```
 
-它会用演示账号完成「健康检查 → 教师上传 → 索引 ready → 学生提问 → SSE 引用」的完整链路，并打印逐项结果。预期全部 `ok`，退出码 0。
+它会用演示账号完成「健康检查 → 教师上传 → 索引 ready → 学生提问 → SSE 引用」的完整链路，并确认向量服务成功，且本次材料至少一条引用由向量路召回。预期全部 `ok`，退出码 0。
 
 如果脚本不存在（很旧的 clone），就手工验证：
 
 1. 用 `teacher1` 上传一条材料，确认状态为 `ready`；
 2. 用 `student1` 提问材料中的独有词，确认回答是流式的且带引用；
-3. 查看 `/health` 的 `llm.enabled` 是否为 `true`。
+3. 查看 `/health` 的 `llm.enabled` 是否为 `true`，并检查 SSE 的 `meta.vector_retrieval` 为 `available`，本次材料至少一条引用含 `vector_match: true`。
 
 ### 7.5 重要：先配 key，再灌语料
 
@@ -283,7 +283,7 @@ node scripts/verify-llm.mjs
    ```
 2. 保留数据：以教师身份调用 `POST /api/materials/{id}/reindex` 逐条重建索引；当前界面只对 `failed` 材料显示「重试索引」按钮，`ready` 的旧材料不会显示。
 
-如果以后更换了嵌入模型或向量维度，需要先删除 Qdrant 集合 `team_campusclaw_chunks`，再重索引全部材料；新旧维度不能混用。
+沿用现有嵌入配置时，升级后可以直接查询原集合中的向量。将来更换嵌入模型或向量维度时，按原流程删除 Qdrant 集合 `team_campusclaw_chunks`，再以各班教师账号执行 `node scripts/reindex-all.mjs --reset`。重建完成后运行全链路验证。
 
 ## 8. 可选：灌入演示语料
 

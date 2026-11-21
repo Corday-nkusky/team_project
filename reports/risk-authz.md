@@ -52,3 +52,9 @@ GET /api/mcp/calls          → 403（单测 TestStudentCannotListMCPCalls）
 
 ## 2026-11-19 操作系统讲义导入
 操作系统入口固定目标 class_id=1，登录后校验 teacher 角色与班级，错误身份在首次上传前失败；模拟学生和跨班教师测试均断言上传次数为零。沿用服务端 JWT 与班级隔离，不新增权限入口。
+
+## 2026-11-21 模型网关验收与索引隔离
+
+向量查询继续按请求身份推导的 `class_id` 过滤，并与本班 ready 切片核对。索引删除同时按材料和班级匹配，`TestDeleteByMaterialRequiresClassAndMaterial` 核对请求。新增 SSE 字段仅描述语义路径和已获授权的引用。
+
+同日范围调整恢复原索引写入路径。材料标题先按班级和全局唯一材料 ID 查询，向量清理按该材料 ID 定位，问答继续以班级和 ready 状态限制引用。

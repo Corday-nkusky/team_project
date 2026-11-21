@@ -77,6 +77,9 @@ function checkConfigExample() {
 checkConfigExample();
 run("分层依赖", process.execPath, ["scripts/check-layering.mjs"]);
 run("密钥与配置卫生", process.execPath, ["scripts/check-secrets.mjs"]);
+run("模型验收与密钥门禁回归", process.execPath, [
+  "--test", "scripts/verify-llm.test.mjs", "scripts/check-secrets.test.mjs",
+]);
 
 const goProbe = spawnSync(goBin, ["version"], { encoding: "utf8" });
 if (goProbe.error || goProbe.status !== 0) {

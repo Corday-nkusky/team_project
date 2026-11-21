@@ -22,6 +22,7 @@ const BINARY_EXT = new Set([
 const PATTERNS = [
   { name: "私钥文件", re: /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/ },
   { name: "OpenAI/DeepSeek 风格密钥", re: /\bsk-[A-Za-z0-9_-]{20,}\b/ },
+  { name: "智谱 API Key", re: /(?<![\w.-])[0-9a-f]{32}\.[a-z0-9_-]{16,}(?![\w-])/i },
   { name: "AWS Access Key", re: /\bAKIA[0-9A-Z]{16}\b/ },
   { name: "GitHub Token", re: /\bgh[pousr]_[A-Za-z0-9]{30,}\b/ },
   { name: "Slack Token", re: /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/ },
@@ -77,6 +78,12 @@ if (existsSync(examplePath)) {
   const value = m ? m[1].trim() : "";
   if (value && !/^(replace-with-|change-me)/.test(value)) {
     violations.push("deploy/.env.example: JWT_SECRET 必须是占位符或空值");
+  }
+  for (const [, raw] of example.matchAll(/^\s*(?:export\s+)?LLM_API_KEY[ \t]*=([^\r\n]*)/gm)) {
+    const key = raw.trim().replace(/\s+#.*$/, "").replace(/^(["'])(.*)\1$/, "$2");
+    if (key && !/^(?:<[^<>]+>|replace-with-[a-z-]+|change-me)$/i.test(key)) {
+      violations.push("deploy/.env.example: LLM_API_KEY 必须是占位符或空值");
+    }
   }
 }
 
