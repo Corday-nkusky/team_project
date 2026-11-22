@@ -26,4 +26,4 @@
 
 - 本地：`make check` 与 `make check-security` 退出码均为 0（实测见 `openspec/changes/2026-11-17-add-skills-and-mcp-tools/tasks.md` 第 6 节）。
 - CI：在 PR 页检查三个 job 均为 green；尝试在没有 approval 时合入 main，应被保护规则拒绝。
-- 本地镜像版本复跑：`docker build -f deploy/backend.Dockerfile --build-arg VERSION=<提交SHA> -t campusclaw:<提交SHA> .`，启动后核对 `/health.version`。2026-11-21 本机以 `local-final-smoke-20261121` 实测一致，见 `reports/image-version-smoke.json`；GitHub workflow 需推送后由 Actions 实际执行，本地文件检查不冒充 CI 已通过。
+- 本地镜像版本复跑：`docker build -f deploy/backend.Dockerfile --build-arg VERSION=<提交SHA> -t campusclaw:<提交SHA> .`，以 `REQUIRE_DEPS=false` 启动无依赖 smoke 后核对 `/health.version`。此时 HTTP 503 与依赖不可用为预期，只证明版本注入，不冒充完整链路验收；验证失败时先执行 `docker logs campusclaw-version` 再清理容器。2026-11-21 本机以 `local-final-smoke-20261121` 实测一致，见 `reports/image-version-smoke.json`；GitHub workflow 需推送后由 Actions 实际执行，本地文件检查不冒充 CI 已通过。
