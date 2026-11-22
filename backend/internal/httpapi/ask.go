@@ -41,7 +41,7 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 检索只在本班 ready 材料内进行（R2.2 / R7.2）。
-	cites, err := s.qa.Retrieve(ctx, c.ClassID, req.Question)
+	cites, vectorStatus, err := s.qa.Retrieve(ctx, c.ClassID, req.Question)
 	if err != nil {
 		logServerError(r, "retrieve", err)
 		writeErr(w, http.StatusInternalServerError, "internal", "检索失败")
@@ -70,7 +70,7 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 	if len(cites) == 0 {
 		// 未命中：固定文案 + no_evidence，不生成编造内容（R5.2 / R7.3）。
 		sw.event("meta", map[string]any{
-			"citations": []qa.Citation{}, "no_evidence": true,
+			"citations": []qa.Citation{}, "no_evidence": true, "vector_retrieval": vectorStatus,
 			"skill": askCtx.Active, "tool_calls": askCtx.ToolCalls, "prompt_version": askCtx.PromptVersion,
 		})
 		sw.event("delta", map[string]any{"text": qa.NoEvidenceText})
@@ -81,7 +81,7 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 
 	// 调用事件先于正文推送（spec MC3.1）。
 	sw.event("meta", map[string]any{
-		"citations": cites, "no_evidence": false,
+		"citations": cites, "no_evidence": false, "vector_retrieval": vectorStatus,
 		"skill": askCtx.Active, "tool_calls": askCtx.ToolCalls, "prompt_version": askCtx.PromptVersion,
 	})
 

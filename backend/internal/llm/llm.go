@@ -176,9 +176,7 @@ func (c *Client) ChatStream(ctx context.Context, system, user string) (<-chan Ev
 	}
 	if resp.StatusCode != http.StatusOK {
 		defer resp.Body.Close()
-		b := new(bytes.Buffer)
-		_, _ = b.ReadFrom(resp.Body)
-		return nil, fmt.Errorf("模型返回 %d: %s", resp.StatusCode, truncate(b.String(), 200))
+		return nil, gatewayStatusError(resp.StatusCode)
 	}
 
 	ch := make(chan Event, 8)
@@ -263,23 +261,19 @@ func (c *Client) post(ctx context.Context, path string, body any) ([]byte, error
 		return nil, fmt.Errorf("调用模型失败: %w", err)
 	}
 	defer resp.Body.Close()
-	out := new(bytes.Buffer)
-	_, _ = out.ReadFrom(resp.Body)
-	if resp.StatusCode == http.StatusTooManyRequests {
-		return nil, fmt.Errorf("%w: 模型返回 429: %s", ErrRateLimited, truncate(out.String(), 160))
-	}
-	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-		return nil, fmt.Errorf("%w: 模型返回 %d", ErrAuth, resp.StatusCode)
-	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("模型返回 %d: %s", resp.StatusCode, truncate(out.String(), 200))
+		return nil, gatewayStatusError(resp.StatusCode)
 	}
-	return out.Bytes(), nil
+	return io.ReadAll(resp.Body)
 }
 
-func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
+func gatewayStatusError(status int) error {
+	switch status {
+	case http.StatusTooManyRequests:
+		return fmt.Errorf("%w: 模型返回 %d", ErrRateLimited, status)
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return fmt.Errorf("%w: 模型返回 %d", ErrAuth, status)
+	default:
+		return fmt.Errorf("模型返回 %d", status)
 	}
-	return s[:n]
 }

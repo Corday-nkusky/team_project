@@ -31,6 +31,7 @@ type Citation struct {
 	MaterialTitle string `json:"material_title"`
 	ChunkID       int64  `json:"chunk_id"`
 	Snippet       string `json:"snippet"`
+	VectorMatch   bool   `json:"vector_match,omitempty"`
 	// Context 是补进提示词的语境（结构路径 + 相邻片），不进引用清单、不序列化。
 	Context string `json:"-"`
 }
@@ -216,23 +217,99 @@ type denseResult struct {
 	scores map[int64]float64
 }
 
+type VectorStatus string
+
+const (
+	VectorSkipped     VectorStatus = "skipped"
+	VectorDisabled    VectorStatus = "disabled"
+	VectorUnavailable VectorStatus = "unavailable"
+	VectorPartial     VectorStatus = "partial"
+	VectorAvailable   VectorStatus = "available"
+)
+
+func (s *Service) denseSearch(ctx context.Context, classID int64, question string, limit int) ([][]int64, map[int64]float64, float64, VectorStatus) {
+	if !s.llm.Enabled() {
+		return nil, nil, 0, VectorDisabled
+	}
+	vecs, err := s.llm.Embed(ctx, retrieval.QueryVariants(question))
+	if err != nil || len(vecs) == 0 {
+		return nil, nil, 0, VectorUnavailable
+	}
+
+	results := make([]denseResult, len(vecs))
+	var wg sync.WaitGroup
+	for i, vector := range vecs {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			hits, err := s.vec.Search(ctx, Collection, vector, classID, limit)
+			if err != nil {
+				return
+			}
+			result := denseResult{scores: make(map[int64]float64, len(hits))}
+			for _, hit := range hits {
+				id, ok := payloadInt(hit.Payload, "chunk_id")
+				if ok {
+					result.list = append(result.list, id)
+					result.scores[id] = hit.Score
+				}
+			}
+			results[i] = result
+		}()
+	}
+	wg.Wait()
+
+	var lists [][]int64
+	scores := make(map[int64]float64)
+	best := 0.0
+	succeeded := 0
+	for _, result := range results {
+		if result.scores == nil {
+			continue
+		}
+		succeeded++
+		if len(result.list) > 0 {
+			lists = append(lists, result.list)
+		}
+		for id, score := range result.scores {
+			if prev, ok := scores[id]; !ok || score > prev {
+				scores[id] = score
+			}
+			best = max(best, score)
+		}
+	}
+	switch succeeded {
+	case 0:
+		return nil, nil, 0, VectorUnavailable
+	case len(results):
+		return lists, scores, best, VectorAvailable
+	default:
+		return lists, scores, best, VectorPartial
+	}
+}
+
 // Retrieve 返回本班范围内与问题最相关的片段。
 //
 // 数据流：查询词元 → 一次批量 Embed → 多路并行 dense 召回
 // + 本地 BM25 倒排 + 结构路径匹配 → RRF 融合 → 本地二阶段精排
 // → 候选证据判定 → 去冗余取 topK → 补语境（不进引用清单）。
-func (s *Service) Retrieve(ctx context.Context, classID int64, question string) ([]Citation, error) {
+func (s *Service) Retrieve(ctx context.Context, classID int64, question string) ([]Citation, VectorStatus, error) {
 	terms := retrieval.QueryTerms(strings.TrimSpace(question))
 	if len(terms) == 0 {
-		return nil, nil // 纯泛词/疑问词：不构成可检索的概念（R5.4）
+		return nil, VectorSkipped, nil // 纯泛词/疑问词：不构成可检索的概念（R5.4）
 	}
 	idx, err := s.classIndex(ctx, classID)
 	if err != nil {
-		return nil, err
+		return nil, VectorSkipped, err
 	}
 	if idx.Len() == 0 {
-		return nil, nil
+		return nil, VectorSkipped, nil
 	}
+	cites, status := s.retrieveFromIndex(ctx, idx, classID, question, terms)
+	return cites, status, nil
+}
+
+func (s *Service) retrieveFromIndex(ctx context.Context, idx *retrieval.Index, classID int64, question string, terms []string) ([]Citation, VectorStatus) {
 	limit := s.candidateLimit()
 
 	lists := [][]int64{
@@ -241,53 +318,8 @@ func (s *Service) Retrieve(ctx context.Context, classID int64, question string) 
 	}
 
 	// 语义路：一次批量 Embed，得到原句与概念短语的多个查询向量后并行检索。
-	vecScores := make(map[int64]float64)
-	queryBest := 0.0
-	vecEnabled := false
-	if s.llm.Enabled() {
-		variants := retrieval.QueryVariants(question)
-		if vecs, err := s.llm.Embed(ctx, variants); err == nil && len(vecs) > 0 {
-			ch := make(chan denseResult, len(vecs))
-			var wg sync.WaitGroup
-			for _, v := range vecs {
-				wg.Add(1)
-				go func(queryVec []float32) {
-					defer wg.Done()
-					hits, err := s.vec.Search(ctx, Collection, queryVec, classID, limit)
-					if err != nil {
-						ch <- denseResult{}
-						return
-					}
-					out := denseResult{scores: make(map[int64]float64, len(hits))}
-					for _, h := range hits {
-						id, ok := payloadInt(h.Payload, "chunk_id")
-						if !ok {
-							continue
-						}
-						out.list = append(out.list, id)
-						out.scores[id] = h.Score
-					}
-					ch <- out
-				}(v)
-			}
-			wg.Wait()
-			close(ch)
-			for r := range ch {
-				if len(r.list) > 0 {
-					lists = append(lists, r.list)
-				}
-				for id, score := range r.scores {
-					if score > vecScores[id] {
-						vecScores[id] = score
-					}
-					if score > queryBest {
-						queryBest = score
-					}
-				}
-			}
-			vecEnabled = len(vecScores) > 0
-		}
-	}
+	denseLists, vecScores, queryBest, vectorStatus := s.denseSearch(ctx, classID, question, limit)
+	lists = append(lists, denseLists...)
 
 	// 只有融合后仍在本班词面索引里的 ID 才进入候选：Qdrant 返回的任何
 	// 跨班点、陈旧点或状态非 ready 的点都在这里被丢弃。
@@ -303,13 +335,13 @@ func (s *Service) Retrieve(ctx context.Context, classID int64, question string) 
 		})
 	}
 	if len(cands) == 0 {
-		return nil, nil
+		return nil, vectorStatus
 	}
 
 	ranked := retrieval.Rerank(cands, terms, retrieval.EvidencePolicy{
 		MinCoverage:   s.minCoverage,
 		MinVecScore:   s.minVecScore,
-		VecEnabled:    vecEnabled,
+		VecEnabled:    queryBest > 0,
 		QueryVecScore: queryBest,
 	})
 
@@ -320,22 +352,24 @@ func (s *Service) Retrieve(ctx context.Context, classID int64, question string) 
 		}
 	}
 	if len(withEvidence) == 0 {
-		return nil, nil
+		return nil, vectorStatus
 	}
 	picked := retrieval.Deduplicate(withEvidence, s.topK, 0.75)
 
 	out := make([]Citation, 0, len(picked))
 	for i, c := range picked {
+		_, vectorMatch := vecScores[c.ID]
 		out = append(out, Citation{
 			Index:         i + 1,
 			MaterialID:    c.Doc.MaterialID,
 			MaterialTitle: c.Doc.MaterialTitle,
 			ChunkID:       c.ID,
 			Snippet:       strings.TrimSpace(c.Doc.Text),
+			VectorMatch:   vectorMatch,
 			Context:       s.contextOf(idx, c.Doc),
 		})
 	}
-	return out, nil
+	return out, vectorStatus
 }
 
 // maxContextRunes 限制单条语境的长度：相邻片只补开头部分，避免把被去冗余

@@ -20,18 +20,19 @@ import (
 
 // stubQA 是 qaService 的可控替身，用于覆盖流式分支而不依赖数据库或模型。
 type stubQA struct {
-	cites       []qa.Citation
-	retrieveErr error
-	enabled     bool
-	streamErr   error
-	events      []qa.StreamEvent
+	cites        []qa.Citation
+	vectorStatus qa.VectorStatus
+	retrieveErr  error
+	enabled      bool
+	streamErr    error
+	events       []qa.StreamEvent
 	// retrieveCalls 记录检索调用次数，用于断言「请求在解码阶段即被拒绝」。
 	retrieveCalls int
 }
 
-func (s *stubQA) Retrieve(context.Context, int64, string) ([]qa.Citation, error) {
+func (s *stubQA) Retrieve(context.Context, int64, string) ([]qa.Citation, qa.VectorStatus, error) {
 	s.retrieveCalls++
-	return s.cites, s.retrieveErr
+	return s.cites, s.vectorStatus, s.retrieveErr
 }
 
 func (s *stubQA) LLMEnabled() bool { return s.enabled }
@@ -226,9 +227,10 @@ func TestAskStreamInterruptedAfterDelta(t *testing.T) {
 
 func TestAskDegradesBeforeFirstDelta(t *testing.T) {
 	q := &stubQA{
-		cites:     []qa.Citation{{Index: 1, MaterialTitle: "讲义", Snippet: "原文"}},
-		enabled:   true,
-		streamErr: errors.New("模型不可用"),
+		cites:        []qa.Citation{{Index: 1, MaterialTitle: "讲义", Snippet: "原文"}},
+		vectorStatus: qa.VectorUnavailable,
+		enabled:      true,
+		streamErr:    errors.New("模型不可用"),
 	}
 	rec := &stubRec{}
 	s := newAskServer(q, rec)
@@ -239,6 +241,9 @@ func TestAskDegradesBeforeFirstDelta(t *testing.T) {
 	evs := parseSSE(t, rr.Body.String())
 	if got := eventNames(evs); !strings.HasPrefix(got, "meta,degraded,delta") || !strings.HasSuffix(got, ",done") {
 		t.Fatalf("首字前失败应降级后正常结束：%s", got)
+	}
+	if evs[0].data["vector_retrieval"] != string(qa.VectorUnavailable) {
+		t.Fatalf("meta 缺少向量降级状态：%v", evs[0].data)
 	}
 	if evs[1].data["reason"] != "upstream_error" {
 		t.Fatalf("degraded 原因不符：%v", evs[1].data)

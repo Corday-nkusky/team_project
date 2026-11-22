@@ -60,3 +60,9 @@ go test -tags=mysqlintegration ./internal/store -run '^TestUploadRollbackAndRetr
 ```
 
 2026-11-19 本地真实 MySQL 连跑两次通过。另在一次性容器中将材料写入移出事务，测试因 `materials=1 tasks=0, want 0 each` 失败（退出 1）。PR 工作流的 check 作业用专用 MySQL 服务执行该用例。
+
+## 2026-11-21 模型网关验收与索引隔离
+
+集合按嵌入空间隔离，无数据库迁移。切片写入、当前集合内向量重建和材料 ready 沿用原有任务流程。维度检查先于删除和写入，迁移期间保留旧空间向量，查询只用当前空间及本班 ready 切片。
+
+同日范围调整撤回集合拆分，保留原集合、维度检查和索引事务边界。沿用现有嵌入配置升级时，存量向量可直接使用。

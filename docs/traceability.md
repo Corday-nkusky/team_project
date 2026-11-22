@@ -95,3 +95,9 @@
 - OS1：seed-data/operating-systems/seed.mjs loadLectures；seed.test.mjs 的数据校验与缺文件/摘要负向断言。
 - OS2：复用 biology/seed.mjs 的上传、去重与任务轮询；seed.test.mjs 覆盖导入、重复、身份、正文冲突、任务失败。
 - 同伴评审待另一位成员完成，自审证据见 reports/os-lectures-review.md。
+
+## 模型网关验收与索引隔离
+
+- LG3：`TestAskDegradesBeforeFirstDelta` 核对 SSE 降级状态，`node --test scripts/verify-llm.test.mjs` 核对向量命中、不可用及仅词面引用的验收结果。
+- LG2：`TestRetrieveUsesExistingVectorCollection` 核对原集合的向量引用与向量失败后的词面降级；`TestEnsureCollectionRejectsDimensionMismatch` 核对原集合维度冲突。
+- LG5：`TestGatewayErrorsExcludeUpstreamBody` 核对 401/403/429/500 的错误脱敏和错误类别；`node --test scripts/check-secrets.test.mjs` 核对合成凭据被拒绝且不回显。

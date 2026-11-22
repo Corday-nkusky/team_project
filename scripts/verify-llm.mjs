@@ -5,6 +5,8 @@
 //   node scripts/verify-llm.mjs
 //
 // 脚本只使用演示账号与随机测试材料，不读取或打印任何密钥。
+import { randomBytes } from 'node:crypto';
+
 const BASE = (process.env.BASE_URL || 'http://127.0.0.1:8080').replace(/\/+$/, '');
 const TEACHER = {
   username: process.env.TEACHER_USER || 'teacher1',
@@ -85,13 +87,12 @@ async function ask(token, question) {
   return { status: res.status, contentType: res.headers.get('content-type') || '', text, events: readSSE(text) };
 }
 
-const unique = `CampusClaw-LLM-${Date.now().toString(36)}`;
+const unique = `CampusClaw-LLM-${randomBytes(8).toString('hex')}`;
 const title = `LLM 验证材料 ${unique}`;
 const content =
   `这是用于验证模型网关链路的材料。\n` +
   `验证词：${unique}。\n` +
-  `材料中还说明：教师应在上传页提交讲义，学生只能查看本班材料。\n` +
-  `如果被问到验证词，请原样回答，并引用这条材料。`;
+  `材料中还说明：教师应在上传页提交讲义，学生只能查看本班材料。\n`;
 
 console.log(`\n真实网关验证 · ${BASE}\n`);
 
@@ -148,6 +149,7 @@ try {
   const answer = deltas.map((e) => e.payload?.text || '').join('');
   const citations = Array.isArray(meta.citations) ? meta.citations : [];
   ok('未走 no_evidence', meta.no_evidence !== true);
+  ok('语义检索成功', meta.vector_retrieval === 'available', meta.vector_retrieval || 'missing');
   ok('未出现 degraded', !stream.events.some((e) => e.event === 'degraded'));
   ok('未出现 error 事件', !stream.events.some((e) => e.event === 'error'));
   ok('收到流式增量', deltas.length > 0, `deltas=${deltas.length}`);
@@ -156,16 +158,17 @@ try {
   ok('引用清单非空', citations.length > 0, `citations=${citations.length}`);
   ok(
     '引用指向本次材料',
-    citations.some((c) => c.material_title === title),
+    citations.some((c) => c.material_id === materialId && c.material_title === title),
     citations.map((c) => c.material_title).join(' | '),
   );
+  ok('本次材料的引用有向量召回', citations.some((c) =>
+    c.material_id === materialId && c.vector_match === true));
   ok(
     '引用片段含验证词',
     citations.some((c) => typeof c.snippet === 'string' && c.snippet.includes(unique)),
   );
   ok('回答原样包含验证词', answer.includes(unique));
 
-  if (materialId) console.log(`\n材料 id：${materialId}（可用于核对 Qdrant 向量点）`);
 } catch (err) {
   failures += 1;
   console.error(`\n验证异常：${err.message}`);

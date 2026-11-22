@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -96,15 +97,36 @@ func TestChatStreamTreatsEmptyBodyAsError(t *testing.T) {
 	}
 }
 
-func TestChatStreamReportsUpstreamStatus(t *testing.T) {
-	c, closeFn := newFakeGateway(t, func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte(`{"error":{"message":"boom"}}`))
-	})
-	defer closeFn()
+func TestGatewayErrorsExcludeUpstreamBody(t *testing.T) {
+	for _, tc := range []struct {
+		status int
+		kind   error
+	}{
+		{http.StatusUnauthorized, ErrAuth},
+		{http.StatusForbidden, ErrAuth},
+		{http.StatusTooManyRequests, ErrRateLimited},
+		{http.StatusInternalServerError, nil},
+	} {
+		t.Run(strconv.Itoa(tc.status), func(t *testing.T) {
+			const privateText = "private-gateway-response"
+			c, closeFn := newFakeGateway(t, func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tc.status)
+				_, _ = fmt.Fprint(w, privateText)
+			})
+			defer closeFn()
 
-	if _, err := c.ChatStream(context.Background(), "sys", "user"); err == nil {
-		t.Fatal("上游 500 应返回错误，由调用方决定降级")
+			ctx := context.Background()
+			_, chatErr := c.ChatStream(ctx, "system", "user")
+			_, embedErr := c.Embed(ctx, []string{"material"})
+			for _, err := range []error{chatErr, embedErr} {
+				if err == nil || !strings.Contains(err.Error(), strconv.Itoa(tc.status)) || strings.Contains(err.Error(), privateText) {
+					t.Fatalf("未返回已脱敏的上游状态：%v", err)
+				}
+				if tc.kind != nil && !errors.Is(err, tc.kind) {
+					t.Fatalf("错误类别为 %v，预期 %v", err, tc.kind)
+				}
+			}
+		})
 	}
 }
 

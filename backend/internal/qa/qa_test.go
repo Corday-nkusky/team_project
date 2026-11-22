@@ -1,10 +1,72 @@
 package qa
 
 import (
+	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/Corday-nkusky/team_project/backend/internal/llm"
+	"github.com/Corday-nkusky/team_project/backend/internal/qdrant"
+	"github.com/Corday-nkusky/team_project/backend/internal/retrieval"
 )
+
+func TestRetrieveUsesExistingVectorCollection(t *testing.T) {
+	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Input []string `json:"input"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Errorf("解码嵌入请求：%v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		data := make([]map[string]any, len(req.Input))
+		for i := range data {
+			data[i] = map[string]any{"embedding": []float32{1, 0}}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": data})
+	}))
+	defer gateway.Close()
+
+	client := llm.New(gateway.URL, "test-key", "chat", "embed")
+	idx := retrieval.NewIndex()
+	idx.Build([]retrieval.Doc{{ID: 1, MaterialID: 9, Text: "光栅校准使用蓝色标记", MaterialTitle: "光栅校准"}})
+	for _, tc := range []struct {
+		name       string
+		status     int
+		wantStatus VectorStatus
+		wantMatch  bool
+	}{
+		{"原集合命中", http.StatusOK, VectorAvailable, true},
+		{"缺少集合时走词面", http.StatusNotFound, VectorUnavailable, false},
+		{"向量服务故障时走词面", http.StatusServiceUnavailable, VectorUnavailable, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			vectorStore := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/collections/team_campusclaw_chunks/points/search" {
+					t.Errorf("查询了意外的向量集合 %s", r.URL.Path)
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				w.WriteHeader(tc.status)
+				if tc.status == http.StatusOK {
+					_, _ = w.Write([]byte(`{"result":[{"id":1,"score":0.98,"payload":{"chunk_id":1}}]}`))
+				}
+			}))
+			defer vectorStore.Close()
+
+			service := New(nil, qdrant.New(vectorStore.URL, ""), client, 4, 512, 64, 0.5, 0.4)
+			const question = "光栅校准"
+			cites, status := service.retrieveFromIndex(context.Background(), idx, 7, question, retrieval.QueryTerms(question))
+			if status != tc.wantStatus || len(cites) != 1 || cites[0].MaterialID != 9 || cites[0].VectorMatch != tc.wantMatch {
+				t.Fatalf("status=%q citations=%+v, want %q and vector_match=%v", status, cites, tc.wantStatus, tc.wantMatch)
+			}
+		})
+	}
+}
 
 func TestSystemPromptKeepsMaterialAsData(t *testing.T) {
 	p := SystemPrompt()
