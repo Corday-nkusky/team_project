@@ -99,7 +99,8 @@ jobs:
       - name: Verify commit version through health endpoint
         run: |
           docker run -d --name campusclaw-version -p 8080:8080 \
-            -e HTTP_ADDR=:8080 -e MYSQL_HOST=127.0.0.1 -e MYSQL_PORT=3306 \
+            -e HTTP_ADDR=:8080 -e REQUIRE_DEPS=false \
+            -e MYSQL_HOST=127.0.0.1 -e MYSQL_PORT=3306 \
             -e MYSQL_USER=ci -e MYSQL_PASSWORD=ci-only-not-a-real-secret \
             -e MYSQL_DATABASE=campusclaw -e QDRANT_URL=http://127.0.0.1:6333 \
             -e JWT_SECRET=ci-version-check-only-0123456789abcdef0123456789abcdef \
@@ -113,6 +114,10 @@ jobs:
           done
           cat /tmp/campusclaw-health.json
           python3 -c 'import json, os; body=json.load(open("/tmp/campusclaw-health.json")); assert body["version"] == os.environ["GITHUB_SHA"], (body["version"], os.environ["GITHUB_SHA"])'
+
+      - name: Show version-check container logs on failure
+        if: failure()
+        run: docker logs campusclaw-version
 
       - name: Remove version-check container
         if: always()
